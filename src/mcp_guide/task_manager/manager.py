@@ -136,7 +136,8 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
         if rendered_contents := [r.rendered_content for r in success_results if r.rendered_content]:
             combined_content = "\n".join(rc.content for rc in rendered_contents)
             # Combine instructions using shared logic
-            from mcp_guide.content.utils import combine_instructions, resolve_disposition
+            from mcp_guide.content.utils import combine_instructions
+            from mcp_guide.render.document_properties import DocumentProperties
             from mcp_guide.render.frontmatter import resolve_instruction
 
             instructions_with_importance = []
@@ -151,7 +152,7 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
                 value=combined_content,
                 message=combined_message,
                 instruction=combined_instruction,
-                disposition=resolve_disposition(rc.disposition for rc in rendered_contents),
+                disposition=DocumentProperties.combine(rc.document_properties for rc in rendered_contents).disposition,
             )
 
         # No rendered content but had successes

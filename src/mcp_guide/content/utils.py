@@ -68,25 +68,6 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
     return combine_instructions(instructions_with_importance)
 
 
-def resolve_disposition(content_types: Iterable[Optional[str]]) -> str | None:
-    """Resolve the highest-precedence disposition from content types.
-
-    Missing content types retain the caller-context default; an explicitly
-    unknown type resolves to ``None`` rather than fabricating a disposition.
-
-    Args:
-        content_types: Resolved content type values to aggregate.
-
-    Returns:
-        Highest-precedence recognised type, or ``None`` for explicit unknown
-        types.
-    """
-    return DocumentProperties.combine(
-        DocumentProperties.from_frontmatter({"type": content_type} if content_type else None)
-        for content_type in content_types
-    ).disposition
-
-
 def resolve_content_disposition(files: list[FileInfo]) -> str | None:
     """Resolve the aggregate content disposition across collected files.
 
@@ -117,7 +98,7 @@ def resolve_content_properties(files: Iterable[FileInfo]) -> DocumentProperties:
             cache_default=getattr(file_info, "cache_policy", None),
         )
         for file_info in files
-    )
+    ).with_disposition_default(USER_INFO)
 
 
 def resolve_file_cache_policy(file_info: FileInfo) -> tuple[CachePolicy, str | None]:
@@ -126,7 +107,7 @@ def resolve_file_cache_policy(file_info: FileInfo) -> tuple[CachePolicy, str | N
     has_requirements = bool(frontmatter and any(key.startswith(FM_REQUIRES_PREFIX) for key in frontmatter))
     if str(file_info.path).endswith(".md") and not has_requirements and (not frontmatter or "cache" not in frontmatter):
         return CachePolicy.long_public(), None
-    return CachePolicy.parse_with_diagnostic(frontmatter.get("cache") if frontmatter else None)
+    return CachePolicy.parse(frontmatter.get("cache") if frontmatter else None)
 
 
 def prepend_export_frontmatter(
@@ -331,7 +312,11 @@ async def _gather_policy_partials(
                     policy_budget.add_text(rendered.content)
                     rendered_parts.append(rendered.content)
                     rendered_contributions.append(
-                        DocumentContribution(rendered.content, dict(rendered.frontmatter), rendered.document_properties)
+                        DocumentContribution(
+                            rendered.content,
+                            dict(rendered.frontmatter),
+                            rendered.document_properties.with_disposition_default(None),
+                        )
                     )
                 else:
                     logger.trace(
@@ -519,7 +504,7 @@ async def read_and_render_file_contents(
                 file_info.content = rendered.content
                 file_info.frontmatter = rendered.frontmatter
                 file_info.cache_policy = rendered.cache_policy
-                file_info.document_properties = rendered.document_properties
+                file_info.document_properties = rendered.document_properties.with_disposition_default(None)
             else:
                 # Non-template files: use process_file
                 try:

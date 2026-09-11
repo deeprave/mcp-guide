@@ -143,6 +143,21 @@ class TestAggregateEventResults:
         assert first_user.disposition == "agent/instruction"
         assert first_instruction.disposition == "agent/instruction"
 
+    def test_multiple_unknown_dispositions_remain_unknown(self):
+        """Aggregation must not replace explicit unknown types with a default."""
+        unknown_one = EventResult(
+            result=True,
+            rendered_content=_make_rendered_content("First", "Show this", "unknown/type"),
+        )
+        unknown_two = EventResult(
+            result=True,
+            rendered_content=_make_rendered_content("Second", "Show this", "unknown/type"),
+        )
+
+        result = aggregate_event_results([unknown_one, unknown_two])
+
+        assert result.disposition is None
+
     def test_message_deduplication(self):
         """Test duplicate messages are deduplicated."""
         results = [

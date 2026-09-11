@@ -31,7 +31,7 @@ def _contribution(frontmatter: dict[str, object], *, cache_default: CachePolicy 
 
 def _parse_cache_policy(value: object) -> CachePolicy:
     """Parse cache frontmatter while disregarding diagnostics in assertions."""
-    return CachePolicy.parse_with_diagnostic(value)[0]
+    return CachePolicy.parse(value)[0]
 
 
 class _TypeObserver(DocumentProperty):
@@ -75,7 +75,7 @@ def test_parse_cache_policy(value: object, expected: CachePolicy) -> None:
 
 def test_invalid_cache_policy_is_not_cacheable() -> None:
     """Malformed cache metadata must not accidentally enable caching."""
-    policy, diagnostic = CachePolicy.parse_with_diagnostic("quick, shared")
+    policy, diagnostic = CachePolicy.parse("quick, shared")
 
     assert policy == CachePolicy.no_cache()
     assert diagnostic == "Invalid cache policy: 'quick, shared'"
@@ -91,6 +91,19 @@ def test_document_properties_broadcasts_shared_frontmatter_keys() -> None:
 
     assert properties.disposition == "agent/instruction"
     assert observer.values == ["agent/instruction"]
+
+
+def test_combined_properties_retain_handlers_from_later_contributors() -> None:
+    """Composition preserves every registered property handler."""
+    observer = _TypeObserver()
+    first = DocumentProperties.from_frontmatter({"type": "user/information"}, property_handlers=[DocumentDisposition()])
+    second = DocumentProperties.from_frontmatter(
+        {"type": "agent/instruction"}, property_handlers=[DocumentDisposition(), observer]
+    )
+
+    combined = DocumentProperties.combine([first, second])
+
+    assert combined.get(_TypeObserver).values == ["agent/instruction"]
 
 
 def test_combined_documents_use_the_most_restrictive_policy() -> None:
@@ -134,6 +147,20 @@ def test_rendered_content_combines_partial_disposition(tmp_path) -> None:
     )
 
     assert content.disposition == "agent/instruction"
+
+
+def test_rendered_content_retains_the_existing_task_disposition_default(tmp_path) -> None:
+    """Untyped task templates retain their established instruction disposition."""
+    content = RenderedContent(
+        frontmatter=Frontmatter({}),
+        frontmatter_length=0,
+        content="Rendered",
+        content_length=8,
+        template_path=tmp_path / "document.md.mustache",
+        template_name="document",
+    )
+
+    assert content.document_properties.disposition == "agent/instruction"
 
 
 @pytest.mark.anyio

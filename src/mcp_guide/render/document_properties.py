@@ -46,7 +46,7 @@ class DocumentCache(DocumentProperty):
         return key == "cache"
 
     def apply_frontmatter(self, key: str, value: Any) -> None:
-        self.value, self.diagnostic = CachePolicy.parse_with_diagnostic(value)
+        self.value, self.diagnostic = CachePolicy.parse(value)
 
     @classmethod
     def combine(cls, properties: Iterable[Self]) -> Self:
@@ -66,6 +66,7 @@ class DocumentDisposition(DocumentProperty):
     """Delivery disposition derived from a document's ``type`` frontmatter."""
 
     default: str | None = USER_INFO
+    explicit: bool = False
     value: str | None = field(init=False)
 
     def __post_init__(self) -> None:
@@ -76,15 +77,21 @@ class DocumentDisposition(DocumentProperty):
         return key == "type"
 
     def apply_frontmatter(self, key: str, value: Any) -> None:
+        self.explicit = True
         self.value = value if isinstance(value, str) and value in _TYPE_PRECEDENCE else None
 
     @classmethod
     def combine(cls, properties: Iterable[Self]) -> Self:
-        values = [property.value for property in properties if property.value in _TYPE_PRECEDENCE]
+        property_sets = tuple(properties)
+        explicit_properties = [property for property in property_sets if property.explicit]
+        if not explicit_properties:
+            return cls(default=property_sets[0].value if property_sets else None)
+
+        values = [property.value for property in explicit_properties if property.value in _TYPE_PRECEDENCE]
         if not values:
-            return cls(default=None)
+            return cls(default=None, explicit=True)
         precedence = max(_TYPE_PRECEDENCE[value] for value in values)
-        return cls(default=_PRECEDENCE_TO_TYPE[precedence])
+        return cls(default=_PRECEDENCE_TO_TYPE[precedence], explicit=True)
 
 
 @dataclass
@@ -99,7 +106,7 @@ class DocumentProperties:
         frontmatter: Mapping[str, Any] | None,
         *,
         cache_default: CachePolicy | None = None,
-        disposition_default: str = USER_INFO,
+        disposition_default: str | None = USER_INFO,
         property_handlers: Iterable[DocumentProperty] | None = None,
     ) -> Self:
         """Create properties and broadcast every frontmatter key to its handlers."""
@@ -136,15 +143,35 @@ class DocumentProperties:
         """Return the effective delivery disposition."""
         return self.get(DocumentDisposition).value
 
+    def with_disposition_default(self, default: str | None) -> Self:
+        """Apply a contextual default only when no type was explicitly declared."""
+        return type(self)(
+            [
+                DocumentDisposition(
+                    default=property.value if property.explicit else default,
+                    explicit=property.explicit,
+                )
+                if isinstance(property, DocumentDisposition)
+                else property
+                for property in self.properties
+            ]
+        )
+
     @classmethod
     def combine(cls, properties: Iterable[Self]) -> Self:
         """Combine matching typed properties across rendered contributors."""
         property_sets = tuple(properties)
         if not property_sets:
             return cls.from_frontmatter(None)
+        property_types: list[type[DocumentProperty]] = []
+        for property_set in property_sets:
+            for property in property_set.properties:
+                property_type = type(property)
+                if property_type not in property_types:
+                    property_types.append(property_type)
+
         combined: list[DocumentProperty] = []
-        for property in property_sets[0].properties:
-            property_type = type(property)
+        for property_type in property_types:
             matching = [
                 candidate
                 for property_set in property_sets

@@ -49,7 +49,7 @@ class CachePolicy:
         return cls(ttl_ms=_LIFETIME_TTLS_MS["long"], scope=CacheScope.PUBLIC)
 
     @classmethod
-    def parse_with_diagnostic(cls, value: Any) -> tuple["CachePolicy", str | None]:
+    def parse(cls, value: Any) -> tuple["CachePolicy", str | None]:
         """Parse a frontmatter cache value and report malformed declarations."""
         if value is None:
             return cls.no_cache(), None
