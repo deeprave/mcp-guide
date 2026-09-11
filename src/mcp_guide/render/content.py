@@ -2,10 +2,11 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.render.cache_policy import CachePolicy
+from mcp_guide.render.document_properties import DocumentContribution, DocumentProperties
 from mcp_guide.render.frontmatter import Content, resolve_instruction
 from mcp_guide.result_constants import AGENT_INSTRUCTION
 
@@ -19,7 +20,6 @@ FM_CATEGORY = "category"
 FM_USAGE = "usage"
 FM_ALIASES = "aliases"
 FM_INCLUDES = "includes"
-FM_CACHE = "cache"
 
 
 @dataclass
@@ -29,19 +29,41 @@ class RenderedContent(Content):
     Attributes:
         template_path: Path to the template file
         template_name: Name of the template file
-        partial_frontmatter: List of frontmatter from included partials
+        partial_contributions: Rendered partial content and properties
         errors: Application-level errors signaled via {{#_error}} lambda
     """
 
     template_path: Path
     template_name: str
-    partial_frontmatter: list[dict[str, Any]] = field(default_factory=list)
-    partial_cache_policies: list[CachePolicy] = field(default_factory=list)
+    partial_contributions: list[DocumentContribution] = field(default_factory=list)
+    properties: DocumentProperties | None = None
     errors: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        """Derive parent properties using the existing template defaults."""
+        if self.properties is None:
+            default_cache = (
+                CachePolicy.long_public() if str(self.template_path).endswith(".md") else CachePolicy.no_cache()
+            )
+            self.properties = DocumentProperties.from_frontmatter(
+                self.frontmatter,
+                cache_default=default_cache,
+                disposition_default=AGENT_INSTRUCTION,
+            )
+        if self.properties.cache_diagnostic:
+            logger.warning("%s in %s", self.properties.cache_diagnostic, self.template_path)
+
+    @property
+    def document_properties(self) -> DocumentProperties:
+        """Resolve properties from this document and partials that rendered."""
+        assert self.properties is not None
+        return DocumentProperties.combine(
+            (self.properties, *(contribution.properties for contribution in self.partial_contributions))
+        )
 
     @property
     def template_type(self) -> str:
-        """Get template type from frontmatter or default to agent/instruction."""
+        """Get the parent template type for existing instruction resolution."""
         return self.frontmatter.get_str(FM_TYPE) or AGENT_INSTRUCTION
 
     @property
@@ -60,7 +82,8 @@ class RenderedContent(Content):
             instructions_with_importance.append((parent_instruction, is_important))
 
         # Add partial instructions
-        for partial_fm in self.partial_frontmatter:
+        for contribution in self.partial_contributions:
+            partial_fm = contribution.frontmatter
             # Skip partials without explicit instruction or type to avoid injecting defaults
             if "instruction" not in partial_fm and "type" not in partial_fm:
                 continue
@@ -96,13 +119,12 @@ class RenderedContent(Content):
     @property
     def cache_policy(self) -> CachePolicy:
         """Resolve the restrictive cache policy for this rendered document."""
-        if str(self.template_path).endswith(".md") and FM_CACHE not in self.frontmatter:
-            parent_policy = CachePolicy.long_public()
-        else:
-            parent_policy, diagnostic = CachePolicy.parse_with_diagnostic(self.frontmatter.get(FM_CACHE))
-            if diagnostic:
-                logger.warning("%s in %s", diagnostic, self.template_path)
-        return CachePolicy.combine((parent_policy, *self.partial_cache_policies))
+        return self.document_properties.cache_policy
+
+    @property
+    def disposition(self) -> str | None:
+        """Resolve delivery disposition from this document and rendered partials."""
+        return self.document_properties.disposition
 
     def log_discarded_errors(self, source: str) -> None:
         """Log and acknowledge any template errors that won't be surfaced to the client."""

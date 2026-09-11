@@ -103,13 +103,13 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
                     value=event_result.rendered_content.content,
                     message=event_result.message,
                     instruction=event_result.rendered_content.instruction or "",
-                    disposition=event_result.rendered_content.template_type,
+                    disposition=event_result.rendered_content.disposition,
                 )
                 if event_result.result
                 else Result.failure(
                     error=event_result.message or "Handler failed",
                     instruction=event_result.rendered_content.instruction or "",
-                    disposition=event_result.rendered_content.template_type,
+                    disposition=event_result.rendered_content.disposition,
                 )
             )
         return (
@@ -151,7 +151,7 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
                 value=combined_content,
                 message=combined_message,
                 instruction=combined_instruction,
-                disposition=resolve_disposition(rc.template_type for rc in rendered_contents),
+                disposition=resolve_disposition(rc.disposition for rc in rendered_contents),
             )
 
         # No rendered content but had successes

@@ -81,7 +81,7 @@ def test_modern_adapter_moves_agent_instruction_to_namespaced_metadata(adapter):
 @pytest.mark.parametrize("adapter", [tool_response, resource_response], ids=["tool", "resource"])
 def test_document_adapter_adds_explicit_cache_policy_to_namespaced_metadata(adapter):
     """Cache metadata comes only from the resolved document policy."""
-    result = Result.ok("answer", cache_policy=CachePolicy.parse("medium, private"))
+    result = Result.ok("answer", cache_policy=CachePolicy.parse_with_diagnostic("medium, private")[0])
 
     response = adapter(result, protocol_type=SessionProtocolType.MCP_2026_07_28)
 

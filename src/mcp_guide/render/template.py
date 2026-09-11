@@ -11,10 +11,10 @@ from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.content import FM_INCLUDES, FM_REQUIRES_PREFIX, RenderedContent
 from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.document_properties import DocumentContribution
 from mcp_guide.render.renderer import is_template_file, render_template_content
 
 if TYPE_CHECKING:
-    from mcp_guide.render.cache_policy import CachePolicy
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
@@ -27,8 +27,7 @@ async def render_template(
     project_flags: Dict[str, Any],
     context: Optional[TemplateContext] = None,
     pre_partials: Optional[Dict[str, str]] = None,
-    pre_partial_frontmatter: Optional[Dict[str, list[Dict[str, Any]]]] = None,
-    pre_partial_cache_policies: Optional[Dict[str, list[CachePolicy]]] = None,
+    pre_partial_contributions: Optional[Dict[str, list[DocumentContribution]]] = None,
     resolver: Callable[[str | Path], Path] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
 ) -> Optional[RenderedContent]:
@@ -86,18 +85,16 @@ async def render_template(
             base_dir=base_dir,
             resolver=resolver,
             partials=pre_partials,
-            pre_rendered_partial_frontmatter=pre_partial_frontmatter,
-            pre_rendered_partial_cache_policies=pre_partial_cache_policies,
+            pre_rendered_partial_contributions=pre_partial_contributions,
             max_content_limit=max_content_limit,
         )
         if not result.success:
             raise RuntimeError(f"Template rendering failed: {result.error}")
         assert result.value is not None, "Result value should not be None when success is True"
-        rendered_content, partial_frontmatter_list, partial_cache_policies, template_errors = result.value
+        rendered_content, partial_contributions, template_errors = result.value
     else:
         rendered_content = processed.content
-        partial_frontmatter_list = []
-        partial_cache_policies = []
+        partial_contributions = []
         template_errors = []
 
     ensure_within_limit(len(rendered_content.encode("utf-8")), limit_name="max-content-limit", limit=max_content_limit)
@@ -108,7 +105,6 @@ async def render_template(
         content_length=len(rendered_content),
         template_path=file_info.path,
         template_name=file_info.path.name,
-        partial_frontmatter=partial_frontmatter_list,
-        partial_cache_policies=partial_cache_policies,
+        partial_contributions=partial_contributions,
         errors=template_errors,
     )

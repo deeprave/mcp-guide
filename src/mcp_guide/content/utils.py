@@ -13,6 +13,7 @@ from mcp_guide.models.exceptions import CategoryNotFoundError, NoProjectError
 from mcp_guide.render import FM_REQUIRES_PREFIX, render_template
 from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.document_properties import DocumentContribution, DocumentProperties
 from mcp_guide.render.frontmatter import (
     get_frontmatter_type,
     parse_content_with_frontmatter,
@@ -23,8 +24,6 @@ from mcp_guide.render.renderer import is_template_file
 from mcp_guide.render.rendering import render_content
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
-    AGENT_INFO,
-    AGENT_INSTRUCTION,
     INSTRUCTION_MISSING_POLICY,
     USER_INFO,
 )
@@ -33,14 +32,6 @@ if TYPE_CHECKING:
     from mcp_guide.runtime import RequestContext
 
 logger = get_logger(__name__)
-
-# Precedence for content disposition: higher value wins
-_TYPE_PRECEDENCE = {
-    USER_INFO: 0,
-    AGENT_INFO: 1,
-    AGENT_INSTRUCTION: 2,
-}
-_PRECEDENCE_TO_TYPE = {v: k for k, v in _TYPE_PRECEDENCE.items()}
 
 
 class _ExportFrontmatterDumper(yaml.SafeDumper):
@@ -77,26 +68,26 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
     return combine_instructions(instructions_with_importance)
 
 
-def resolve_disposition(content_types: Iterable[Optional[str]]) -> str:
+def resolve_disposition(content_types: Iterable[Optional[str]]) -> str | None:
     """Resolve the highest-precedence disposition from content types.
 
-    Unknown and missing content types do not affect the default
-    ``user/information`` disposition.
+    Missing content types retain the caller-context default; an explicitly
+    unknown type resolves to ``None`` rather than fabricating a disposition.
 
     Args:
         content_types: Resolved content type values to aggregate.
 
     Returns:
-        Highest-precedence type string, defaulting to user/information.
+        Highest-precedence recognised type, or ``None`` for explicit unknown
+        types.
     """
-    max_precedence = 0
-    for content_type in content_types:
-        if content_type in _TYPE_PRECEDENCE:
-            max_precedence = max(max_precedence, _TYPE_PRECEDENCE[content_type])
-    return _PRECEDENCE_TO_TYPE[max_precedence]
+    return DocumentProperties.combine(
+        DocumentProperties.from_frontmatter({"type": content_type} if content_type else None)
+        for content_type in content_types
+    ).disposition
 
 
-def resolve_content_disposition(files: list[FileInfo]) -> str:
+def resolve_content_disposition(files: list[FileInfo]) -> str | None:
     """Resolve the aggregate content disposition across collected files.
 
     Walks each file's frontmatter type and returns the highest-precedence value.
@@ -105,19 +96,26 @@ def resolve_content_disposition(files: list[FileInfo]) -> str:
         files: List of FileInfo objects with parsed frontmatter
 
     Returns:
-        Highest-precedence type string, defaulting to user/information
+        Highest-precedence recognised type, or ``None`` for an explicit
+        unknown type
     """
-    return resolve_disposition(
-        get_frontmatter_type(file_info.frontmatter) if file_info.frontmatter else None for file_info in files
-    )
+    return resolve_content_properties(files).disposition
 
 
 def resolve_content_cache_policy(files: Iterable[FileInfo]) -> CachePolicy:
     """Resolve the restrictive policy across rendered document files."""
-    return CachePolicy.combine(
-        file_info.cache_policy
-        if file_info.cache_policy is not None
-        else CachePolicy.parse(file_info.frontmatter.get("cache") if file_info.frontmatter else None)
+    return resolve_content_properties(files).cache_policy
+
+
+def resolve_content_properties(files: Iterable[FileInfo]) -> DocumentProperties:
+    """Resolve the properties of all documents retained for delivery."""
+    return DocumentProperties.combine(
+        document_properties
+        if (document_properties := getattr(file_info, "document_properties", None)) is not None
+        else DocumentProperties.from_frontmatter(
+            file_info.frontmatter,
+            cache_default=getattr(file_info, "cache_policy", None),
+        )
         for file_info in files
     )
 
@@ -204,7 +202,7 @@ async def _gather_policy_partials(
     template_context: TemplateContext,
     project_flags: dict[str, Any],
     limits: ContentLimits | None = None,
-) -> tuple[dict[str, str], dict[str, list[dict[str, Any]]], dict[str, list[CachePolicy]]]:
+) -> tuple[dict[str, str], dict[str, list[DocumentContribution]]]:
     """Pre-render policy partials for a template that declares a `policies:` frontmatter key.
 
     For each topic declared in `policies:`, discovers matching documents from the `policies`
@@ -215,8 +213,8 @@ async def _gather_policy_partials(
     `template_context` is used only as the parent context for `new_child()` when building
     per-policy-file render context. Session state is supplied explicitly.
 
-    Returns rendered partial text, frontmatter, and resolved cache policies grouped by
-    topic. All mappings are empty when the template has no `policies:` key, or when no
+    Returns rendered partial text and property-bearing contributors grouped by topic.
+    All mappings are empty when the template has no `policies:` key, or when no
     active session or project is available.
     """
     # Deferred import to avoid circular dependency (content.gathering imports content.utils)
@@ -234,13 +232,13 @@ async def _gather_policy_partials(
     try:
         raw = await file_info.read_raw(max_bytes=limits.max_content_limit)
     except (OSError, FileNotFoundError):
-        return {}, {}, {}
+        return {}, {}
 
     parsed = parse_content_with_frontmatter(raw)
     policy_topics = parsed.frontmatter.get("policies")
     if not policy_topics or not isinstance(policy_topics, list):
         logger.trace("_gather_policy_partials: no 'policies:' key in %r", file_info.name)
-        return {}, {}, {}
+        return {}, {}
 
     logger.trace("_gather_policy_partials: %r declares topics %s", file_info.name, policy_topics)
 
@@ -248,15 +246,15 @@ async def _gather_policy_partials(
         project = await session.get_project()
     except NoProjectError:
         logger.trace("_gather_policy_partials: no active project — skipping")
-        return {}, {}, {}
+        return {}, {}
     if project is None:
         logger.trace("_gather_policy_partials: no active project — skipping")
-        return {}, {}, {}
+        return {}, {}
 
     policies_category = project.categories.get("policies")
     if policies_category is None:
         logger.trace("_gather_policy_partials: project has no 'policies' category — skipping")
-        return {}, {}, {}
+        return {}, {}
 
     policy_base_dir = request_context.resolve_document_path(policies_category.dir)
     logger.trace(
@@ -264,8 +262,7 @@ async def _gather_policy_partials(
     )
 
     pre_partials: dict[str, str] = {}
-    pre_partial_frontmatter: dict[str, list[dict[str, Any]]] = {}
-    pre_partial_cache_policies: dict[str, list[CachePolicy]] = {}
+    pre_partial_contributions: dict[str, list[DocumentContribution]] = {}
 
     for topic in policy_topics:
         if not isinstance(topic, str):
@@ -291,12 +288,17 @@ async def _gather_policy_partials(
         if not policy_files:
             logger.trace("_gather_policy_partials: topic=%r — no files found, using placeholder", topic)
             pre_partials[topic] = await render_missing_policy(request_context, topic)
-            pre_partial_cache_policies[topic] = [CachePolicy.no_cache()]
+            pre_partial_contributions[topic] = [
+                DocumentContribution(
+                    pre_partials[topic],
+                    {},
+                    DocumentProperties.from_frontmatter(None, cache_default=CachePolicy.no_cache()),
+                )
+            ]
             continue
 
         rendered_parts: list[str] = []
-        rendered_frontmatter: list[dict[str, Any]] = []
-        rendered_cache_policies: list[CachePolicy] = []
+        rendered_contributions: list[DocumentContribution] = []
         for policy_file in policy_files:
             relative_policy = (
                 Path(policies_category.dir) / policy_file.path
@@ -328,8 +330,9 @@ async def _gather_policy_partials(
                     )
                     policy_budget.add_text(rendered.content)
                     rendered_parts.append(rendered.content)
-                    rendered_frontmatter.append(dict(rendered.frontmatter))
-                    rendered_cache_policies.append(rendered.cache_policy)
+                    rendered_contributions.append(
+                        DocumentContribution(rendered.content, dict(rendered.frontmatter), rendered.document_properties)
+                    )
                 else:
                     logger.trace(
                         "_gather_policy_partials: %s rendered None (filtered by requirements?)", policy_file.path
@@ -340,12 +343,16 @@ async def _gather_policy_partials(
         pre_partials[topic] = (
             "\n\n".join(rendered_parts) if rendered_parts else await render_missing_policy(request_context, topic)
         )
-        if rendered_frontmatter:
-            pre_partial_frontmatter[topic] = rendered_frontmatter
-        pre_partial_cache_policies[topic] = rendered_cache_policies or [CachePolicy.no_cache()]
+        pre_partial_contributions[topic] = rendered_contributions or [
+            DocumentContribution(
+                pre_partials[topic],
+                {},
+                DocumentProperties.from_frontmatter(None, cache_default=CachePolicy.no_cache()),
+            )
+        ]
         logger.trace("_gather_policy_partials: topic=%r → %d chars", topic, len(pre_partials[topic]))
 
-    return pre_partials, pre_partial_frontmatter, pre_partial_cache_policies
+    return pre_partials, pre_partial_contributions
 
 
 async def render_missing_policy(request_context: "RequestContext", topic: str) -> str:
@@ -476,7 +483,7 @@ async def read_and_render_file_contents(
 
                 try:
                     # Pre-render any policy partials declared in the template's frontmatter
-                    pre_partials, pre_partial_frontmatter, pre_partial_cache_policies = await _gather_policy_partials(
+                    pre_partials, pre_partial_contributions = await _gather_policy_partials(
                         request_context,
                         file_info,
                         template_context,
@@ -491,8 +498,7 @@ async def read_and_render_file_contents(
                         project_flags=requirements_context,
                         context=template_context,
                         pre_partials=pre_partials or None,
-                        pre_partial_frontmatter=pre_partial_frontmatter or None,
-                        pre_partial_cache_policies=pre_partial_cache_policies or None,
+                        pre_partial_contributions=pre_partial_contributions or None,
                         resolver=request_context.get_docroot_resolver(),
                         max_content_limit=max_content_limit,
                     )
@@ -513,6 +519,7 @@ async def read_and_render_file_contents(
                 file_info.content = rendered.content
                 file_info.frontmatter = rendered.frontmatter
                 file_info.cache_policy = rendered.cache_policy
+                file_info.document_properties = rendered.document_properties
             else:
                 # Non-template files: use process_file
                 try:
@@ -540,6 +547,11 @@ async def read_and_render_file_contents(
                 file_info.cache_policy, diagnostic = resolve_file_cache_policy(file_info)
                 if diagnostic:
                     logger.warning("%s in %s", diagnostic, file_info.path)
+                file_info.document_properties = DocumentProperties.from_frontmatter(
+                    file_info.frontmatter,
+                    cache_default=file_info.cache_policy,
+                    disposition_default=USER_INFO,
+                )
 
             # Only returned, non-empty rendered content contributes to the aggregate
             # delivery budget and document count.

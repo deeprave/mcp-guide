@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional, Unio
 if TYPE_CHECKING:
     from mcp_guide.models.project import Category
     from mcp_guide.render.cache_policy import CachePolicy
+    from mcp_guide.render.document_properties import DocumentProperties
 
 _SENTINEL = object()  # Sentinel value for distinguishing unset parameters
 
@@ -112,6 +113,7 @@ class FileInfo:
         self._content_explicitly_set = content is not _SENTINEL
         self._raw_cache: Optional[str] = None
         self.cache_policy: CachePolicy | None = None
+        self.document_properties: DocumentProperties | None = None
 
     def resolve(self, resolver: Callable[[str | Path], Path], relative_dir: str | Path = "") -> Path:
         """Resolve this file through a document-root-relative path resolver.

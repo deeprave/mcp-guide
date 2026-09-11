@@ -210,10 +210,10 @@ async def test_unused_partial_instruction_not_applied(tmp_path):
     )
 
     assert result.is_ok()
-    rendered_content, partial_frontmatter_list, _, _ = result.value
+    rendered_content, partial_contributions, _ = result.value
     assert rendered_content == "Status: OK"
     # Partial was NOT rendered, so its frontmatter must NOT be in the list
-    assert partial_frontmatter_list == []
+    assert partial_contributions == []
 
 
 @pytest.mark.anyio
@@ -241,11 +241,11 @@ async def test_used_partial_instruction_is_applied(tmp_path):
     )
 
     assert result.is_ok()
-    rendered_content, partial_frontmatter_list, _, _ = result.value
+    rendered_content, partial_contributions, _ = result.value
     assert "Agent detection required" in rendered_content
     # Partial WAS rendered, so its frontmatter must be collected
-    assert len(partial_frontmatter_list) == 1
-    assert partial_frontmatter_list[0].get("instruction") == "^ Run client_info tool"
+    assert len(partial_contributions) == 1
+    assert partial_contributions[0].frontmatter.get("instruction") == "^ Run client_info tool"
 
 
 @pytest.mark.anyio
@@ -272,10 +272,10 @@ async def test_partial_instruction_placeholders_resolved(tmp_path):
     )
 
     assert result.is_ok()
-    _, partial_frontmatter_list, _, _ = result.value
-    assert len(partial_frontmatter_list) == 1
+    _, partial_contributions, _ = result.value
+    assert len(partial_contributions) == 1
     # Placeholder must be resolved
-    assert partial_frontmatter_list[0].get("instruction") == "Run my_client_info"
+    assert partial_contributions[0].frontmatter.get("instruction") == "Run my_client_info"
 
 
 @pytest.mark.anyio
