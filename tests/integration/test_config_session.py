@@ -6,6 +6,7 @@ from dataclasses import replace
 import pytest
 import yaml
 
+from mcp_guide.configuration import _ConfigManagerCore
 from mcp_guide.models import Category
 from mcp_guide.runtime import get_runtime
 from mcp_guide.session import Session
@@ -17,12 +18,14 @@ class _RecordingSessionListener:
 
     def __init__(self) -> None:
         self.config_changed: list[Session] = []
+        self.configuration_updates = []
 
     async def on_project_changed(self, session: Session, old_project: str, new_project: str) -> None:
         pass
 
-    async def on_config_changed(self, session: Session) -> None:
+    async def on_configuration_changed(self, session: Session, update) -> None:
         self.config_changed.append(session)
+        self.configuration_updates.append(update)
 
 
 class TestConfigSessionIntegration:
@@ -64,6 +67,27 @@ class TestConfigSessionIntegration:
         # Verify session cache updated
         cached_project = await session.get_project()
         assert len(cached_project.categories) == 1
+
+    @pytest.mark.anyio
+    async def test_initial_binding_uses_project_from_final_snapshot(self, runtime, monkeypatch):
+        """A write between lookup and publication must be reflected in the bound Session."""
+        original_get_or_create = _ConfigManagerCore.get_or_create_project_config
+
+        async def create_then_replace_project(manager, name, *, root_path=None):
+            project_key, project = await original_get_or_create(manager, name, root_path=root_path)
+            external_manager = _ConfigManagerCore(config_dir=str(runtime_config_dir(runtime)))
+            updated_project = project.with_category("external", Category(dir="external/", patterns=["*.md"]))
+            await external_manager.save_project_config(project_key, updated_project)
+            return project_key, project
+
+        monkeypatch.setattr(_ConfigManagerCore, "get_or_create_project_config", create_then_replace_project)
+
+        session = create_unbound_test_session(runtime)
+        project_root = runtime_config_dir(runtime) / "client-roots" / "late-external-write"
+        project_root.mkdir(parents=True, exist_ok=True)
+        await session.bind_project_path(project_root)
+
+        assert "external" in (await session.get_project()).categories
 
     @pytest.mark.anyio
     async def test_concurrent_sessions_different_projects(self, runtime, monkeypatch):
@@ -322,6 +346,7 @@ class TestConfigSessionIntegration:
         updated_project = project.with_category("docs", Category(dir="docs/", patterns=["*.md"]))
         await config_manager.save_project_config(project.key, updated_project)
         await config_manager._on_external_change(str(config_manager.config_file))
+        await session.wait_for_configuration_updates()
 
         assert listener.config_changed == [session]
         assert "docs" in (await session.get_project()).categories
@@ -334,6 +359,7 @@ class TestConfigSessionIntegration:
         session.add_listener(listener)
 
         await get_runtime().feature_flags().set("workflow", True)
+        await session.wait_for_configuration_updates()
 
         assert listener.config_changed == [session]
 
@@ -350,6 +376,7 @@ class TestConfigSessionIntegration:
         config_data.setdefault("feature_flags", {})["workflow"] = True
         config_manager.config_file.write_text(yaml.dump(config_data))
         await config_manager._on_external_change(str(config_manager.config_file))
+        await session.wait_for_configuration_updates()
 
         assert listener.config_changed == [session]
 
@@ -365,8 +392,32 @@ class TestConfigSessionIntegration:
         config_data.setdefault("feature_flags", {})["workflow"] = True
         config_manager.config_file.write_text(yaml.dump(config_data))
         await config_manager._on_external_change(str(config_manager.config_file))
+        await session.wait_for_configuration_updates()
 
         assert listener.config_changed == [session]
+
+    @pytest.mark.anyio
+    async def test_local_write_preserves_unobserved_external_global_flag_delta(self, runtime):
+        """A local write must not hide a preceding external global-flag update."""
+        from mcp_guide.feature_flags.types import FeatureValue
+
+        session = await self._create_bound_session(runtime, "current-project")
+        config_manager = session._config()
+        listener = _RecordingSessionListener()
+        session.add_listener(listener)
+
+        external_manager = _ConfigManagerCore(config_dir=str(runtime_config_dir(runtime)))
+        await external_manager.set_feature_flag("workflow", FeatureValue(True))
+
+        await config_manager.set_feature_flag("format-command", FeatureValue(True))
+        await session.wait_for_configuration_updates()
+
+        assert listener.config_changed
+        assert all(changed_session is session for changed_session in listener.config_changed)
+        assert set().union(*(update.changes.resolved_flags for update in listener.configuration_updates)) == {
+            "format-command",
+            "workflow",
+        }
 
     @pytest.mark.anyio
     async def test_file_locking_prevents_corruption(self, runtime, monkeypatch):

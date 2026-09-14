@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -11,6 +12,7 @@ import yaml
 from anyio import Path as AsyncPath
 
 from mcp_guide.async_lock import AsyncReentrantLock
+from mcp_guide.configuration_update import ConfigurationSnapshotDelta, ProjectIdentity
 from mcp_guide.core.file_reader import read_file_content
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.feature_flags.types import FeatureValue, to_raw_feature_value
@@ -25,7 +27,6 @@ from mcp_guide.watchers.config_watcher import ConfigWatcher
 
 if TYPE_CHECKING:
     from mcp_guide.content_limits import ContentLimits
-    from mcp_guide.session import Session
 
 logger = get_logger(__name__)
 
@@ -278,33 +279,6 @@ class _ConfigManagerCore:
         self._ensure_config_dir()
         return await lock_update(self.config_file, _get_or_create)
 
-    async def get_project_config_for_root(self, name: str, root_path: Path | None) -> Project | None:
-        """Return an existing strictly matching project configuration.
-
-        This non-creating lookup is used while applying a configuration
-        publication. It must not recreate an entry removed or invalidated
-        by an external writer.
-        """
-        if root_path is None:
-            return None
-
-        async def _get_existing(file_path: Path) -> Project | None:
-            content = await self.get_or_create_config(file_path)
-            data = yaml.safe_load(content) or {}
-            projects = data.get("projects", {})
-            if not isinstance(projects, dict):
-                return None
-            root_hash = calculate_project_hash(str(root_path))
-            expected_key = generate_project_key(name, root_hash)
-            project_data = projects.get(expected_key)
-            if not isinstance(project_data, dict) or project_data.get("hash") != root_hash:
-                return None
-            project_data_copy = dict(project_data)
-            project_data_copy["key"] = expected_key
-            return self._dict_to_project(project_data_copy)
-
-        return await lock_update(self.config_file, _get_existing)
-
     async def _create_new_project(
         self, name: str, file_path: Path, data: dict[str, Any], *, root_path: Path | None = None
     ) -> tuple[str, Project]:
@@ -472,34 +446,29 @@ class ConfigManager(_ConfigManagerCore):
 
     ``GuideRuntime`` owns the production instance and supplies it to every
     Session. It owns the single configuration-file watcher and publishes
-    changes to all registered Sessions.
+    immutable snapshot deltas to the runtime.
     """
 
-    def __init__(self, config_dir: Optional[str] = None, docroot: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        config_dir: Optional[str] = None,
+        docroot: str | Path | None = None,
+        *,
+        on_snapshot_delta: Callable[[ConfigurationSnapshotDelta], Awaitable[None]] | None = None,
+        coordination_lock: AsyncReentrantLock | None = None,
+    ) -> None:
         super().__init__(config_dir=config_dir, docroot=docroot)
-        self._sessions: set[Session] = set()
+        self._on_snapshot_delta = on_snapshot_delta
         self._watcher: ConfigWatcher | None = None
         self._watcher_lock = asyncio.Lock()
         self._image_lock = asyncio.Lock()
         # This runtime-wide gate serialises configuration writes/publication
         # with every Session root transition. It is re-entrant because a
         # configuration write publishes callbacks in the same task.
-        self._coordination_lock = AsyncReentrantLock()
+        self._coordination_lock = coordination_lock or AsyncReentrantLock()
         self._snapshot: dict[str, Any] | None = None
         self._raw_projects_snapshot: dict[str, Any] = {}
-
-    def register_session(self, session: Session) -> None:
-        """Register a Session for configuration-change publication."""
-        self._sessions.add(session)
-
-    def unregister_session(self, session: Session) -> None:
-        """Stop publishing changes to a cleaned-up Session."""
-        self._sessions.discard(session)
-
-    @property
-    def coordination_lock(self) -> AsyncReentrantLock:
-        """Return the runtime-wide lifecycle coordination lock."""
-        return self._coordination_lock
+        self._snapshot_revision = 0
 
     async def start(self) -> None:
         """Start the one shared watcher after runtime configuration is ready."""
@@ -554,14 +523,14 @@ class ConfigManager(_ConfigManagerCore):
         return previous, current
 
     @staticmethod
-    def _changed_project_identities(previous: dict[str, Any], current: dict[str, Any]) -> set[tuple[str, str]]:
+    def _changed_project_identities(previous: dict[str, Any], current: dict[str, Any]) -> set[ProjectIdentity]:
         """Return strict project identities whose persisted entries changed."""
         old_projects = previous.get("projects", {})
         new_projects = current.get("projects", {})
         if not isinstance(old_projects, dict) or not isinstance(new_projects, dict):
             return set()
 
-        changed: set[tuple[str, str]] = set()
+        changed: set[ProjectIdentity] = set()
         for key in set(old_projects) | set(new_projects):
             if not isinstance(key, str):
                 continue
@@ -578,11 +547,11 @@ class ConfigManager(_ConfigManagerCore):
             except ValueError:
                 continue
             if key == generate_project_key(name, stored_hash):
-                changed.add((name, stored_hash))
+                changed.add(ProjectIdentity(name, stored_hash))
         return changed
 
     async def _publish_snapshot_delta(self, previous: dict[str, Any], current: dict[str, Any]) -> None:
-        """Publish only Sessions affected by a complete configuration diff."""
+        """Publish one configuration-only snapshot delta to the runtime."""
         global_changed = previous.get("feature_flags", {}) != current.get("feature_flags", {})
         changed_projects = self._changed_project_identities(previous, current)
         if not global_changed and not changed_projects:
@@ -591,14 +560,16 @@ class ConfigManager(_ConfigManagerCore):
         if global_changed:
             self._invalidate_feature_flags()
 
-        for session in list(self._sessions):
-            project_changed = session.active_configuration_identity in changed_projects
-            if not global_changed and not project_changed:
-                continue
-            try:
-                await session._on_shared_config_changed(global_changed=global_changed, project_changed=project_changed)
-            except Exception as error:
-                logger.debug("Failed to publish configuration change to a Session: %s", error, exc_info=True)
+        self._snapshot_revision += 1
+        if self._on_snapshot_delta is not None:
+            await self._on_snapshot_delta(
+                ConfigurationSnapshotDelta(
+                    revision=self._snapshot_revision,
+                    previous=previous,
+                    current=current,
+                    changed_project_identities=frozenset(changed_projects),
+                )
+            )
 
     async def _refresh_and_publish(self) -> None:
         """Load, replace, diff, and publish a shared configuration update once."""
@@ -634,30 +605,18 @@ class ConfigManager(_ConfigManagerCore):
     async def get_or_create_project_config(self, name: str, *, root_path: Path | None = None) -> tuple[str, Project]:
         """Resolve a root-bound project through the authoritative shared image."""
         async with self._coordination_lock:
-            async with self._image_lock:
-                await self._replace_snapshot()
-                project_key, project = await super().get_or_create_project_config(name, root_path=root_path)
-                previous, current = await self._replace_snapshot()
-            await self._publish_snapshot_delta(previous, current)
-        return project_key, project
-
-    async def get_project_config_for_root(self, name: str, root_path: Path | None) -> Project | None:
-        """Read an existing root-bound project from the authoritative image."""
-        if root_path is None:
-            return None
-
-        async with self._image_lock:
-            if self._snapshot is None:
-                await self._replace_snapshot()
-            assert self._snapshot is not None
-            root_hash = calculate_project_hash(str(root_path))
-            project_key = generate_project_key(name, root_hash)
-            project_data = self._snapshot.get("projects", {}).get(project_key)
-            if not isinstance(project_data, dict) or project_data.get("hash") != root_hash:
-                return None
-            project_data_copy = dict(project_data)
-            project_data_copy["key"] = project_key
-            return self._dict_to_project(project_data_copy)
+            # Publish a disk change that arrived before this local operation.
+            # Otherwise the later post-write refresh would use that change as
+            # its baseline and permanently hide it from local Sessions.
+            await self._refresh_and_publish()
+            while True:
+                async with self._image_lock:
+                    project_key, _project = await super().get_or_create_project_config(name, root_path=root_path)
+                    previous, current = await self._replace_snapshot()
+                    project = self._projects_from_data(current.get("projects", {})).get(project_key)
+                await self._publish_snapshot_delta(previous, current)
+                if project is not None:
+                    return project_key, project
 
     async def resolve_clone_source(self, source_name: str) -> tuple[Project | None, list[str]]:
         """Resolve clone sources through the coordinated in-memory image."""
@@ -666,24 +625,24 @@ class ConfigManager(_ConfigManagerCore):
 
     async def set_feature_flag(self, flag_name: str, value: FeatureValue) -> None:
         async with self._coordination_lock:
+            await self._refresh_and_publish()
             async with self._image_lock:
-                await self._replace_snapshot()
                 await super().set_feature_flag(flag_name, value)
                 previous, current = await self._replace_snapshot()
             await self._publish_snapshot_delta(previous, current)
 
     async def remove_feature_flag(self, flag_name: str) -> None:
         async with self._coordination_lock:
+            await self._refresh_and_publish()
             async with self._image_lock:
-                await self._replace_snapshot()
                 await super().remove_feature_flag(flag_name)
                 previous, current = await self._replace_snapshot()
             await self._publish_snapshot_delta(previous, current)
 
     async def save_project_config(self, project_key: str, project: Project) -> None:
         async with self._coordination_lock:
+            await self._refresh_and_publish()
             async with self._image_lock:
-                await self._replace_snapshot()
                 await super().save_project_config(project_key, project)
                 previous, current = await self._replace_snapshot()
             await self._publish_snapshot_delta(previous, current)

@@ -6,6 +6,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.render.rendering import render_content
 
 if TYPE_CHECKING:
+    from mcp_guide.configuration_update import ConfigurationUpdate
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
@@ -14,7 +15,7 @@ logger = get_logger(__name__)
 class StartupInstructionListener:
     """Listener that renders and queues startup instructions. One instance per session."""
 
-    async def on_config_changed(self, session: "Session") -> None:
+    async def on_configuration_changed(self, session: "Session", update: "ConfigurationUpdate") -> None:
         """No-op — startup instructions don't re-fire on config changes."""
 
     async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:

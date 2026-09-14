@@ -2,14 +2,13 @@
 
 import asyncio
 import contextlib
-import inspect
 import time
 import zlib
 from collections.abc import Awaitable, Callable
-from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union
 
+from mcp_guide.async_lock import AsyncReentrantLock
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
 from mcp_guide.decorators import get_registered_task_classes
@@ -17,8 +16,10 @@ from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
 
 if TYPE_CHECKING:
+    from mcp_guide.configuration_update import ConfigurationUpdate
     from mcp_guide.session import Session
 
+from .activation import TaskActivation
 from .interception import EventType
 from .protocol import TaskSubscriber
 from .subscription import Subscription
@@ -39,10 +40,6 @@ PROJECT_SCOPED_CACHE_KEYS = (
 )
 
 CACHE_INVALIDATION_KEYS = ("workflow_state", "openspec_show", "openspec_status")
-
-_dispatch_generation: ContextVar[tuple["TaskManager", int] | None] = ContextVar(
-    "task_manager_dispatch_generation", default=None
-)
 
 
 def _get_content_id(content: bytes) -> str:
@@ -178,6 +175,16 @@ class TrackedInstruction:
     retry_count: int = 0
     max_retries: int = 3
     on_dispatch: Callable[[], Awaitable[None]] | None = None
+    activation: TaskActivation | None = None
+
+
+@dataclass
+class QueuedInstruction:
+    """One queued delivery and its optional acknowledgement tracking."""
+
+    content: str
+    activation: TaskActivation | None = None
+    tracking_id: str | None = None
 
 
 class TaskManager:
@@ -186,9 +193,12 @@ class TaskManager:
     def __init__(self, session: "Session | None" = None) -> None:
         """Initialize TaskManager."""
 
-        self._pending_instructions: List[str] = []
+        # Queue entries retain ownership and acknowledgement identity, so two
+        # producers can emit identical text without sharing lifecycle state.
+        self._pending_instructions: List[QueuedInstruction] = []
         self._session = session
         self._cache: Dict[str, Any] = {}  # Keyed storage for task data
+        self._cache_owners: Dict[str, TaskActivation] = {}
         # Derived command listings are project-scoped session state.  Keep
         # them separate from task payloads so lifecycle invalidation is
         # explicit and command-discovery keys cannot collide with task data.
@@ -215,29 +225,73 @@ class TaskManager:
 
         # Active project-scoped task instances, keyed by registered class
         self._active_project_tasks: Dict[type[Any], TaskSubscriber] = {}
+        self._project_task_activations: Dict[type[Any], TaskActivation] = {}
 
         # Serializes project-scoped task lifecycle mutations
-        self._project_task_lifecycle_lock: asyncio.Lock = asyncio.Lock()
-        self._project_task_lifecycle_generation = 0
+        self._project_task_lifecycle_lock = AsyncReentrantLock()
 
     async def restart_project_tasks(self, session: "Session") -> None:
         """Restart all registered project-scoped tasks for the active project."""
-        generation, active_tasks = await self._detach_project_tasks()
-        await self._stop_project_tasks(active_tasks)
-        await self.start_project_tasks(session, generation=generation)
-
-    async def _detach_project_tasks(self) -> tuple[int, list[TaskSubscriber]]:
-        """Detach active project tasks and reserve their replacement generation."""
         async with self._project_task_lifecycle_lock:
-            active_tasks = list(self._active_project_tasks.values())
-            self._active_project_tasks.clear()
-            for task in active_tasks:
-                self._remove_subscriptions(task)
-            self._project_task_lifecycle_generation += 1
-            self._clear_project_scoped_cache()
-            self.clear_command_cache()
-            self._clear_queued_instructions()
-            return self._project_task_lifecycle_generation, active_tasks
+            active_tasks = await self._detach_project_tasks(clear_state=True)
+            await self._stop_project_tasks(active_tasks)
+            await self._start_project_tasks(session)
+
+    async def stop_project_tasks(self) -> None:
+        """Release every project-scoped task without starting replacements."""
+        async with self._project_task_lifecycle_lock:
+            active_tasks = await self._detach_project_tasks(clear_state=True)
+            await self._stop_project_tasks(active_tasks)
+
+    @staticmethod
+    def _task_depends_on(task_class: type[Any], changed_flags: frozenset[str]) -> bool:
+        """Return whether a project task needs reconsideration for these flags."""
+        dependencies = getattr(task_class, "configuration_flags", None)
+        return dependencies is None or bool(frozenset(dependencies) & changed_flags)
+
+    async def reconcile_project_tasks(self, session: "Session", changed_flags: frozenset[str]) -> None:
+        """Reconsider only project tasks whose declared flag inputs changed."""
+        task_classes = frozenset(
+            task_class
+            for task_class in get_registered_task_classes()
+            if self._task_depends_on(task_class, changed_flags)
+        )
+        if not task_classes:
+            return
+        async with self._project_task_lifecycle_lock:
+            active_tasks = await self._detach_project_tasks(task_classes=task_classes, clear_state=False)
+            await self._stop_project_tasks(active_tasks)
+            await self._start_project_tasks(session, task_classes=task_classes)
+
+    async def _detach_project_tasks(
+        self, *, task_classes: frozenset[type[Any]] | None = None, clear_state: bool = True
+    ) -> list[TaskSubscriber]:
+        """Retire and detach selected project tasks."""
+        async with self._project_task_lifecycle_lock:
+            selected = task_classes or frozenset(self._active_project_tasks)
+            active_tasks = [task for task_class, task in self._active_project_tasks.items() if task_class in selected]
+            activations = [
+                activation
+                for task_class, activation in self._project_task_activations.items()
+                if task_class in selected
+            ]
+            self._active_project_tasks = {
+                task_class: task
+                for task_class, task in self._active_project_tasks.items()
+                if task_class not in selected
+            }
+            self._project_task_activations = {
+                task_class: activation
+                for task_class, activation in self._project_task_activations.items()
+                if task_class not in selected
+            }
+            for activation in activations:
+                activation.retire()
+            if clear_state:
+                self._clear_project_scoped_cache()
+                self.clear_command_cache()
+                self._clear_queued_instructions()
+            return active_tasks
 
     async def _stop_project_tasks(self, active_tasks: list[TaskSubscriber]) -> None:
         """Stop detached tasks without holding the lifecycle mutation lock."""
@@ -254,80 +308,90 @@ class TaskManager:
                     exc_info=True,
                 )
 
-    async def start_project_tasks(self, session: "Session", *, generation: int | None = None) -> None:
+    async def start_project_tasks(
+        self,
+        session: "Session",
+        *,
+        task_classes: frozenset[type[Any]] | None = None,
+    ) -> None:
         """Start project-scoped tasks for the Session's current binding."""
         if self._expiring:
             return
         work = self._session.work() if self._session is not None else contextlib.nullcontext()
         async with work:
-            await self._start_project_tasks(session, generation=generation)
+            async with self._project_task_lifecycle_lock:
+                await self._start_project_tasks(session, task_classes=task_classes)
 
-    async def _start_project_tasks(self, session: "Session", *, generation: int | None = None) -> None:
-        """Finish admitted startup before the owning Session can be disposed of."""
-        async with self._project_task_lifecycle_lock:
-            if generation is None:
-                generation = self._project_task_lifecycle_generation
-            registered_task_classes = get_registered_task_classes()
+    async def _start_project_tasks(
+        self,
+        session: "Session",
+        *,
+        task_classes: frozenset[type[Any]] | None = None,
+    ) -> None:
+        """Start project tasks while lifecycle replacement is serialised."""
+        registered_task_classes = get_registered_task_classes()
+        if task_classes is not None:
+            registered_task_classes = [
+                task_class for task_class in registered_task_classes if task_class in task_classes
+            ]
 
-        started_tasks: dict[type[Any], TaskSubscriber] = {}
+        started_tasks: dict[type[Any], tuple[TaskSubscriber, TaskActivation]] = {}
         for task_cls in registered_task_classes:
             if self._expiring:
                 break
-            task: Any = None
+            task: TaskSubscriber | None = None
+            activation: TaskActivation | None = None
             try:
-                # Project tasks are owned by this Session's manager. Real
-                # runtime tasks declare ``task_manager`` and receive it
-                # explicitly, which avoids ambient Session resolution when a
-                # shared configuration publication refreshes another Session.
-                # Minimal task doubles remain zero-argument by design.
-                parameters = inspect.signature(task_cls).parameters
-                task = task_cls(task_manager=self) if "task_manager" in parameters else task_cls()
-                started = await task.start(self, session)
+                task = task_cls()
+                activation = TaskActivation(self, task, session)
+                started = await task.start(activation)
             except asyncio.CancelledError:
+                if activation is not None:
+                    activation.retire()
                 if task is not None:
-                    started_tasks[task_cls] = cast(TaskSubscriber, task)
-                await self._cleanup_started_project_tasks(started_tasks.values())
+                    await self._stop_project_task(task)
+                await self._cleanup_started_project_tasks(task for task, _activation in started_tasks.values())
                 raise
             except Exception as e:
                 logger.warning(f"Error starting project-scoped task {task_cls.__name__}: {e}", exc_info=True)
+                if activation is not None:
+                    activation.retire()
                 if task is not None:
                     try:
-                        await self.unsubscribe(cast(TaskSubscriber, task))
+                        await self._stop_project_task(task)
                     except asyncio.CancelledError:
                         raise
-                    except Exception as unsubscribe_error:
+                    except Exception as cleanup_error:
                         logger.warning(
-                            "Error unsubscribing failed project-scoped task %s: %s",
+                            "Error cleaning up failed project-scoped task %s: %s",
                             task_cls.__name__,
-                            unsubscribe_error,
+                            cleanup_error,
                             exc_info=True,
                         )
                 continue
 
-            if started:
-                started_tasks[task_cls] = cast(TaskSubscriber, task)
+            if started and activation is not None:
+                started_tasks[task_cls] = (task, activation)
             else:
-                await self.unsubscribe(cast(TaskSubscriber, task))
+                if activation is not None:
+                    activation.retire()
 
-        async with self._project_task_lifecycle_lock:
-            if generation == self._project_task_lifecycle_generation:
-                self._active_project_tasks = dict(started_tasks)
-                should_start_timers = True
-            else:
-                should_start_timers = False
+        self._active_project_tasks.update(
+            {task_class: task for task_class, (task, _activation) in started_tasks.items()}
+        )
+        self._project_task_activations.update(
+            {task_class: activation for task_class, (_task, activation) in started_tasks.items()}
+        )
 
-        if should_start_timers:
-            try:
-                await self.start()
-            except (Exception, asyncio.CancelledError):
-                async with self._project_task_lifecycle_lock:
-                    if generation == self._project_task_lifecycle_generation:
-                        self._active_project_tasks.clear()
-
-                await self._cleanup_started_project_tasks(started_tasks.values())
-                raise
-        else:
-            await self._cleanup_started_project_tasks(started_tasks.values())
+        try:
+            await self.start()
+        except (Exception, asyncio.CancelledError):
+            for task_class, (task, activation) in started_tasks.items():
+                self._active_project_tasks.pop(task_class, None)
+                self._project_task_activations.pop(task_class, None)
+                activation.retire()
+            await self._cleanup_started_project_tasks(task for task, _activation in started_tasks.values())
+            raise
 
     async def _cleanup_started_project_tasks(self, tasks: Any) -> None:
         """Stop every started project task before propagating cancellation."""
@@ -352,7 +416,7 @@ class TaskManager:
         """Stop and unsubscribe one project-scoped task instance."""
         try:
             if stop := getattr(task, "stop", None):
-                await stop(self)
+                await stop()
         except asyncio.CancelledError:
             raise
         except Exception as e:
@@ -363,12 +427,23 @@ class TaskManager:
 
     def _clear_project_scoped_cache(self) -> None:
         """Clear volatile cached data that belongs to the previous project."""
-        generation_token = _dispatch_generation.set(None)
-        try:
-            for cache_key in PROJECT_SCOPED_CACHE_KEYS:
-                self.set_cached_data(cache_key, None)
-        finally:
-            _dispatch_generation.reset(generation_token)
+        for cache_key in PROJECT_SCOPED_CACHE_KEYS:
+            self.set_cached_data(cache_key, None)
+
+    def _retire_task_activation(self, activation: TaskActivation) -> None:
+        """Remove all manager state owned by one retired activation."""
+        self._remove_activation_subscriptions(activation)
+        for cache_key, owner in tuple(self._cache_owners.items()):
+            if owner is activation:
+                self._set_cached_data(cache_key, None, activation=activation)
+
+        for instruction_id, tracked in tuple(self._tracked_instructions.items()):
+            if tracked.activation is activation:
+                del self._tracked_instructions[instruction_id]
+
+        self._pending_instructions = [
+            instruction for instruction in self._pending_instructions if instruction.activation is not activation
+        ]
 
     def clear_command_cache(self) -> None:
         """Discard command listings derived from the previous flag state."""
@@ -443,11 +518,24 @@ class TaskManager:
         self.clear_command_cache()
         await self.start_project_tasks(session)
 
-    async def on_config_changed(self, session: "Session") -> None:
-        """Invalidate cached flags when project config changes."""
+    async def on_configuration_changed(self, session: "Session", update: "ConfigurationUpdate") -> None:
+        """Apply only task-relevant portions of an effective configuration update."""
+        if update.changes.project_entry_changed:
+            self._resolved_flags = None
+            self._resolved_flags_session = None
+            if update.current_project is None:
+                await self.stop_project_tasks()
+            else:
+                await self.restart_project_tasks(session)
+            return
+        if not (update.changes.resolved_flags or update.changes.project_flags):
+            return
         self._resolved_flags = None
         self._resolved_flags_session = None
-        await self.restart_project_tasks(session)
+        if not update.changes.resolved_flags:
+            return
+        self.clear_command_cache()
+        await self.reconcile_project_tasks(session, update.changes.resolved_flags)
 
     @classmethod
     async def _reset_for_testing(cls) -> None:
@@ -471,8 +559,29 @@ class TaskManager:
         *,
         priority: bool = False,
     ) -> None:
+        """Subscribe an unowned Session-level subscriber to events."""
+        self._subscribe(
+            subscriber,
+            event_types,
+            timer_interval,
+            initial_delay,
+            once_interval,
+            priority=priority,
+        )
+
+    def _subscribe(
+        self,
+        subscriber: TaskSubscriber,
+        event_types: EventType,
+        timer_interval: Optional[float] = None,
+        initial_delay: Optional[float] = None,
+        once_interval: Optional[float] = None,
+        *,
+        priority: bool = False,
+        activation: TaskActivation | None = None,
+    ) -> None:
         """Subscribe to events with optional timer support."""
-        if self._expiring:
+        if self._expiring or (activation is not None and not activation.is_active):
             return
         logger.trace(
             f"TaskManager.subscribe: {subscriber.get_name()} subscribing to {event_types}, "
@@ -509,7 +618,14 @@ class TaskManager:
             if once_interval is not None:
                 combined_event_types |= EventType.TIMER_ONCE
 
-            subscription = Subscription(subscriber, combined_event_types, timer_interval, initial_delay, once_interval)
+            subscription = Subscription(
+                subscriber,
+                combined_event_types,
+                timer_interval,
+                initial_delay,
+                once_interval,
+                activation,
+            )
             subscription.original_event_types = event_types
             subscription.unique_timer_bit = unique_timer_bit
 
@@ -537,7 +653,7 @@ class TaskManager:
                     "last_data": None,
                 }
         else:
-            regular_subscription = Subscription(subscriber, event_types)
+            regular_subscription = Subscription(subscriber, event_types, activation=activation)
             if priority:
                 self._subscriptions.insert(0, regular_subscription)
             else:
@@ -568,19 +684,26 @@ class TaskManager:
         self._subscriptions = [sub for sub in self._subscriptions if sub.subscriber is not subscriber]
         logger.debug(f"TaskManager.unsubscribe: {subscriber.get_name()}")
 
-    async def unsubscribe(self, subscriber: TaskSubscriber) -> None:
-        """Remove all subscriptions for a subscriber."""
-        self._remove_subscriptions(subscriber)
+    def _remove_activation_subscriptions(self, activation: TaskActivation) -> None:
+        """Remove only subscriptions created through one task activation."""
+        subscriptions = [subscription for subscription in self._subscriptions if subscription.activation is activation]
+        if not subscriptions:
+            return
+        self._remove_subscriptions(activation.task)
 
-        # Check if any timer subscriptions remain
+    async def _stop_timer_if_unused(self) -> None:
+        """Stop the timer worker when no subscription requires it."""
         has_timers = any(sub.is_timer() for sub in self._subscriptions)
-
-        # Stop timer task if no timer subscriptions remain
         if not has_timers and self._timer_task and not self._timer_task.done():
             self._timer_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._timer_task
             self._timer_task = None
+
+    async def unsubscribe(self, subscriber: TaskSubscriber) -> None:
+        """Remove all subscriptions for a subscriber."""
+        self._remove_subscriptions(subscriber)
+        await self._stop_timer_if_unused()
 
     async def start(self) -> None:
         """Start all timer tasks for subscribed tasks."""
@@ -605,6 +728,8 @@ class TaskManager:
         logger.trace(f"TaskManager.on_tool called, {len(self._subscriptions)} subscriptions")
         for subscription in self._subscriptions[:]:
             subscriber = subscription.subscriber
+            if subscription.activation is not None and not subscription.activation.is_active:
+                continue
             try:
                 await subscriber.on_tool()
             except Exception as e:
@@ -630,10 +755,11 @@ class TaskManager:
 
         async with self._project_task_lifecycle_lock:
             active_tasks = list(self._active_project_tasks.values())
+            activations = list(self._project_task_activations.values())
             self._active_project_tasks.clear()
-            for task in active_tasks:
-                self._remove_subscriptions(task)
-            self._project_task_lifecycle_generation += 1
+            self._project_task_activations.clear()
+            for activation in activations:
+                activation.retire()
 
         failure: BaseException | None = None
         for task in active_tasks:
@@ -641,7 +767,6 @@ class TaskManager:
                 await self._stop_project_task(task)
             except (Exception, asyncio.CancelledError) as e:
                 logger.warning(f"Error stopping project task {task.get_name()} during cleanup: {e}")
-                self._active_project_tasks[type(task)] = task
                 if failure is None:
                     failure = e
 
@@ -649,6 +774,7 @@ class TaskManager:
         self._pending_instructions.clear()
         self._tracked_instructions.clear()
         self._cache.clear()
+        self._cache_owners.clear()
         self.clear_command_cache()
         self._resolved_flags = None
         self._resolved_flags_session = None
@@ -695,9 +821,6 @@ class TaskManager:
 
         logger.trace(f"Dispatching event {data_type} to {len(self._subscriptions)} subscriptions")
 
-        async with self._project_task_lifecycle_lock:
-            dispatch_generation = self._project_task_lifecycle_generation
-
         # Check regular subscriptions and clean up dead references
         current_time = time.time()
         event_results: list[EventResult] = []
@@ -707,6 +830,8 @@ class TaskManager:
             if subscriber is None:
                 logger.trace("Subscription has dead weak reference, removing")
                 continue
+            if subscription.activation is not None and not subscription.activation.is_active:
+                continue
 
             logger.trace(f"Checking subscription: {subscriber.get_name()} with event_types {subscription.event_types}")
             if subscription.event_types & data_type:
@@ -715,24 +840,19 @@ class TaskManager:
                     f"dispatching to {subscriber.get_name()}"
                 )
                 result: EventResult | None = None
-                generation_token = _dispatch_generation.set((self, dispatch_generation))
                 try:
                     result = await subscriber.handle_event(data_type, actual_data)
-                    # Ignore output from a handler whose project generation
-                    # has been replaced while it was running.
-                    if result is not None and self._project_task_lifecycle_generation == dispatch_generation:
+                    if result is not None and (subscription.activation is None or subscription.activation.is_active):
                         event_results.append(result)
                         if result.consumed:
                             break
                         logger.trace(f"Event handled by {subscriber.get_name()}")
                     elif result is not None:
-                        logger.trace(f"Discarding stale event result from {subscriber.get_name()}")
+                        logger.trace(f"Discarding result from retired activation {subscriber.get_name()}")
                     else:
                         logger.trace(f"Event not handled by {subscriber.get_name()}")
                 except Exception as e:
                     logger.warning(f"Error handling event in {subscriber.get_name()}: {e}")
-                finally:
-                    _dispatch_generation.reset(generation_token)
 
                 # Check if this was a TIMER_ONCE event that was handled - remove TIMER_ONCE flag only
                 if (
@@ -783,23 +903,38 @@ class TaskManager:
         return event_results
 
     async def queue_instruction(self, instruction: str, priority: bool = False) -> None:
-        """Queue instruction for next dispatch.
+        """Queue an unowned Session-level instruction for next dispatch."""
+        await self._queue_instruction(instruction, priority=priority)
 
-        Args:
-            instruction: Instruction text to queue
-            priority: If True, insert at front; if False, append to end
-        """
-        if not self._is_current_dispatch_generation():
-            logger.debug("Discarding instruction from a stale project task dispatch")
+    async def _queue_instruction(
+        self, instruction: str, priority: bool = False, *, activation: TaskActivation | None = None
+    ) -> None:
+        """Queue an instruction, attributing it to an active activation when supplied."""
+        if activation is not None and not activation.is_active:
+            logger.debug("Discarding instruction from a retired task activation")
             return
-        if instruction not in self._pending_instructions:
+        if not any(
+            queued.content == instruction and queued.activation is activation for queued in self._pending_instructions
+        ):
+            queued = QueuedInstruction(instruction, activation=activation)
             if priority:
-                self._pending_instructions.insert(0, instruction)
+                self._pending_instructions.insert(0, queued)
             else:
-                self._pending_instructions.append(instruction)
+                self._pending_instructions.append(queued)
 
     async def queue_instruction_with_ack(
         self, content: str, max_retries: int = 3, *, on_dispatch: Callable[[], Awaitable[None]] | None = None
+    ) -> str:
+        """Queue an unowned Session-level acknowledgement-tracked instruction."""
+        return await self._queue_instruction_with_ack(content, max_retries=max_retries, on_dispatch=on_dispatch)
+
+    async def _queue_instruction_with_ack(
+        self,
+        content: str,
+        max_retries: int = 3,
+        *,
+        on_dispatch: Callable[[], Awaitable[None]] | None = None,
+        activation: TaskActivation | None = None,
     ) -> str:
         """Queue instruction with acknowledgement tracking.
 
@@ -812,33 +947,40 @@ class TaskManager:
         Returns:
             Instruction ID for acknowledgement
         """
-        # Use CRC32 of content as ID for natural deduplication
+        if activation is not None and not activation.is_active:
+            logger.debug("Discarding acknowledged instruction from a retired task activation")
+            return _get_content_id(content.encode())
+
+        # A producer may enqueue the same request repeatedly, but distinct
+        # owners must retain separate delivery and retirement state.
+        for instruction_id, tracked in self._tracked_instructions.items():
+            if tracked.content == content and tracked.activation is activation:
+                return instruction_id
+
         content_id = _get_content_id(content.encode())
-
-        if not self._is_current_dispatch_generation():
-            logger.debug("Discarding acknowledged instruction from a stale project task dispatch")
-            return content_id
-
-        # Check for duplicate content
-        if content_id in self._tracked_instructions:
-            return content_id
+        instruction_id = content_id
+        collision = 1
+        while instruction_id in self._tracked_instructions:
+            collision += 1
+            instruction_id = f"{content_id}-{collision}"
 
         # Create tracked instruction
         current_time = time.time()
         tracked = TrackedInstruction(
-            id=content_id,
+            id=instruction_id,
             content=content,
             queued_at=current_time,
             last_sent_at=current_time,
             retry_count=0,
             max_retries=max_retries,
             on_dispatch=on_dispatch,
+            activation=activation,
         )
 
-        self._tracked_instructions[content_id] = tracked
-        self._pending_instructions.append(content)
+        self._tracked_instructions[instruction_id] = tracked
+        self._pending_instructions.append(QueuedInstruction(content, activation=activation, tracking_id=instruction_id))
 
-        return content_id
+        return instruction_id
 
     async def acknowledge_instruction(self, instruction_id: str) -> None:
         """Acknowledge instruction receipt - prevents retry.
@@ -846,11 +988,29 @@ class TaskManager:
         Args:
             instruction_id: ID returned from queue_instruction_with_ack()
         """
-        if tracked := self._tracked_instructions.pop(instruction_id, None):
+        await self._acknowledge_instruction(instruction_id)
+
+    async def _acknowledge_instruction(self, instruction_id: str, *, activation: TaskActivation | None = None) -> None:
+        """Acknowledge an instruction when its owner is allowed to do so."""
+        tracked = self._tracked_instructions.get(instruction_id)
+        if tracked is None:
+            return
+        if activation is not None and (not activation.is_active or tracked.activation is not activation):
+            logger.debug("Discarding acknowledgement from a retired or unrelated task activation")
+            return
+
+        del self._tracked_instructions[instruction_id]
+        if tracked.activation is None:
+            discarded = {tracked.content, f"**IMPORTANT:** {tracked.content}", f"**URGENT:** {tracked.content}"}
             self._pending_instructions = [
                 item
                 for item in self._pending_instructions
-                if item not in (tracked.content, f"**IMPORTANT:** {tracked.content}", f"**URGENT:** {tracked.content}")
+                if item.tracking_id != instruction_id
+                and not (item.activation is None and item.tracking_id is None and item.content in discarded)
+            ]
+        else:
+            self._pending_instructions = [
+                item for item in self._pending_instructions if item.tracking_id != instruction_id
             ]
 
     def is_queue_empty(self) -> bool:
@@ -896,7 +1056,9 @@ class TaskManager:
                 else:
                     content = f"**URGENT:** {tracked.content}"
 
-                self._pending_instructions.append(content)
+                self._pending_instructions.append(
+                    QueuedInstruction(content, activation=tracked.activation, tracking_id=instr_id)
+                )
 
     async def process_result(self, result: "Result[Any]", event_type: Optional[EventType] = None) -> "Result[Any]":
         """Process MCP Result and delegate to registered tasks."""
@@ -908,13 +1070,14 @@ class TaskManager:
         if self._pending_instructions:
             # Get the first instruction (FIFO)
             instruction = self._pending_instructions.pop(0)
-            tracked = self._tracked_instructions.get(_get_content_id(instruction.encode()))
+            tracked = self._tracked_instructions.get(instruction.tracking_id) if instruction.tracking_id else None
             if tracked is not None and tracked.on_dispatch is not None:
                 on_dispatch, tracked.on_dispatch = tracked.on_dispatch, None
-                await on_dispatch()
+                if tracked.activation is None or tracked.activation.is_active:
+                    await on_dispatch()
             from dataclasses import replace
 
-            return replace(result, additional_agent_instructions=instruction)
+            return replace(result, additional_agent_instructions=instruction.content)
 
         return result
 
@@ -969,15 +1132,23 @@ class TaskManager:
         return value
 
     def set_cached_data(self, key: str, value: Any) -> None:
-        """Set cached data by key."""
-        if not self._is_current_dispatch_generation():
-            logger.debug("Discarding cached data from a stale project task dispatch")
+        """Set unowned Session-level cached data by key."""
+        self._set_cached_data(key, value)
+
+    def _set_cached_data(self, key: str, value: Any, *, activation: TaskActivation | None = None) -> None:
+        """Set cache data, accepting writes only from the activation that owns them."""
+        if activation is not None and not activation.is_active and value is not None:
+            logger.debug("Discarding cache data from a retired task activation")
             return
         if value is None:
+            if activation is not None and self._cache_owners.get(key) is not activation:
+                return
             if key not in self._cache:
+                self._cache_owners.pop(key, None)
                 return
 
             self._cache.pop(key)
+            self._cache_owners.pop(key, None)
             logger.trace(
                 f"TaskManager.set_cached_data('{key}'): removed, cache now has {len(self._cache)} keys: {list(self._cache.keys())}"
             )
@@ -990,6 +1161,10 @@ class TaskManager:
             return
 
         self._cache[key] = value
+        if activation is not None:
+            self._cache_owners[key] = activation
+        else:
+            self._cache_owners.pop(key, None)
         logger.trace(
             f"TaskManager.set_cached_data('{key}'): {type(value).__name__}, cache now has {len(self._cache)} keys: {list(self._cache.keys())}"
         )
@@ -1000,11 +1175,6 @@ class TaskManager:
 
             invalidate_template_context_cache(self._require_session())
             logger.trace(f"Template context cache invalidated due to {key} change")
-
-    def _is_current_dispatch_generation(self) -> bool:
-        """Return whether a task-dispatch write belongs to the active project."""
-        dispatch = _dispatch_generation.get()
-        return dispatch is None or dispatch[0] is not self or dispatch[1] == self._project_task_lifecycle_generation
 
     def _require_session(self) -> "Session":
         """Return the manager's owning Session or fail closed."""

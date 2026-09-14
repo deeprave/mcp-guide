@@ -10,7 +10,7 @@ from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 
 if TYPE_CHECKING:
-    from mcp_guide.task_manager import TaskManager
+    from mcp_guide.task_manager.activation import TaskActivation
     from mcp_guide.task_manager.manager import EventResult
 
 logger = get_logger(__name__)
@@ -20,9 +20,11 @@ logger = get_logger(__name__)
 class ClientContextTask(InitialisableMixin):
     """Task for collecting client context information."""
 
-    def __init__(self, task_manager: "TaskManager"):
-        """Create a project task with its owning Session's manager."""
-        self.task_manager = task_manager
+    configuration_flags = frozenset({FLAG_ALLOW_CLIENT_INFO})
+
+    def __init__(self) -> None:
+        """Create an inactive client-context task."""
+        self.activation: TaskActivation | None = None
         self._session: Any = None
         self._os_info_requested = False
         self._flag_checked = False
@@ -36,23 +38,23 @@ class ClientContextTask(InitialisableMixin):
         """Get a readable name for the task."""
         return "ClientContextTask"
 
-    async def start(self, task_manager: "TaskManager", session: Any) -> bool:
+    async def start(self, activation: "TaskActivation") -> bool:
         """Start client context collection if enabled for the current project."""
         if self._started:
             return True
 
-        self.task_manager = task_manager
-        self._session = session
-        if not await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO, session):
+        self.activation = activation
+        self._session = activation.session
+        if not await activation.requires_flag(FLAG_ALLOW_CLIENT_INFO):
             logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
             self._flag_checked = True
             return False
 
-        task_manager.subscribe(self, EventType.FS_FILE_CONTENT, once_interval=DEFAULT_ONCE_INTERVAL)
+        activation.subscribe(EventType.FS_FILE_CONTENT, once_interval=DEFAULT_ONCE_INTERVAL)
         self._started = True
         return True
 
-    async def stop(self, task_manager: "TaskManager") -> None:
+    async def stop(self) -> None:
         """Reset startup state when the task is stopped."""
         self._started = False
 
@@ -65,10 +67,12 @@ class ClientContextTask(InitialisableMixin):
 
         if self._session is None:
             return EventResult(result=False, message="Client context task is not attached to a Session")
-        allow_client_info = await self.task_manager.requires_flag(FLAG_ALLOW_CLIENT_INFO, self._session)
+        if self.activation is None:
+            return EventResult(result=False, message="Client context task has no activation")
+        allow_client_info = await self.activation.requires_flag(FLAG_ALLOW_CLIENT_INFO)
 
         if not allow_client_info:
-            await self.task_manager.unsubscribe(self)
+            await self.activation.unsubscribe()
             self._started = False
             logger.debug(f"ClientContextTask disabled - {FLAG_ALLOW_CLIENT_INFO} flag not set")
             self._flag_checked = True
@@ -84,7 +88,8 @@ class ClientContextTask(InitialisableMixin):
         """Request basic OS information from client."""
         rendered = await render_context_template(self._session, "client-context-setup")
         if rendered:
-            self._os_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
+            if self.activation is not None:
+                self._os_instruction_id = await self.activation.queue_instruction_with_ack(rendered.content)
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
@@ -111,11 +116,13 @@ class ClientContextTask(InitialisableMixin):
                 content = data.get("content", "")
                 try:
                     os_info = json.loads(content)
-                    self.task_manager.set_cached_data("client_os_info", os_info)
+                    if self.activation is None:
+                        return None
+                    self.activation.set_cached_data("client_os_info", os_info)
 
                     # Acknowledge OS info instruction
                     if self._os_instruction_id:
-                        await self.task_manager.acknowledge_instruction(self._os_instruction_id)
+                        await self.activation.acknowledge_instruction(self._os_instruction_id)
                         self._os_instruction_id = None
 
                     # Invalidate template context cache
@@ -133,11 +140,13 @@ class ClientContextTask(InitialisableMixin):
                 content = data.get("content", "")
                 try:
                     context_info = json.loads(content)
-                    self.task_manager.set_cached_data("client_context_info", context_info)
+                    if self.activation is None:
+                        return None
+                    self.activation.set_cached_data("client_context_info", context_info)
 
                     # Acknowledge context instruction
                     if self._context_instruction_id:
-                        await self.task_manager.acknowledge_instruction(self._context_instruction_id)
+                        await self.activation.acknowledge_instruction(self._context_instruction_id)
                         self._context_instruction_id = None
 
                     # Invalidate template context cache
@@ -157,4 +166,5 @@ class ClientContextTask(InitialisableMixin):
         client_data = os_info.get("client", {})
         rendered = await render_context_template(self._session, "client-context-detailed", {"client": client_data})
         if rendered:
-            self._context_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
+            if self.activation is not None:
+                self._context_instruction_id = await self.activation.queue_instruction_with_ack(rendered.content)

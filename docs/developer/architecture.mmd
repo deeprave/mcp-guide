@@ -23,7 +23,7 @@ flowchart TB
     ResourceRegistration --> NativeResponses
 
     subgraph Runtime["GuideRuntime — process-global lifecycle and shared state"]
-        ConfigManager["ConfigManager\nconfiguration cache · watcher · shared update publication\ndocroot resolved at runtime start"]
+        ConfigManager["ConfigManager\nvalidated snapshots · watcher · snapshot-delta publication\ndocroot resolved at runtime start"]
         SessionManager["Session manager\nruntime owner-key → Session registry\nidle-session expiry"]
         SessionResolver["Session resolver\nFastMCP request context + optional session_id"]
         Session["Session — per client interaction\nproject root · active configuration · agent metadata"]
@@ -31,9 +31,10 @@ flowchart TB
 
         SessionResolver --> SessionManager
         SessionManager -->|creates / returns| Session
-        ConfigManager -->|injected into| Session
+        Session -->|configuration reads and writes| ConfigManager
         Session -->|owns| TaskManager
-        ConfigManager -->|configuration delta| Session
+        ConfigManager -->|snapshot delta| SessionManager
+        SessionManager -->|effective update queue| Session
     end
 
     ToolRegistration -->|on_tool| TaskManager

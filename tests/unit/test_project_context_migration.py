@@ -247,7 +247,7 @@ async def test_initial_bind_listener_can_publish_a_configuration_mutation(tmp_pa
                 lambda project: project.with_category("docs", Category(dir="docs/", patterns=[]))
             )
 
-        async def on_config_changed(self, observed: Session) -> None:
+        async def on_configuration_changed(self, observed: Session, update) -> None:
             pass
 
     session.add_listener(Listener())

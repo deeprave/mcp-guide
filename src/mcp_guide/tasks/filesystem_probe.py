@@ -15,7 +15,7 @@ from mcp_guide.task_manager.manager import EventResult
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
-    from mcp_guide.task_manager import TaskManager
+    from mcp_guide.task_manager.activation import TaskActivation
 
 logger = get_logger(__name__)
 PROBE_TIMEOUT_SECONDS = 60.0
@@ -26,10 +26,12 @@ PROBE_BASE = Path("/tmp")  # nosec B108: required shared base for the stdio file
 class FilesystemProbeTask:
     """Verify one stdio filesystem, then remove all owned probe resources."""
 
+    configuration_flags = frozenset()
+
     _pending: ClassVar[bool] = False
 
-    def __init__(self, task_manager: "TaskManager") -> None:
-        self.task_manager = task_manager
+    def __init__(self) -> None:
+        self.activation: TaskActivation | None = None
         self._session: Session | None = None
         self._path: Path | None = None
         self._challenge = ""
@@ -41,14 +43,15 @@ class FilesystemProbeTask:
     def get_name(self) -> str:
         return "FilesystemProbeTask"
 
-    async def start(self, task_manager: "TaskManager", session: "Session") -> bool:
+    async def start(self, activation: "TaskActivation") -> bool:
         if self._started:
             return not self._finished
+        session = activation.session
         if LazyPath.client_filesystem_shared is not None or type(self)._pending or session.bound_root_path is None:
             return False
         type(self)._pending = True
         self._started = True
-        self.task_manager = task_manager
+        self.activation = activation
         self._session = session
         self._challenge = secrets.token_hex(32)
         path = PROBE_BASE / f".mcp-guide-fs-probe-{secrets.token_hex(16)}"
@@ -59,8 +62,8 @@ class FilesystemProbeTask:
             async with await async_path.open("x", encoding="utf-8") as stream:
                 await stream.write(self._challenge)
             await async_path.chmod(0o444)
-            task_manager.subscribe(self, EventType.FS_FILE_CONTENT, priority=True)
-            self._instruction_id = await task_manager.queue_instruction_with_ack(
+            activation.subscribe(EventType.FS_FILE_CONTENT, priority=True)
+            self._instruction_id = await activation.queue_instruction_with_ack(
                 f"Read the existing file {str(path)!r} using the client's filesystem and send its exact contents "
                 "through send_file_content with that exact absolute path. Do not create or modify the file. "
                 "If it cannot be read, send content='unreadable' for that path. "
@@ -120,10 +123,12 @@ class FilesystemProbeTask:
             except OSError as error:
                 logger.warning(f"Unable to remove shared filesystem probe: {error}")
         if self._instruction_id is not None:
-            await self.task_manager.acknowledge_instruction(self._instruction_id)
-        await self.task_manager.unsubscribe(self)
+            if self.activation is not None:
+                await self.activation.acknowledge_instruction(self._instruction_id)
+        if self.activation is not None:
+            await self.activation.unsubscribe()
 
-    async def stop(self, task_manager: "TaskManager") -> None:
+    async def stop(self) -> None:
         await self._finish(False)
 
     async def on_tool(self) -> None:

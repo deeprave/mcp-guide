@@ -3,6 +3,7 @@
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from mcp_guide.configuration_update import ConfigurationUpdate
     from mcp_guide.session import Session
 
 
@@ -19,10 +20,11 @@ class SessionListener(Protocol):
         """
         ...
 
-    async def on_config_changed(self, session: "Session") -> None:
-        """Called when project configuration changes.
+    async def on_configuration_changed(self, session: "Session", update: "ConfigurationUpdate") -> None:
+        """Called when a consumer-visible effective configuration changes.
 
         Args:
             session: Session instance whose config changed
+            update: Immutable effective update for the Session's bound project
         """
         ...
