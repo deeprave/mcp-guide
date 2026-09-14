@@ -20,7 +20,7 @@ from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 
 if TYPE_CHECKING:
-    from mcp_guide.task_manager import TaskManager
+    from mcp_guide.task_manager.activation import TaskActivation
     from mcp_guide.task_manager.manager import EventResult
 
 logger = get_logger(__name__)
@@ -35,10 +35,12 @@ OPENSPEC_CHECK_INTERVAL = 24 * 60 * 60
 class OpenSpecTask(InitialisableMixin):
     """Task for detecting OpenSpec CLI availability."""
 
-    def __init__(self, task_manager: "TaskManager"):
-        """Create a project task with its owning Session's manager."""
-        self.task_manager = task_manager
-        self._session: Any = task_manager._session
+    configuration_flags = frozenset({FLAG_OPENSPEC, FLAG_OPENSPEC_STATE})
+
+    def __init__(self) -> None:
+        """Create an inactive OpenSpec task."""
+        self.activation: TaskActivation | None = None
+        self._session: Any = None
         self._cli_requested = False
         self._flag_checked = False
         self._available: Optional[bool] = None
@@ -57,22 +59,28 @@ class OpenSpecTask(InitialisableMixin):
         self._version_instruction_id: Optional[str] = None
         self._changes_instruction_id: Optional[str] = None
 
-    async def start(self, task_manager: "TaskManager", session: Any) -> bool:
+    async def start(self, activation: "TaskActivation") -> bool:
         """Start OpenSpec detection if enabled for the current project."""
-        self.task_manager = task_manager
-        self._session = session
+        self.activation = activation
+        self._session = activation.session
         if not await self._is_enabled():
             logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
             self._flag_checked = True
             return False
 
-        task_manager.subscribe(
-            self,
+        activation.subscribe(
             EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY | EventType.TIMER,
             CHANGES_CHECK_INTERVAL,
             once_interval=DEFAULT_ONCE_INTERVAL,
         )
         return True
+
+    @property
+    def _activation(self) -> "TaskActivation":
+        """Return the task's activation after it has started."""
+        if self.activation is None:
+            raise RuntimeError("OpenSpec task is not active")
+        return self.activation
 
     def get_name(self) -> str:
         """Get a readable name for the task."""
@@ -90,7 +98,7 @@ class OpenSpecTask(InitialisableMixin):
         openspec_enabled = await self._is_enabled()
 
         if not openspec_enabled:
-            await self.task_manager.unsubscribe(self)
+            await self._activation.unsubscribe()
             logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
             self._flag_checked = True
             return EventResult(result=True)
@@ -99,8 +107,8 @@ class OpenSpecTask(InitialisableMixin):
         if self._is_recent(state):
             self._available = state.validated
             self._version = state.version
-            self.task_manager.set_cached_data("openspec_available", self._available)
-            self.task_manager.set_cached_data("openspec_version", self._version)
+            self._activation.set_cached_data("openspec_available", self._available)
+            self._activation.set_cached_data("openspec_version", self._version)
             if state.validated and not self._project_requested:
                 self._project_requested = True
                 await self.request_project_check()
@@ -242,7 +250,7 @@ class OpenSpecTask(InitialisableMixin):
         Returns:
             Show data dict or None if not cached.
         """
-        data = self.task_manager.get_cached_data("openspec_show")
+        data = self._activation.get_cached_data("openspec_show")
         return data if isinstance(data, dict) else None
 
     def get_status(self) -> Optional[dict[str, Any]]:
@@ -251,7 +259,7 @@ class OpenSpecTask(InitialisableMixin):
         Returns:
             Status data dict or None if not cached.
         """
-        data = self.task_manager.get_cached_data("openspec_status")
+        data = self._activation.get_cached_data("openspec_status")
         return data if isinstance(data, dict) else None
 
     def is_cache_valid(self, ttl: int = CHANGES_CACHE_TTL) -> bool:
@@ -275,19 +283,19 @@ class OpenSpecTask(InitialisableMixin):
         """Request OpenSpec CLI availability check from client."""
         rendered = await render_openspec_template(self._session, "openspec-cli-check")
         if rendered:
-            self._cli_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
+            self._cli_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
 
     async def request_project_check(self) -> None:
         """Request OpenSpec project structure check from client."""
         rendered = await render_openspec_template(self._session, "openspec-project-check")
         if rendered:
-            self._project_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
+            self._project_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
 
     async def request_version_check(self) -> None:
         """Request OpenSpec CLI version from client."""
         rendered = await render_openspec_template(self._session, "openspec-version-check")
         if rendered:
-            self._version_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
+            self._version_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
@@ -310,12 +318,12 @@ class OpenSpecTask(InitialisableMixin):
                 path = data.get("path", "")
                 found = data.get("found", False)
                 self._available = found and bool(path)
-                self.task_manager.set_cached_data("openspec_available", self._available)
+                self._activation.set_cached_data("openspec_available", self._available)
                 logger.info(f"OpenSpec CLI {'available' if self._available else 'not available'}")
 
                 # Acknowledge CLI check instruction
                 if self._cli_instruction_id:
-                    await self.task_manager.acknowledge_instruction(self._cli_instruction_id)
+                    await self._activation.acknowledge_instruction(self._cli_instruction_id)
                     self._cli_instruction_id = None
 
                 # If CLI available, request version check first
@@ -336,7 +344,7 @@ class OpenSpecTask(InitialisableMixin):
 
                 # Acknowledge project check instruction
                 if self._project_instruction_id:
-                    await self.task_manager.acknowledge_instruction(self._project_instruction_id)
+                    await self._activation.acknowledge_instruction(self._project_instruction_id)
                     self._project_instruction_id = None
 
                 if self._project_enabled:
@@ -363,7 +371,7 @@ class OpenSpecTask(InitialisableMixin):
 
                 # Acknowledge version check instruction
                 if self._version_instruction_id:
-                    await self.task_manager.acknowledge_instruction(self._version_instruction_id)
+                    await self._activation.acknowledge_instruction(self._version_instruction_id)
                     self._version_instruction_id = None
 
                 return EventResult(result=True)
@@ -392,7 +400,7 @@ class OpenSpecTask(InitialisableMixin):
             # Format specific OpenSpec responses
             if path_name == ".openspec-status.json":
                 # Cache the status data
-                self.task_manager.set_cached_data("openspec_status", json_data)
+                self._activation.set_cached_data("openspec_status", json_data)
 
                 # Render and return the status format
                 rendered = await render_openspec_template(
@@ -413,12 +421,12 @@ class OpenSpecTask(InitialisableMixin):
                 changes = json_data.get("changes", [])
                 self._changes_cache = changes
                 self._changes_timestamp = time.time()
-                self.task_manager.set_cached_data("openspec_changes", changes)
+                self._activation.set_cached_data("openspec_changes", changes)
                 logger.debug(f"Cached {len(changes)} OpenSpec changes")
 
                 # Acknowledge changes request instruction
                 if self._changes_instruction_id:
-                    await self.task_manager.acknowledge_instruction(self._changes_instruction_id)
+                    await self._activation.acknowledge_instruction(self._changes_instruction_id)
                     self._changes_instruction_id = None
 
                 # Invalidate template context cache to pick up fresh changes
@@ -439,7 +447,7 @@ class OpenSpecTask(InitialisableMixin):
 
             elif path_name == ".openspec-show.json":
                 # Cache the show data
-                self.task_manager.set_cached_data("openspec_show", json_data)
+                self._activation.set_cached_data("openspec_show", json_data)
 
                 # Render and return the show format
                 rendered = await render_openspec_template(
@@ -459,7 +467,7 @@ class OpenSpecTask(InitialisableMixin):
         """Request openspec changes JSON via command execution."""
         rendered = await render_openspec_template(self._session, "openspec-get-changes")
         if rendered:
-            self._changes_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
+            self._changes_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
 
     async def _handle_changes_reminder(self) -> None:
         """Handle timer events for changes monitoring.
@@ -483,7 +491,7 @@ class OpenSpecTask(InitialisableMixin):
             if match:
                 self._version = match.group(1)
                 self._version_this_session = self._version
-                self.task_manager.set_cached_data("openspec_version", self._version)
+                self._activation.set_cached_data("openspec_version", self._version)
                 logger.info(f"OpenSpec version: {self._version}")
 
                 await self._persist_global_state(validated=True, version=self._version)
@@ -496,12 +504,12 @@ class OpenSpecTask(InitialisableMixin):
                 logger.warning(f"Failed to parse OpenSpec version from: {content}")
                 self._version = None
                 self._version_this_session = None
-                self.task_manager.set_cached_data("openspec_version", None)
+                self._activation.set_cached_data("openspec_version", None)
                 await self._persist_global_state(validated=False)
         finally:
             # Always acknowledge to prevent re-queuing
             if self._version_instruction_id:
-                await self.task_manager.acknowledge_instruction(self._version_instruction_id)
+                await self._activation.acknowledge_instruction(self._version_instruction_id)
                 self._version_instruction_id = None
 
     async def _format_error_response(self, data: dict[str, Any]) -> RenderedContent | None:

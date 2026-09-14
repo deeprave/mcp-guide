@@ -1,5 +1,6 @@
 """Session management for per-project runtime state."""
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -8,6 +9,7 @@ from urllib.parse import unquote, urlsplit
 
 from fastmcp import Context
 
+from mcp_guide.configuration_update import ConfigurationUpdate, project_from_snapshot
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.lazy_path import LazyPath
 from mcp_guide.mcp_context import SessionProtocolType, cache_mcp_globals
@@ -64,14 +66,7 @@ class UnmintableGuideSessionError(RuntimeError):
 class ConfigurationService(Protocol):
     """Runtime-owned configuration operations used by Session without importing ConfigManager."""
 
-    def register_session(self, session: object) -> None: ...
-
-    def unregister_session(self, session: object) -> None: ...
-
     def _invalidate_feature_flags(self) -> None: ...
-
-    @property
-    def coordination_lock(self) -> Any: ...
 
     async def get_all_project_configs(self) -> dict[str, Project]: ...
 
@@ -82,8 +77,6 @@ class ConfigurationService(Protocol):
     async def get_or_create_project_config(
         self, name: str, *, root_path: Path | None = None
     ) -> tuple[str, Project]: ...
-
-    async def get_project_config_for_root(self, name: str, root_path: Path | None) -> Project | None: ...
 
 
 class Session:
@@ -113,9 +106,10 @@ class Session:
         # data, never an ambient lookup key.
         self.session_id: str | None = None
         self._project_dirty = False
+        self._pending_configuration_update: ConfigurationUpdate | None = None
+        self._configuration_update_task: asyncio.Task[None] | None = None
         self._listeners: list["SessionListener"] = []
         self._template_cache: Optional["TemplateContextCache"] = None
-        self._config().register_session(self)
         # Session owns its mutable instruction and task lifecycle state.  The
         # transitional accessor remains only for callers not yet migrated.
         from mcp_guide.task_manager.manager import TaskManager
@@ -191,7 +185,8 @@ class Session:
 
     async def bind_project_path(self, path: str | Path) -> None:
         """Bind once, promote through runtime, then activate this instance."""
-        await self._bind_project_path(path)
+        async with self._runtime.configuration_transition_lock:
+            await self._bind_project_path(path)
 
     async def _bind_project_path(self, path: str | Path) -> None:
         """Bind this unbound Session to an absolute client project root.
@@ -243,6 +238,11 @@ class Session:
 
     async def switch_project(self, project_name: str | None = None, *, path: str | Path | None = None) -> "Session":
         """Return a fresh runtime-owned Session for a different project selection."""
+        async with self._runtime.configuration_transition_lock:
+            return await self._switch_project(project_name, path=path)
+
+    async def _switch_project(self, project_name: str | None = None, *, path: str | Path | None = None) -> "Session":
+        """Perform one serialised root rebinding transition."""
         from mcp_guide.validation import InvalidProjectNameError
 
         if self.__bound_root_path is None:
@@ -292,7 +292,6 @@ class Session:
             return self
 
         replacement = self._runtime.create_transient_session(owner)
-        replacement._config().unregister_session(replacement)
         replacement.agent_info = self.agent_info
         replacement.client_params = self.client_params.copy() if self.client_params is not None else None
         replacement._protocol_type = self._protocol_type
@@ -304,7 +303,6 @@ class Session:
             await replacement.cleanup()
             raise
         _attach_session_listeners(replacement)
-        replacement._config().register_session(replacement)
         try:
             await replacement._notify_project_changed("", replacement.project_name)
         finally:
@@ -319,7 +317,6 @@ class Session:
     def begin_expiry(self) -> None:
         """Stop external notifications and scheduling without interrupting old work."""
         self._expiring = True
-        self._config().unregister_session(self)
         self.task_manager.begin_expiry()
 
     @asynccontextmanager
@@ -333,23 +330,49 @@ class Session:
             if self._expiring and not self._cleaning_up:
                 self._runtime.dispose_expiring_session(self)
 
-    async def _on_shared_config_changed(self, *, global_changed: bool, project_changed: bool) -> None:
-        """Refresh this Session for a scoped shared-configuration publication."""
-        if self._expiring:
+    def queue_configuration_update(self, update: ConfigurationUpdate) -> None:
+        """Coalesce configuration publications into one Session-local consumer."""
+        if self._expiring or self._disposed:
             return
-        async with self.work():
-            async with self._config().coordination_lock:
-                self.task_manager.clear_command_cache()
-                if project_changed and self.__delegate.is_bound:
-                    latest = await self._config().get_project_config_for_root(self.project_name, self.__bound_root_path)
-                    if latest is None:
+        pending = self._pending_configuration_update
+        if pending is None or update.revision > pending.revision:
+            self._pending_configuration_update = update
+        if self._configuration_update_task is None or self._configuration_update_task.done():
+            self._configuration_update_task = asyncio.create_task(self._consume_configuration_updates())
+
+    async def _consume_configuration_updates(self) -> None:
+        """Apply only the most recent queued configuration image at a time."""
+        while not self._expiring and not self._disposed:
+            update = self._pending_configuration_update
+            self._pending_configuration_update = None
+            if update is None:
+                return
+            if self.active_configuration_identity != (update.identity.name, update.identity.root_hash):
+                continue
+            try:
+                async with self.work():
+                    if update.current_project is None:
                         self._project_dirty = True
                     else:
-                        self.__delegate.bind(latest)
+                        current_project = project_from_snapshot(update.current_project, update.identity)
+                        if current_project is None:
+                            raise RuntimeError("Configuration update has no active project")
+                        self.__delegate.bind(current_project)
                         self._project_dirty = False
-                if global_changed:
-                    self._config()._invalidate_feature_flags()
-                await self._notify_config_changed()
+                    if update.changes.resolved_flags:
+                        self.task_manager.clear_command_cache()
+                    await self._notify_configuration_changed(update)
+            except Exception as error:
+                logger.debug("Configuration update consumer failed: %s", error, exc_info=True)
+
+    async def wait_for_configuration_updates(self) -> None:
+        """Wait for queued local configuration work without holding the runtime gate."""
+        while task := self._configuration_update_task:
+            if task is asyncio.current_task():
+                return
+            await asyncio.shield(task)
+            if task is self._configuration_update_task and self._pending_configuration_update is None:
+                return
 
     def add_listener(self, listener: "SessionListener") -> None:
         """Add a session change listener."""
@@ -365,11 +388,11 @@ class Session:
                 except Exception as e:
                     logger.debug(f"Project change listener notification failed: {e}")
 
-    async def _notify_config_changed(self) -> None:
+    async def _notify_configuration_changed(self, update: ConfigurationUpdate) -> None:
         """Notify all listeners of config change."""
         for listener in self._listeners:
             try:
-                await listener.on_config_changed(self)
+                await listener.on_configuration_changed(self, update)
             except Exception as e:
                 logger.debug(f"Config change listener notification failed: {e}")
 
@@ -380,6 +403,13 @@ class Session:
         self._cleaning_up = True
         try:
             self.begin_expiry()
+            update_task = self._configuration_update_task
+            if update_task is not None and not update_task.done():
+                update_task.cancel()
+                try:
+                    await update_task
+                except asyncio.CancelledError:
+                    pass
             await self.task_manager.cleanup()
             self._listeners.clear()
             self._template_cache = None
@@ -399,13 +429,19 @@ class Session:
 
     async def update_config(self, updater: Callable[[Project], Project]) -> None:
         """Update this instance's original configuration under shared coordination."""
-        async with self._config().coordination_lock:
+        async with self._runtime.configuration_transition_lock:
             project = await self.get_project()
             if project.key is None:
                 raise ValueError("Project key not available")
             updated_project = updater(project)
             await self._config().save_project_config(project.key, updated_project)
-            await self.invalidate_cache()
+            # The caller already owns this Session and supplied the exact
+            # persisted project value. Keep its in-flight work coherent; all
+            # cross-session consumers still use the queued publication path.
+            if self.__delegate.is_bound and self.__delegate.project.key == project.key:
+                self.__delegate.bind(updated_project)
+                self._project_dirty = False
+        await self.wait_for_configuration_updates()
 
     async def get_all_projects(self) -> dict[str, Project]:
         """Get all project configurations atomically."""
@@ -420,10 +456,12 @@ class Session:
         """Persist the supplied configuration without changing this instance's identity."""
         if project.key is None:
             raise ValueError("Project key not available")
-        async with self._config().coordination_lock:
+        async with self._runtime.configuration_transition_lock:
             await self._config().save_project_config(project.key, project)
             if self.__delegate.is_bound and self.__delegate.project.key == project.key:
-                await self.invalidate_cache()
+                self.__delegate.bind(project)
+                self._project_dirty = False
+        await self.wait_for_configuration_updates()
 
     async def invalidate_cache(self) -> None:
         """Reload the configuration belonging to this immutable binding."""

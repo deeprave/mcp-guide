@@ -7,7 +7,7 @@ from tests.helpers import create_bound_test_session
 from mcp_guide.context.tasks import ClientContextTask
 from mcp_guide.openspec.task import OpenSpecTask
 from mcp_guide.result import Result
-from mcp_guide.task_manager import EventType, TaskManager
+from mcp_guide.task_manager import EventType, TaskActivation, TaskManager
 from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
 
@@ -33,36 +33,40 @@ async def test_task_activation_and_initialisation_use_the_supplied_project(runti
         assert await manager.requires_flag("workflow", enabled) is True
         assert await manager.requires_flag("workflow", disabled) is False
         for task_class in (WorkflowMonitorTask, OpenSpecTask):
-            task = task_class(task_manager=manager)
-            assert await task.start(manager, disabled) is False
+            task = task_class()
+            assert await task.start(TaskActivation(manager, task, disabled)) is False
             assert manager.get_subscription_count() == 0
-            assert await task.start(manager, enabled) is True
+            enabled_activation = TaskActivation(manager, task, enabled)
+            assert await task.start(enabled_activation) is True
             assert manager.get_subscription_count() == 1
             if task_class is OpenSpecTask:
                 result = await task.handle_event(EventType.TIMER_ONCE, {})
                 assert result.result is True
                 delivered = await manager.process_result(Result.ok())
                 assert delivered.additional_agent_instructions == "Check CLI for enabled"
-            await manager.unsubscribe(task)
+            await enabled_activation.unsubscribe()
 
-        client_task = ClientContextTask(task_manager=manager)
-        assert await client_task.start(manager, enabled) is True
-        assert await client_task.start(manager, enabled) is True
+        client_task = ClientContextTask()
+        client_activation = TaskActivation(manager, client_task, enabled)
+        assert await client_task.start(client_activation) is True
+        assert await client_task.start(client_activation) is True
         assert manager.get_subscription_count() == 1
         result = await client_task.handle_event(EventType.TIMER_ONCE, {})
         assert result.result is True
         delivered = await manager.process_result(Result.ok())
         assert delivered.additional_agent_instructions == "Client information for enabled"
-        await manager.unsubscribe(client_task)
+        await client_activation.unsubscribe()
         await runtime.feature_flags().set("allow-client-info", False)
         # Flag publication restarts registered tasks; declining this task adds no subscription.
         subscriptions = manager.get_subscription_count()
-        assert await ClientContextTask(task_manager=manager).start(manager, disabled) is False
+        disabled_client = ClientContextTask()
+        assert not await disabled_client.start(TaskActivation(manager, disabled_client, disabled))
         assert manager.get_subscription_count() == subscriptions
         for task_class in (ClientContextTask, OpenSpecTask):
-            task = task_class(task_manager=manager)
-            assert await task.start(manager, disabled) is False
-            manager.subscribe(task, EventType.TIMER_ONCE)
+            task = task_class()
+            activation = TaskActivation(manager, task, disabled)
+            assert not await task.start(activation)
+            activation.subscribe(EventType.TIMER_ONCE)
             result = await task.handle_event(EventType.TIMER_ONCE, {})
             assert result.result is True
             assert manager.get_subscription_count() == subscriptions

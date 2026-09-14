@@ -36,6 +36,7 @@ __all__ = [
     "validate_flag_with_registered",
     "normalise_flag",
     "get_flag_scope",
+    "registered_flag_names",
     "clear_validators",
     "FlagValidationError",
     "FlagScope",
@@ -346,6 +347,11 @@ def normalise_flag(flag_name: str, value: FeatureValueLike | None) -> FeatureVal
 def get_flag_scope(flag_name: str) -> FlagScope:
     """Return the registered scope for a flag, defaulting to both scopes."""
     return _FLAG_SCOPES.get(flag_name, FlagScope.BOTH)
+
+
+def registered_flag_names() -> frozenset[str]:
+    """Return the flag names known to this running server."""
+    return frozenset(_FLAG_VALIDATORS)
 
 
 def register_flag_validator(

@@ -1,5 +1,7 @@
 """Listener behaviour through real templates and delivered instructions."""
 
+from unittest.mock import Mock
+
 import pytest
 import yaml
 from tests.helpers import create_bound_test_session
@@ -41,7 +43,7 @@ async def test_project_change_delivers_instructions_in_priority_order_without_co
     for content in expected:
         assert (await manager.process_result(Result.ok())).additional_agent_instructions == content
     assert manager.is_queue_empty()
-    await listener.on_config_changed(session)
+    await listener.on_configuration_changed(session, Mock())
     assert manager.is_queue_empty()
 
 

@@ -44,6 +44,7 @@ async def test_initialisation_reuses_only_recent_global_state(openspec_session, 
         await runtime.feature_flags().set(
             "openspec-state", FeatureValue({"validated": "true", "version": "1.10.0", "checked": str(now - age)})
         )
+        await openspec_session.wait_for_configuration_updates()
     manager = openspec_session.task_manager
     task = manager.get_task_by_type(OpenSpecTask)
     assert task.is_available() is None
@@ -72,6 +73,12 @@ async def test_version_response_persists_and_controls_project_check(
     assert not task.meets_minimum_version("1.0.0")
     result = await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".openspec-version.txt", "content": content})
     assert result.result
+    # Persisting global state schedules a fresh project-task activation.  The
+    # replacement is the authority for subsequent cache and instruction state.
+    await openspec_session.wait_for_configuration_updates()
+    task = manager.get_task_by_type(OpenSpecTask)
+    assert task is not None
+    assert (await task.handle_event(EventType.TIMER_ONCE, {})).result
     assert task.get_version() == version
     assert manager.get_cached_data("openspec_version") == version
     state = parse_openspec_state(await runtime.feature_flags().get("openspec-state"))

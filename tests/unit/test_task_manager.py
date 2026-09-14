@@ -69,13 +69,13 @@ class TestTaskManagerCleanup:
             async def on_tool(self) -> None:
                 return None
 
-            async def stop(self, manager: TaskManager) -> None:
+            async def stop(self) -> None:
                 self.stop_calls += 1
 
         task = StoppableSubscriber()
         task_manager.subscribe(task, EventType.FS_FILE_CONTENT)
         task_manager._active_project_tasks[type(task)] = task
-        task_manager._pending_instructions.append("project-specific instruction")
+        await task_manager.queue_instruction("project-specific instruction")
         task_manager._tracked_instructions["instruction"] = TrackedInstruction(
             id="instruction",
             content="project-specific instruction",
@@ -224,7 +224,9 @@ class TestProjectTaskLifecycleIntegration:
         """Config changes without project-scoped registrations leave subscriptions alone."""
         from unittest.mock import Mock
 
-        await task_manager.on_config_changed(Mock())
+        update = Mock()
+        update.changes.resolved_flags = {"command"}
+        await task_manager.on_configuration_changed(Mock(), update)
 
         assert task_manager.get_subscription_count() == 0
 

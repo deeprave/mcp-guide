@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Generic, TypeVar
 
+from mcp_guide.async_lock import AsyncReentrantLock
+from mcp_guide.configuration_update import ConfigurationSnapshotDelta, ProjectIdentity, derive_configuration_update
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.lazy_path import LazyPath
@@ -68,7 +70,13 @@ class GuideRuntime(Generic[SessionT]):
         if session_idle_timeout is not None and session_idle_timeout <= 0:
             raise ValueError("session_idle_timeout must be positive or None")
         self._session_idle_timeout = session_idle_timeout
-        self._config_manager = ConfigManager(config_dir=config_dir, docroot=docroot)
+        self._configuration_transition_lock = AsyncReentrantLock()
+        self._config_manager = ConfigManager(
+            config_dir=config_dir,
+            docroot=docroot,
+            on_snapshot_delta=self._on_configuration_snapshot_delta,
+            coordination_lock=self._configuration_transition_lock,
+        )
         self._on_start = on_start
         self._on_stop = on_stop
         self._lifecycle_lock = asyncio.Lock()
@@ -217,6 +225,36 @@ class GuideRuntime(Generic[SessionT]):
     def configuration_service(self) -> "ConfigManager":
         """Return the runtime-owned configuration service to a Session."""
         return self._config_manager
+
+    @property
+    def configuration_transition_lock(self) -> AsyncReentrantLock:
+        """Serialise configuration mutation with session binding transitions."""
+        return self._configuration_transition_lock
+
+    async def _on_configuration_snapshot_delta(self, delta: ConfigurationSnapshotDelta) -> None:
+        """Queue effective configuration updates for this runtime's live Sessions.
+
+        The configuration transition lock is deliberately held only while
+        selecting candidates and queueing their immutable update. Session
+        consumers, listeners, and I/O run outside this shared gate.
+        """
+        async with self._configuration_transition_lock:
+            candidates = tuple(self._sessions.values())
+            for session in candidates:
+                identity = getattr(session, "active_configuration_identity", None)
+                if identity is None:
+                    continue
+                project_identity = ProjectIdentity(*identity)
+                if not delta.global_flags_changed and project_identity not in delta.changed_project_identities:
+                    continue
+                try:
+                    update = derive_configuration_update(delta, project_identity)
+                    if not update.changes.is_empty:
+                        queue_update = getattr(session, "queue_configuration_update", None)
+                        if queue_update is not None:
+                            queue_update(update)
+                except Exception as error:
+                    logger.debug("Failed to queue configuration update for a Session: %s", error, exc_info=True)
 
     def feature_flags(self) -> "FeatureFlags":
         """Return the global feature-flag handler owned by this runtime."""

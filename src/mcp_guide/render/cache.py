@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from packaging.version import InvalidVersion, Version
 
 if TYPE_CHECKING:
+    from mcp_guide.configuration_update import ConfigurationUpdate
     from mcp_guide.session import Session
 
 from mcp_guide import __version__
@@ -75,7 +76,7 @@ class TemplateContextCache(SessionListener):
         self.invalidate()
         logger.debug(f"Template context cache invalidated: project switch {old_project} -> {new_project}")
 
-    async def on_config_changed(self, session: "Session") -> None:
+    async def on_configuration_changed(self, session: "Session", update: "ConfigurationUpdate") -> None:
         """Invalidate cache when project configuration changes."""
         self.invalidate()
         logger.debug(f"Template context cache invalidated due to config change: {session.project_name}")

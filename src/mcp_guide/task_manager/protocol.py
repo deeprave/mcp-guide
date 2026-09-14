@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 if TYPE_CHECKING:
     from mcp_guide.task_manager.manager import EventResult
 
+    from .activation import TaskActivation
+
 from .interception import EventType
 
 # Standard interval for one-shot task initialisation via TIMER_ONCE
@@ -42,6 +44,19 @@ class TaskSubscriber(Protocol):
         Tasks can implement this to perform actions after tool/prompt execution.
         Default implementation does nothing.
         """
+        ...
+
+
+@runtime_checkable
+class ProjectTask(TaskSubscriber, Protocol):
+    """Project task contract managed through one explicit activation."""
+
+    async def start(self, activation: "TaskActivation") -> bool:
+        """Activate for one bound Session and return whether it remains active."""
+        ...
+
+    async def stop(self) -> None:
+        """Release non-manager resources after activation retirement."""
         ...
 
 

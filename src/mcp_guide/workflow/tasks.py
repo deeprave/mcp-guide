@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_register
-from mcp_guide.feature_flags.constants import FLAG_WORKFLOW
+from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
 from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
@@ -16,7 +16,7 @@ from mcp_guide.workflow.rendering import render_workflow_template
 
 if TYPE_CHECKING:
     from mcp_guide.render.content import RenderedContent
-    from mcp_guide.task_manager import TaskManager
+    from mcp_guide.task_manager.activation import TaskActivation
     from mcp_guide.task_manager.manager import EventResult
 
 logger = get_logger(__name__)
@@ -29,6 +29,8 @@ WORKFLOW_INTERVAL = 600.0  # 10 minutes
 class WorkflowMonitorTask(InitialisableMixin):
     """Scheduled background monitoring task for workflow state changes."""
 
+    configuration_flags = frozenset({FLAG_WORKFLOW, FLAG_WORKFLOW_FILE})
+
     # noinspection PyMethodMayBeStatic
     def get_name(self) -> str:
         """Get a readable name for the task."""
@@ -37,8 +39,6 @@ class WorkflowMonitorTask(InitialisableMixin):
     def __init__(
         self,
         workflow_file_path: Optional[str] = None,
-        *,
-        task_manager: "TaskManager",
     ):
         # Use default workflow file if none provided
         if workflow_file_path is None:
@@ -46,7 +46,7 @@ class WorkflowMonitorTask(InitialisableMixin):
 
         self.workflow_file_path = workflow_file_path
 
-        self.task_manager = task_manager
+        self.activation: TaskActivation | None = None
         self._session: Any = None
 
         self._cached_content: Optional[str] = None
@@ -57,24 +57,21 @@ class WorkflowMonitorTask(InitialisableMixin):
         self._setup_instruction_id: Optional[str] = None
         self._reminder_instruction_id: Optional[str] = None
 
-    async def start(self, task_manager: "TaskManager", session: Any) -> bool:
+    async def start(self, activation: "TaskActivation") -> bool:
         """Start workflow monitoring if workflow is enabled for the current project."""
-        self.task_manager = task_manager
-        self._session = session
-        if not await self.task_manager.requires_flag(FLAG_WORKFLOW, session):
+        self.activation = activation
+        self._session = activation.session
+        if not await activation.requires_flag(FLAG_WORKFLOW):
             logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
             return False
 
-        from mcp_guide.feature_flags.constants import FLAG_WORKFLOW_FILE
-
-        workflow_file = (await self.task_manager.resolved_flags(session)).get(FLAG_WORKFLOW_FILE)
+        workflow_file = (await activation.resolved_flags()).get(FLAG_WORKFLOW_FILE)
         if workflow_file and isinstance(workflow_file, str):
             self.workflow_file_path = workflow_file
-            self.task_manager.set_cached_data("workflow_file_path", workflow_file)
+            activation.set_cached_data("workflow_file_path", workflow_file)
             logger.debug(f"WorkflowMonitorTask using workflow file from flag: {workflow_file}")
 
-        task_manager.subscribe(
-            self,
+        activation.subscribe(
             EventType.TIMER | EventType.FS_FILE_CONTENT,
             WORKFLOW_INTERVAL,
             15.0,
@@ -91,17 +88,19 @@ class WorkflowMonitorTask(InitialisableMixin):
 
         if self._session is None:
             return EventResult(result=False, message="Workflow task is not attached to a Session")
-        workflow_enabled = await self.task_manager.requires_flag(FLAG_WORKFLOW, self._session)
+        if self.activation is None:
+            return EventResult(result=False, message="Workflow task has no activation")
+        workflow_enabled = await self.activation.requires_flag(FLAG_WORKFLOW)
 
         if not workflow_enabled:
-            await self.task_manager.unsubscribe(self)
+            await self.activation.unsubscribe()
             logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
             return EventResult(result=True)
 
         if not self._setup_done:
             rendered = await render_workflow_template(self._session, "monitoring-setup")
             if rendered:
-                self._setup_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
+                self._setup_instruction_id = await self.activation.queue_instruction_with_ack(rendered.content)
             self._setup_done = True
             logger.debug("WorkflowMonitorTask initialized")
         return EventResult(result=True)
@@ -129,10 +128,12 @@ class WorkflowMonitorTask(InitialisableMixin):
         if isinstance(path, str) and Path(path).name == Path(self.workflow_file_path).name:
             # Acknowledge any pending instructions
             if self._setup_instruction_id:
-                await self.task_manager.acknowledge_instruction(self._setup_instruction_id)
+                if self.activation is not None:
+                    await self.activation.acknowledge_instruction(self._setup_instruction_id)
                 self._setup_instruction_id = None
             if self._reminder_instruction_id:
-                await self.task_manager.acknowledge_instruction(self._reminder_instruction_id)
+                if self.activation is not None:
+                    await self.activation.acknowledge_instruction(self._reminder_instruction_id)
                 self._reminder_instruction_id = None
 
             rendered_content = await self._process_workflow_content(data.get("content", ""))
@@ -143,7 +144,8 @@ class WorkflowMonitorTask(InitialisableMixin):
         """Handle timer events for workflow monitoring reminders."""
         rendered = await render_workflow_template(self._session, "monitoring-reminder")
         if rendered:
-            self._reminder_instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
+            if self.activation is not None:
+                self._reminder_instruction_id = await self.activation.queue_instruction_with_ack(rendered.content)
 
     async def _process_workflow_content(self, content: str) -> Optional["RenderedContent"]:
         """Process workflow file content and update cached state."""
@@ -161,7 +163,9 @@ class WorkflowMonitorTask(InitialisableMixin):
             logger.trace(f"Parsed new workflow state: phase={new_state.phase}, issue={new_state.issue}")
 
             # Get previous state from cache for comparison
-            old_state = self.task_manager.get_cached_data("workflow_state")
+            if self.activation is None:
+                return None
+            old_state = self.activation.get_cached_data("workflow_state")
             logger.trace(f"Retrieved old state from cache: {old_state is not None}")
 
             # Detect semantic changes
@@ -178,7 +182,7 @@ class WorkflowMonitorTask(InitialisableMixin):
                 rendered_change = await render_workflow_template(self._session, "state-format")
 
             # Update cache with new state AFTER processing changes
-            self.task_manager.set_cached_data("workflow_state", new_state)
+            self.activation.set_cached_data("workflow_state", new_state)
             logger.trace("New workflow state cached in TaskManager")
             return rendered_change
 

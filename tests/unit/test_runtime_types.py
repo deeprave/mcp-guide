@@ -106,9 +106,9 @@ async def test_expiring_session_drains_admitted_tool_callbacks(tmp_path, monkeyp
         async def on_project_changed(self, session, old_project, new_project):
             await self.on_tool()
 
-        async def start(self, task_manager, session):
-            if session is original:
-                task_manager.subscribe(self, EventType.FS_FILE_CONTENT)
+        async def start(self, activation):
+            if activation.session is original:
+                activation.subscribe(EventType.FS_FILE_CONTENT)
                 await self.on_tool()
                 return True
             return False
@@ -159,7 +159,7 @@ async def test_failed_replacement_preparation_leaves_the_original_active(tmp_pat
         await original.switch_project(path="/client/replacement")
     assert runtime.find_session(owner) is original
     assert candidates[0].task_manager.get_subscription_count() == 0
-    assert runtime.configuration_service()._sessions == {original}
+    assert not hasattr(runtime.configuration_service(), "_sessions")
 
 
 @pytest.mark.anyio
@@ -837,7 +837,7 @@ async def test_sessionless_modern_request_does_not_register_a_shared_session(tmp
         assert request_context.session is not None
         assert not request_context.session.project_is_bound
 
-    assert manager._sessions == set()
+    assert not hasattr(manager, "_sessions")
 
 
 @pytest.mark.anyio
@@ -1072,7 +1072,7 @@ async def test_failed_stdio_pwd_bind_retires_the_minted_session(tmp_path, monkey
 
     end_session.assert_awaited_once_with("minted-then-fail")
     assert OwnerKey("minted-then-fail") not in runtime._sessions
-    assert runtime.configuration_service()._sessions == set()
+    assert not hasattr(runtime.configuration_service(), "_sessions")
 
 
 @pytest.mark.anyio
@@ -1254,7 +1254,7 @@ class RecordingConfigListener:
     def __init__(self):
         self.sessions = []
 
-    async def on_config_changed(self, session):
+    async def on_configuration_changed(self, session, update):
         self.sessions.append(session)
 
     async def on_project_changed(self, session, old_project, new_project):
@@ -1275,10 +1275,11 @@ async def test_shared_config_manager_publishes_mutations_to_each_bound_session(t
     listener = RecordingConfigListener()
     second.add_listener(listener)
 
-    await get_runtime().set_feature_flag("shared_flag", FeatureValue(True))
+    await get_runtime().set_feature_flag("workflow", FeatureValue(True))
+    await second.wait_for_configuration_updates()
 
     assert listener.sessions == [second]
-    assert (await get_runtime().get_feature_flags())["shared_flag"].to_raw() is True
+    assert (await get_runtime().get_feature_flags())["workflow"].to_raw() is True
 
     await first.cleanup()
     await second.cleanup()
@@ -1298,14 +1299,15 @@ async def test_shared_config_manager_publishes_each_concurrent_write(tmp_path) -
     second.add_listener(listener)
 
     await __import__("asyncio").gather(
-        get_runtime().set_feature_flag("first_flag", FeatureValue(True)),
-        get_runtime().set_feature_flag("second_flag", FeatureValue(True)),
+        get_runtime().set_feature_flag("workflow", FeatureValue(True)),
+        get_runtime().set_feature_flag("command", FeatureValue(True)),
     )
+    await second.wait_for_configuration_updates()
 
     flags = await get_runtime().get_feature_flags()
-    assert flags["first_flag"].to_raw() is True
-    assert flags["second_flag"].to_raw() is True
-    assert listener.sessions == [second, second]
+    assert flags["workflow"].to_raw() is True
+    assert flags["command"].to_raw() is True
+    assert listener.sessions == [second]
     await first.cleanup()
     await second.cleanup()
 
@@ -1322,10 +1324,12 @@ async def test_config_watcher_suppresses_its_already_published_snapshot(tmp_path
     listener = RecordingConfigListener()
     session.add_listener(listener)
 
-    await get_runtime().set_feature_flag("shared_flag", FeatureValue(True))
+    await get_runtime().set_feature_flag("workflow", FeatureValue(True))
+    await session.wait_for_configuration_updates()
     assert listener.sessions == [session]
 
     await manager._on_external_change(str(manager.config_file))
+    await session.wait_for_configuration_updates()
     assert listener.sessions == [session]
 
     await session.cleanup()
@@ -1354,6 +1358,7 @@ async def test_project_publication_only_refreshes_matching_configuration_identit
     await first.update_config(
         lambda project: replace(project, categories={"api": Category(name="api", dir="src", patterns=["*.py"])})
     )
+    await matching.wait_for_configuration_updates()
 
     assert matching_listener.sessions == [matching]
     assert unrelated_listener.sessions == []
@@ -1362,6 +1367,125 @@ async def test_project_publication_only_refreshes_matching_configuration_identit
     await first.cleanup()
     await matching.cleanup()
     await unrelated.cleanup()
+
+
+@pytest.mark.anyio
+async def test_project_permission_change_refreshes_a_matching_peer_session(tmp_path) -> None:
+    """A peer immediately observes an active project's changed read policy."""
+    runtime = runtime_for_config(tmp_path)
+    writer = runtime.resolve_session(OwnerKey("permission-writer"))
+    peer = runtime.resolve_session(OwnerKey("permission-peer"))
+    await writer.bind_project_path("/client/workspace/shared-permissions")
+    await peer.bind_project_path("/client/workspace/shared-permissions")
+
+    await writer.update_config(lambda project: replace(project, additional_read_paths=["/shared/updated/"]))
+    await peer.wait_for_configuration_updates()
+
+    assert (await peer.get_project()).additional_read_paths == ["/shared/updated/"]
+
+    await writer.cleanup()
+    await peer.cleanup()
+
+
+@pytest.mark.anyio
+async def test_configuration_listener_can_persist_a_follow_up_update(tmp_path) -> None:
+    """A listener write completes and its later publication is consumed."""
+    from mcp_guide.models import Category
+
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("listener-follow-up"))
+    await session.bind_project_path("/client/workspace/listener-follow-up")
+
+    class FollowUpWriter:
+        completed = False
+        wrote = False
+
+        async def on_project_changed(self, session, old_project, new_project):
+            pass
+
+        async def on_configuration_changed(self, session, update):
+            if self.wrote:
+                return
+            self.wrote = True
+            await session.update_config(
+                lambda project: project.with_category("listener", Category(dir="listener/", patterns=["*.md"]))
+            )
+            self.completed = True
+
+    listener = FollowUpWriter()
+    session.add_listener(listener)
+
+    try:
+        await asyncio.wait_for(
+            session.update_config(
+                lambda project: project.with_category("initial", Category(dir="initial/", patterns=["*.md"]))
+            ),
+            timeout=1,
+        )
+        await session.wait_for_configuration_updates()
+
+        assert listener.completed
+        assert "listener" in (await session.get_project()).categories
+    finally:
+        await session.cleanup()
+
+
+@pytest.mark.anyio
+async def test_configuration_listeners_cannot_mutate_later_update_views(tmp_path) -> None:
+    """One consumer cannot alter the project or flags seen by another consumer."""
+    from mcp_guide.feature_flags.types import FeatureValue
+    from mcp_guide.models import Category
+
+    runtime = runtime_for_config(tmp_path)
+    session = runtime.resolve_session(OwnerKey("immutable-update"))
+    await session.bind_project_path("/client/workspace/immutable-update")
+    await session.update_config(lambda project: project.with_category("docs", Category(dir="docs/", patterns=["*.md"])))
+
+    class MutatingListener:
+        flags_are_immutable = False
+        project_is_immutable = False
+
+        async def on_project_changed(self, session, old_project, new_project):
+            pass
+
+        async def on_configuration_changed(self, session, update):
+            assert update.current_project is not None
+            try:
+                update.current_resolved_flags.clear()
+            except AttributeError:
+                self.flags_are_immutable = True
+            try:
+                update.current_project.categories.clear()
+            except AttributeError:
+                self.project_is_immutable = True
+
+    class RecordingListener:
+        categories: tuple[str, ...] = ()
+        workflow = None
+
+        async def on_project_changed(self, session, old_project, new_project):
+            pass
+
+        async def on_configuration_changed(self, session, update):
+            assert update.current_project is not None
+            self.categories = tuple(update.current_project["categories"])
+            self.workflow = update.current_resolved_flags.get("workflow")
+
+    mutator = MutatingListener()
+    observer = RecordingListener()
+    session.add_listener(mutator)
+    session.add_listener(observer)
+
+    await runtime.set_feature_flag("workflow", FeatureValue(True))
+    await session.wait_for_configuration_updates()
+
+    assert observer.categories == ("docs",)
+    assert observer.workflow == FeatureValue(True)
+    assert mutator.flags_are_immutable
+    assert mutator.project_is_immutable
+    assert "docs" in (await session.get_project()).categories
+
+    await session.cleanup()
 
 
 @pytest.mark.anyio

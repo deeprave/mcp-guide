@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from .interception import EventType
 
 if TYPE_CHECKING:
+    from .activation import TaskActivation
     from .protocol import TaskSubscriber
 
 
@@ -22,6 +23,7 @@ class Subscription:
     once_fire_time: Optional[float] = field(init=False, default=None)
     original_event_types: Optional[EventType] = None
     unique_timer_bit: Optional[int] = None
+    activation: "TaskActivation | None" = None
 
     def __init__(
         self,
@@ -30,12 +32,14 @@ class Subscription:
         interval: Optional[float] = None,
         initial_delay: Optional[float] = None,
         once_interval: Optional[float] = None,
+        activation: "TaskActivation | None" = None,
     ):
         """Initialize subscription with strong reference to subscriber."""
         self.event_types = event_types
         self.subscriber = subscriber
         self.interval = interval
         self.once_interval = once_interval
+        self.activation = activation
         if interval is not None:
             delay = initial_delay if initial_delay is not None else interval
             self.next_fire_time = time.time() + delay

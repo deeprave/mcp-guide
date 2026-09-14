@@ -426,17 +426,19 @@ class TestGetOrCreateSession:
 
         session = await create_test_session(runtime, "project-one")
         task_manager = session.task_manager
-        initial_instructions = list(task_manager._pending_instructions)
+        initial_instructions = [instruction.content for instruction in task_manager._pending_instructions]
         await task_manager.queue_instruction("stale project instruction")
 
         session = await session.switch_project("project-two")
         task_manager = session.task_manager
 
-        assert "stale project instruction" not in task_manager._pending_instructions
+        assert "stale project instruction" not in {
+            instruction.content for instruction in task_manager._pending_instructions
+        }
         for instruction in initial_instructions:
-            assert instruction not in task_manager._pending_instructions
+            assert instruction not in {pending.content for pending in task_manager._pending_instructions}
 
-        pending_instructions = list(task_manager._pending_instructions)
+        pending_instructions = [instruction.content for instruction in task_manager._pending_instructions]
         assert any(instruction.startswith("_startup:") for instruction in pending_instructions)
         assert any(instruction.startswith("_onboard_prompt:") for instruction in pending_instructions)
         assert any(instruction.startswith("_guide-uri:") for instruction in pending_instructions)
