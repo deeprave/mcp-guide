@@ -1,0 +1,41 @@
+---
+name: workflow-discuss
+description: Enter discussion phase while preserving or changing the current issue context.
+usage: Use when the user requests to enter, apply, or follow workflow discussion.
+cache: short, private
+---
+# Discussion Phase
+{{#workflow}}
+Source Guide URI: `guide://_discuss`.
+{{/workflow}}
+
+## Directives
+
+- When the user does not name an issue, preserve the current issue, description, plan, tracking reference, and queue. Seek alignment before changing project state.
+{{#workflow}}
+- When the user names an issue, treat it as a new or resumed item. Ensure `{{workflow-file}}` records its issue, description, plan, tracking reference, and queue position.
+- Copy an associated issue-tracker reference into the tracking field, and update the queue to reflect the item's current priority.
+{{#openspec}}
+- Copy an associated OpenSpec reference into the tracking field.
+{{/openspec}}
+- Update `{{workflow-file}}` to `phase: discussion` when changing phase.
+- After editing `{{workflow-file}}`, send its complete content using `send_file_content`.
+{{/workflow}}
+- Keep handoff context `{{path.documents}}/context.json` updated at meaningful milestones when present.
+
+## Guardrails
+
+- Discussion is non-implementation work.
+- Allowed edits: {{#workflow}}`{{workflow-file}}`, {{/workflow}}{{#openspec}}`openspec/`, {{/openspec}}`{{path.documents}}`.
+- Do not modify production code or tests in this phase.
+- If returning to discussion after finishing work, confirm whether the current issue should be marked
+  complete before clearing it or advancing the queue.
+{{#openspec}}
+## OpenSpec Association
+
+If OpenSpec is active for the current project, discussion can identify or refine the relevant
+change before implementation. Use `openspec-new-change` when a new OpenSpec change needs to be
+started, `openspec-propose` when the user wants a full proposal/spec/task set quickly.
+
+In addition, `openspec-explore` may be used when requirements still need investigation.
+{{/openspec}}

@@ -24,5 +24,5 @@ async def test_reserved_category_names_leave_project_configuration_unchanged(run
     ):
         result = await handler(args, await request_context_for(session))
         assert not result.success
-        assert "Category names cannot start with underscore (reserved for system use)" in result.error
+        assert "Category name is not accepted" in result.error
         assert session.project == original

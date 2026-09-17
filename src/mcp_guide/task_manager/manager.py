@@ -14,6 +14,7 @@ from mcp_guide.core.result import Result
 from mcp_guide.decorators import get_registered_task_classes
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
+from mcp_guide.session_listener import SessionListener
 
 if TYPE_CHECKING:
     from mcp_guide.configuration_update import ConfigurationUpdate
@@ -187,7 +188,7 @@ class QueuedInstruction:
     tracking_id: str | None = None
 
 
-class TaskManager:
+class TaskManager(SessionListener):
     """Generic task coordination system."""
 
     def __init__(self, session: "Session | None" = None) -> None:

@@ -46,6 +46,7 @@ nav:
       - Stored Documents: user/stored-documents.md
   - Developer Notes:
       - Command Authoring: developer/command-authoring.md
+      - Skill Authoring: developer/skill-authoring.md
       - Filesystem Access: developer/filesystem-access.md
       - Debugging: developer/DEBUGGING.md
       - Setup: developer/SETUP.md

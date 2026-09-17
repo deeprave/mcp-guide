@@ -9,31 +9,38 @@ policies:
 ---
 {{h1}}General review instructions
 
-You are tasked with a detailed and comprehensive review of changes to this project and to provide specific feedback for any issues discovered. Focus on correctness, security, and consistency with the existing codebase and ensuring that all aspects of the specification or implementation plan are executed correctly, completely and securely using the best practices for the current langauge, framework and/or platform.
-
-=== IMPORTANT ===
-If basic checks such as unit or integration test failure, CEASE THE REVIEW IMMEDIATELY and inform the user of the error.
-=================
+You are tasked with a detailed and comprehensive review of changes to this project and provide specific feedback for any issues discovered. Focus on correctness, security, and consistency with the existing codebase. Ensure that every aspect of the specification or implementation plan is implemented correctly, completely, and securely, using best practices for the current language, framework, and/or platform.
 
 You are not permitted to make any changes except to the documents that you create and control in the process of reviewing the code (typically in the '{{path.documents}}' directory). You can access a limited number of shell commands that will not cause changes.
 
-- Focus on what matters, considering the impact of the changes
-- Look at ALL of the change, do not limit yourself to recent work or changes
+- Focus on what matters, consider the impact of the changes
+- Look at ALL of the changes:
+  - do not limit to recent work, or only changed or touched files
+  - Consider the effect on the rest of the module, package or code in general
 - Look for:
   - Violations of secure coding principles: failing to validate input from all external sources
-  - Code duplications or re-implementation
-  - Code that implements:
+  - Duplicate code or unnecessary reimplementation
+  - Code that:
     - existing standard library functions, or
-    - implemented by better tested third-party libraries which are already imported (or should be)
+    - would be better handled by widely used, well-tested third-party libraries that are already imported or should be
   - Variations in the approach taken in different parts of the codebase
-  - Violating encapsulation boundaries and misuse of private APIs
-  - Over-engineered or insufficiently designed code relative to project methodology.
-  - Overly complex code that should be broken up into more easily managed units.
+  - Failing to follow existing patterns and standards
+  - Failing to follow ADRs that are part of the repository
+  - Violating encapsulation boundaries and abuse of private APIs
+  - Over-engineered or insufficiently designed code relative to other code in the project
+  - Overly complex code:
+    - code that should be broken up into more easily managed units
+    - code that does too much or could be simplified
+    - code that could be made more easily tested
+    - code that duplicates test fixtures and helpers that should be preferred
+- Items that should never be included in review
+  - Git state - files not yet staged, etc
+  - Code formatting state - we routinely format on commit
+  - Trivial items or nits
 
-- Respect existing choices for this project, although you should feel free to question them.
-- Be specific - point to exact files/lines, explain the actual impact, and provide concrete fixes where possible preferably as a diff
+- Respect previously existing choices for this project, although you should question them if required.
+- Be specific - point to exact filenames/lines, explain the actual impact, and provide concrete fixes where possible, preferably as a diff
 
 {{h2}}Methodology
 
 {{> methodology}}
-

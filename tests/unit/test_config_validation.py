@@ -90,8 +90,8 @@ class TestConfigValidation:
         assert list(projects) == []
 
     @pytest.mark.anyio
-    async def test_clone_source_ignores_hashless_entries_and_uses_first_name_match(self, runtime, tmp_path):
-        """Clone ignores obsolete entries and takes the first valid matching name."""
+    async def test_clone_source_prefers_an_exact_hashless_legacy_key(self, runtime, tmp_path):
+        """Clone recovers an explicit legacy key ahead of a same-named hashed project."""
         session = await create_test_session(runtime, "test")
         config_manager = session._config()
         first_hash = "a" * 64
@@ -108,8 +108,8 @@ class TestConfigValidation:
 
         source, matches = await session.resolve_clone_source("xyz")
         assert source is not None
-        assert source.key == f"xyz-{first_hash[:8]}"
-        assert source.hash == first_hash
+        assert source.key == "xyz"
+        assert source.hash is None
         assert matches == []
 
         config_manager.config_file.write_text(

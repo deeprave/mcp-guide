@@ -71,7 +71,8 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 | `path-export` | Directory path for exported knowledge content. Agent-specific defaults: Goose uses `~/.goose/projects/{project-hash}/knowledge/`, others use `.kiro/knowledge/`. Auto-added to `allowed_write_paths`. | `string` | (agent-specific) |
 | `allow-client-info` | Enables collection of client environment information (OS, hostname, user, git remotes). Privacy-sensitive. | `boolean` | `false` |
 | `autoupdate` | Enables automatic update prompting at startup when new documentation versions are available. Prompts agent to run the `update_documents` tool. Global only (cannot be set per-project). | `boolean` | `false` |
-| `guide-development` | Enables development features for mcp-guide itself. | `boolean` | `false` |
+| `mcp-skills` | Enables the experimental `io.uniquode/mcp-guide-skills` MCP extension for Guide skills. Global only; it is read at startup, so restart Guide after changing it. Negotiated modern clients can query their session's skill list and receive list-change notifications; the ordinary Guide catalogue remains available independently. | `boolean` | `false` |
+| `guide-development` | Enables development features for mcp-guide itself. It reads the local template source directly and disables document-update prompts and updates, so installer metadata is never written into that source tree. | `boolean` | `false` |
 | `format-resource` | Controls how template `{{#resource}}` references are rendered. When `false` or unset (default), renders as `guide://` URIs. When `true`, renders as `get_content(...)` tool calls. | `boolean` | `false` |
 | `format-command` | Controls how template command references are rendered. When `false` or unset (default), renders as `guide://_command` URIs. When `true`, renders as prompt-style command references using the current prompt prefix and prompt name. | `boolean` | `false` |
 

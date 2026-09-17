@@ -25,6 +25,31 @@ async def test_update_documents_propagates_docroot_resolution_error(runtime, mon
 
 
 @pytest.mark.anyio
+async def test_update_documents_does_not_write_installer_metadata_in_development_mode(runtime, tmp_path):
+    """Development mode reads its docroot directly and never installs into it."""
+    import yaml
+
+    docroot = tmp_path / "source-docroot"
+    runtime.configuration_service().config_file.write_text(
+        yaml.safe_dump(
+            {
+                "docroot": str(docroot),
+                "feature_flags": {"guide-development": True},
+                "projects": {},
+            }
+        ),
+        encoding="utf-8",
+    )
+    context = await request_context_for(create_unbound_test_session(runtime))
+
+    result = await internal_update_documents(UpdateDocumentsArgs(), context)
+
+    assert result.success is False
+    assert result.error_type == "safeguard_prevented"
+    assert not docroot.exists()
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("old_version", [None, "0.0.1"], ids=["new-docroot", "older-documents"])
 async def test_update_installs_documents_and_version_then_skips_current(runtime, tmp_path, old_version):
     """The unbound tool performs real locked installation, then avoids a second update."""

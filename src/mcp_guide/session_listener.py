@@ -1,5 +1,8 @@
-"""Session listener protocol for decoupled session change notifications."""
+"""Shared lifecycle hooks for state associated with a Guide Session."""
 
+from __future__ import annotations
+
+from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -7,24 +10,41 @@ if TYPE_CHECKING:
     from mcp_guide.session import Session
 
 
-class SessionListener(Protocol):
-    """Protocol for objects that listen to session changes."""
+class SessionListenerScope(StrEnum):
+    """Define whether a listener belongs to one Session or its interaction."""
+
+    SESSION = "session"
+    INTERACTION = "interaction"
+
+
+class SessionListenerTarget(Protocol):
+    """Minimum contract for Session-local configuration notifications."""
 
     async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
-        """Called when switch_project() changes the active project.
-
-        Args:
-            session: Session instance that switched
-            old_project: Previous project name (empty string on initial load)
-            new_project: New project name
-        """
-        ...
+        """Observe a newly bound project for this Session."""
 
     async def on_configuration_changed(self, session: "Session", update: "ConfigurationUpdate") -> None:
-        """Called when a consumer-visible effective configuration changes.
+        """Observe a consumer-visible effective configuration change."""
 
-        Args:
-            session: Session instance whose config changed
-            update: Immutable effective update for the Session's bound project
-        """
-        ...
+
+class SessionListener:
+    """Base lifecycle for objects observing one Guide Session.
+
+    Session-scoped listeners own project-local state and are recreated for a
+    replacement Session. Interaction-scoped listeners own connection protocol
+    state and are transferred during a project replacement.
+    """
+
+    scope = SessionListenerScope.SESSION
+
+    async def on_project_changed(self, session: "Session", old_project: str, new_project: str) -> None:
+        """Observe a newly bound project for this Session."""
+
+    async def on_configuration_changed(self, session: "Session", update: "ConfigurationUpdate") -> None:
+        """Observe a consumer-visible effective configuration change."""
+
+    async def on_session_replaced(self, previous: "Session", replacement: "Session") -> None:
+        """Transfer interaction-owned state to the active replacement Session."""
+
+    async def on_request_started(self, session: "Session") -> None:
+        """Observe the owning connection's next request."""

@@ -4,10 +4,12 @@
 
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
+from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
+from mcp_guide.feature_flags.validators import is_value_true
 from mcp_guide.installer.core import ORIGINAL_ARCHIVE, perform_locked_update, read_version
 from mcp_guide.lazy_path import LazyPath
 from mcp_guide.result import Result
-from mcp_guide.result_constants import ERROR_CONFIG_READ, ERROR_FILE_ERROR
+from mcp_guide.result_constants import ERROR_CONFIG_READ, ERROR_FILE_ERROR, ERROR_SAFEGUARD
 from mcp_guide.runtime import RequestContext, get_runtime
 from mcp_guide.tools.tool_result import ToolResult, tool_result
 
@@ -37,6 +39,12 @@ async def internal_update_documents(
         Result containing update statistics
     """
     try:
+        if is_value_true(await get_runtime().feature_flags().get(FLAG_GUIDE_DEVELOPMENT)):
+            return Result.failure(
+                "Documentation updates are disabled while guide-development is enabled",
+                error_type=ERROR_SAFEGUARD,
+            )
+
         session = request_context.session
         docroot = LazyPath(await get_runtime().get_docroot()).resolve()
         archive_path = docroot / ORIGINAL_ARCHIVE

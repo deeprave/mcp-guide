@@ -1,0 +1,46 @@
+---
+name: just-one
+description: Triage a complete, stable inventory of findings one at a time before implementing any accepted work.
+usage: Use when the user asks to walk through findings one by one, decide review items, or defer potential fixes until every finding is triaged.
+cache: short, private
+---
+# Just One
+
+## Directives
+
+- Build a complete, stable inventory before presenting the first finding. Order it by P1 through P6, then preserve source order within each priority.
+- Use the workflow file's required `issue` field as the review key. If it is empty, report that there is no active workflow issue and do not begin triage.
+- If following up review findings, read the source reports from `{{path.documents}}reviews/<issue>/*.json` - ignoring known stale reports - and use their combined and collated findings as the canonical triage record.
+  If an external inventory has not yet been recorded, create one JSON report in that directory before presenting the first finding.
+- Preserve every report's reviewer, target, scope, evidence, and recommendation. Record triage only in the relevant finding's `triage` object: decision, variation, rationale, concrete action, and completion state.
+- Present exactly one finding at a time. Do not preview, summarise, or implement findings while a current finding awaits a decision.
+- Use this form for every finding:
+
+```markdown
+{{h3}}<current>/<total> [P<priority>] <short description>
+
+{{b}}Description:{{b}} <what is wrong and where>
+
+{{b}}Analysis:{{b}} <mechanism, consequence, and evidence>
+
+{{b}}Recommendation:{{b}} <specific action, or the reason not to decline>
+```
+
+- Treat the user's reply as a decision for the current finding: accept, decline, discuss, vary, skip or next.
+  For discussion, answer the question and keep the same finding current until the user decides the outcome.
+- Record every resulting decision in the source JSON finding. An accepted or varied item must record a concrete
+  verb-led action and constraints; declined items must record that they will not be actioned.
+- Never change code, tests, configuration, or review artefacts while any finding remains undecided, except to record its triage decision in the source JSON finding.
+  Findings may concern a remote repository or be implemented by another agent or session. The finding source and the agent conducting triage do not determine implementation responsibility.
+- After every finding has a decision, display a complete decision summary and the accepted action list.
+  Ask the user whether to implement the accepted actions in the current session, retain the decision list as a hand-off for another agent or session, or stop.
+- Implement only when the user explicitly chooses current-session implementation and confirms the accepted action list.
+  Then implement only the accepted or varied actions, record completion in the JSON finding, and run relevant validation.
+- For a hand-off or stop decision, retain and present the complete JSON decision record. Do not request or attempt implementation.
+- As always, keep handoff context `{{path.documents}}context.json` updated at meaningful milestones.
+
+## Guardrails
+
+- Keep the `current/total` count stable. If a duplicate is removed, folded into an earlier finding or one finding is split, state that correction before continuing.
+- A request to stop or pause ends the walkthrough without implementation; retain the JSON decision record for later continuation, if applicable.
+- Do not add work that was not presented and decided.

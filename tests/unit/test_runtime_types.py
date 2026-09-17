@@ -18,6 +18,7 @@ from mcp_guide.runtime import (
     create_runtime,
     get_runtime,
 )
+from mcp_guide.session import Session
 from mcp_guide.utils.project_hash import calculate_project_hash
 
 
@@ -65,6 +66,40 @@ async def test_replacement_keeps_old_requests_on_their_original_session(tmp_path
     assert runtime.find_session(owner) is replacement
     await wait_for_session_disposals(runtime)
     assert await replacement.switch_project("replacement") is replacement
+
+
+@pytest.mark.anyio
+async def test_project_replacement_transfers_only_interaction_scoped_listeners(tmp_path) -> None:
+    """Protocol listeners follow an interaction, while Session state stays local."""
+    from mcp_guide.session_listener import SessionListener, SessionListenerScope
+
+    class RecordingListener(SessionListener):
+        def __init__(self, scope: SessionListenerScope) -> None:
+            self.scope = scope
+            self.projects: list[Session] = []
+            self.replacements: list[tuple[Session, Session]] = []
+
+        async def on_project_changed(self, session, old_project, new_project) -> None:
+            self.projects.append(session)
+
+        async def on_session_replaced(self, previous, replacement) -> None:
+            self.replacements.append((previous, replacement))
+
+    runtime = runtime_for_config(tmp_path)
+    original = runtime.resolve_session(OwnerKey("listener-scope"))
+    interaction_listener = RecordingListener(SessionListenerScope.INTERACTION)
+    session_listener = RecordingListener(SessionListenerScope.SESSION)
+    original.add_listener(interaction_listener)
+    original.add_listener(session_listener)
+
+    await original.bind_project_path("/client/original")
+    replacement = await original.switch_project(path="/client/replacement")
+
+    assert interaction_listener.replacements == [(original, replacement)]
+    assert interaction_listener.projects == [original, replacement]
+    assert session_listener.replacements == []
+    assert session_listener.projects == [original]
+    await replacement.cleanup()
 
 
 @pytest.mark.anyio

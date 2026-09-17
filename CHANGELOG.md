@@ -4,12 +4,25 @@ All notable changes to mcp-guide will be documented in this file.
 
 ## [2.0.0]
 
+### Added
+- Experimental Guide skill serving: discover the packaged skills with
+  `list_skills` or `guide://$`, then retrieve a named skill through its
+  `guide://$<skill-name>` resource URI.
+- The global-only `mcp-skills` feature flag enables the experimental
+  `io.uniquode/mcp-guide-skills` MCP extension. It is advertised during
+  initialisation; negotiated modern clients can query their session's skills
+  and receive refresh notifications when the effective list changes.
+
 ### Changed
+- Category and collection names beginning with reserved characters are now rejected.
 - MCP v2 (2026-07-28) is now fully supported including fallback to legacy mode as per the MCP spec.
-- Some project configuration hashes will have changed due to a bug. The previous project can be merged into the new project by cloning the previous project using the former `<name>-<hash>`: `clone_project <name>-<old-hash>`.
+- Some project configuration hashes will have changed due to a bug in their calculation.
+  Any previous project can be merged into the new project by cloning by name using the former
+  `<name>-<hash>`: i.e. `clone_project <name>-<old-hash>`.
 - The clone_project tool no longer accepts a destination - it always clones/merges projects into the current one.
-- `set_project` now reports caller-correctable failures such as an already-bound root as `project_error`. Unexpected bind failures remain `project_load_error`. A client that cannot mint a session also returns `project_error` rather than a transport-level failure.
-- Inherited-`PWD` project binding is off by default. CLI stdio launches may opt in with `--use-pwd` or `MG_USE_PWD=1`; Guide still binds from `PWD`, never from server `getcwd()`.
+- `set_project` now reports caller-correctable failures such as an already-bound root as `project_error`.
+  Unexpected bind failures remain `project_load_error`.
+- Inherited-`PWD` project binding is off by default. CLI stdio launches may opt in with `--use-pwd` or `MG_USE_PWD=1`.
 
 ## [1.4.0] - 2026-08-16
 

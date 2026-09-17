@@ -2,24 +2,264 @@
 
 """Read resource tool for resolving guide:// URIs."""
 
+from collections.abc import Mapping
+from dataclasses import dataclass
+from glob import has_magic
+from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
-from pydantic import Field, model_validator
+from fastmcp import Context
+from mcp_types import InputRequiredResult
+from pydantic import Field, ValidationError, model_validator
 
-from mcp_guide.config_constants import COMMANDS_DIR
+from mcp_guide.config_constants import COMMANDS_DIR, SKILLS_DIR
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.discovery.commands import discover_commands, normalise_alias_metadata
+from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, discover_document_files
+from mcp_guide.models import resolve_all_flags
+from mcp_guide.render.context import TemplateContext, keyword_context
+from mcp_guide.render.frontmatter import check_frontmatter_requirements, parse_content_with_frontmatter
+from mcp_guide.render.rendering import render_content
 from mcp_guide.result import Result
-from mcp_guide.result_constants import ERROR_VALIDATION
+from mcp_guide.result_constants import (
+    AGENT_INFO,
+    ERROR_NOT_FOUND,
+    ERROR_VALIDATION,
+    INSTRUCTION_AGENT_INFORMATION,
+    INSTRUCTION_DISPLAY_ONLY,
+    USER_INFO,
+)
 from mcp_guide.runtime import RequestContext
+from mcp_guide.skill_elicitation import resolve_skill_elicitations
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.tools.tool_result import ToolResult, tool_result
 from mcp_guide.uri_parser import parse_guide_uri
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class GuideSkill:
+    """A Guide skill package rooted at a rendered SKILL.md entrypoint."""
+
+    identifier: str
+    name: str
+    description: str
+    usage: str
+    frontmatter: Mapping[str, Any]
+
+    @property
+    def uri(self) -> str:
+        """Return the package's stable Guide resource URI."""
+        return f"guide://${self.identifier}"
+
+    @property
+    def entrypoint_path(self) -> str:
+        """Return the package-relative public entrypoint path."""
+        return f"{self.identifier}/SKILL.md"
+
+
+async def discover_guide_skills(request_context: RequestContext) -> list[GuideSkill]:
+    """Discover skills from their frontmatter, excluding unmet requirements."""
+    skills_dir = request_context.resolve_document_path(SKILLS_DIR)
+    try:
+        files = await discover_document_files(skills_dir, ["*/SKILL.md"])
+    except FileNotFoundError:
+        return []
+
+    if files.truncation_reasons:
+        logger.warning("Guide skill discovery truncated by %s", ", ".join(sorted(files.truncation_reasons)))
+
+    flags = await resolve_all_flags(request_context.session)
+    skills: list[GuideSkill] = []
+    for file_info in files:
+        file_info.resolve(request_context.resolve_document_path, SKILLS_DIR)
+        frontmatter = parse_content_with_frontmatter(await file_info.read_raw()).frontmatter
+        package_path = PurePosixPath(file_info.name).parent
+        identifier = package_path.as_posix()
+        name = frontmatter.get("name")
+        description = frontmatter.get("description")
+        usage = frontmatter.get("usage")
+        if identifier == "." or not all(isinstance(value, str) and value for value in (name, description, usage)):
+            logger.warning("Ignoring Guide skill %s without valid catalogue frontmatter", file_info.path)
+            continue
+        assert isinstance(name, str)
+        assert isinstance(description, str)
+        assert isinstance(usage, str)
+        if not check_frontmatter_requirements(frontmatter, flags):
+            continue
+        skills.append(
+            GuideSkill(
+                identifier=identifier,
+                name=name,
+                description=description,
+                usage=usage,
+                frontmatter=dict(frontmatter),
+            )
+        )
+
+    return sorted(skills, key=lambda skill: skill.identifier)
+
+
+def _catalogue_table_cell(value: str) -> str:
+    """Normalise arbitrary frontmatter text for a single Markdown table cell."""
+    return " ".join(value.split()).replace("|", r"\|")
+
+
+def _skill_catalogue_content(skills: list[GuideSkill], *, table: bool = False) -> str:
+    """Present one separately addressable catalogue item for each skill."""
+    if not skills:
+        return "No Guide skills are currently available."
+    if table:
+        rows = ["| Skill | Purpose | Use when | Entrypoint |", "|---|---|---|---|"]
+        rows.extend(
+            "| "
+            f"`{_catalogue_table_cell(skill.identifier)}` | "
+            f"{_catalogue_table_cell(skill.description)} | "
+            f"{_catalogue_table_cell(skill.usage)} | "
+            f"`{skill.uri}` |"
+            for skill in skills
+        )
+        return "\n".join(rows)
+    return "\n\n".join(
+        f"### {skill.name}\n\nID: `{skill.identifier}`\n\n{skill.description}\n\n"
+        f"Use when: {skill.usage}\n\nEntrypoint: `{skill.uri}`"
+        for skill in skills
+    )
+
+
+class ListSkillsArgs(ToolArguments):
+    """Arguments for list_skills tool."""
+
+    verbose: bool = Field(
+        default=False,
+        description="Return a user-facing catalogue instead of agent-only availability information",
+    )
+    table: bool = Field(
+        default=False,
+        description="Return the user-facing catalogue as a Markdown table",
+    )
+
+
+async def internal_list_skills(args: ListSkillsArgs, request_context: RequestContext) -> Result[str]:
+    """List the Guide-provided skill catalogue with the requested audience."""
+    user_facing = args.verbose or args.table
+    disposition = USER_INFO if user_facing else AGENT_INFO
+    instruction = INSTRUCTION_DISPLAY_ONLY if user_facing else INSTRUCTION_AGENT_INFORMATION
+    return Result.ok(
+        _skill_catalogue_content(await discover_guide_skills(request_context), table=args.table),
+        instruction=instruction,
+        disposition=disposition,
+    )
+
+
+@toolfunc(ListSkillsArgs)
+async def list_skills(args: ListSkillsArgs, request_context: RequestContext) -> ToolResult:
+    """List Guide-provided skills and their explicit entrypoint URIs.
+
+    By default the catalogue is agent information for availability checks. Pass
+    ``verbose=true`` for a user-facing catalogue or ``table=true`` for a
+    user-facing Markdown table. Select a listed skill and retrieve its
+    entrypoint URI before applying that skill's instructions.
+    """
+    result = await internal_list_skills(args, request_context)
+    return await tool_result("list_skills", result, session=request_context.session, session_id=args.session_id)
+
+
+def _skill_member_path(skill_path: str, skills: list[GuideSkill]) -> tuple[GuideSkill, str] | None:
+    """Locate a package and its requested literal member path."""
+    requested = PurePosixPath(skill_path)
+    if requested.is_absolute() or any(part in {".", ".."} for part in requested.parts):
+        raise ValueError("Guide skill member path must remain within its package")
+    if any(has_magic(part) for part in requested.parts):
+        raise ValueError("Guide skill member path must not contain glob syntax")
+
+    for skill in sorted(skills, key=lambda candidate: len(PurePosixPath(candidate.identifier).parts), reverse=True):
+        package_parts = PurePosixPath(skill.identifier).parts
+        if requested.parts[: len(package_parts)] != package_parts:
+            continue
+        member_parts = requested.parts[len(package_parts) :]
+        return skill, PurePosixPath(*member_parts).as_posix() if member_parts else "SKILL.md"
+    return None
+
+
+def _skill_template_context(skill: GuideSkill, kwargs: Mapping[str, Any]) -> TemplateContext:
+    """Build public package references for every rendered skill file."""
+    defaulted_forms = getattr(kwargs, "defaulted_forms", frozenset())
+    return TemplateContext(
+        {
+            "skill": {
+                "path": skill.identifier,
+                "entrypoint": skill.entrypoint_path,
+                "uri": skill.uri,
+                "resources_uri": f"{skill.uri}/resources",
+                "scripts_uri": f"{skill.uri}/scripts",
+                "agents_uri": f"{skill.uri}/agents",
+            },
+            "elicitation": {"defaulted": {form: True for form in defaulted_forms}},
+        },
+        keyword_context(kwargs),
+    )
+
+
+def _public_skill_member_path(template_path: Path, skills_dir: str, request_context: RequestContext) -> str:
+    """Return a rendered package path without leaking server template suffixes."""
+    relative = request_context.resolve_document_path(template_path).relative_to(
+        request_context.resolve_document_path(skills_dir)
+    )
+    rendered_path = relative.as_posix()
+    for extension in TEMPLATE_EXTENSIONS:
+        if rendered_path.endswith(extension):
+            return rendered_path[: -len(extension)]
+    return rendered_path
+
+
+async def _read_guide_skill(
+    skill_path: str,
+    request_context: RequestContext,
+    *,
+    kwargs: Mapping[str, Any] | None = None,
+    mcp_context: Context | None = None,
+) -> Result[Any] | InputRequiredResult:
+    """Render one contained member of a server-owned skill package."""
+    try:
+        selected = _skill_member_path(skill_path, await discover_guide_skills(request_context))
+    except ValueError as error:
+        return Result.failure(str(error), error_type=ERROR_VALIDATION)
+    if selected is None:
+        return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
+    skill, member_path = selected
+
+    rendered_kwargs: Mapping[str, Any] = kwargs or {}
+    if member_path == "SKILL.md":
+        resolved_kwargs = await resolve_skill_elicitations(skill.frontmatter, rendered_kwargs, mcp_context)
+        if isinstance(resolved_kwargs, (Result, InputRequiredResult)):
+            return resolved_kwargs
+        rendered_kwargs = resolved_kwargs
+
+    try:
+        rendered = await render_content(
+            request_context.session,
+            f"{skill.identifier}/{member_path}",
+            SKILLS_DIR,
+            extra_context=_skill_template_context(skill, rendered_kwargs),
+            category_name="Guide skills",
+            resolver=request_context.resolve_document_path,
+        )
+    except FileNotFoundError:
+        return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
+    if rendered is None:
+        return Result.failure(f"Guide skill '{skill_path}' is unavailable for this project", error_type=ERROR_NOT_FOUND)
+    return Result.ok(
+        rendered.content,
+        message=f"Rendered skill file: {_public_skill_member_path(rendered.template_path, SKILLS_DIR, request_context)}",
+        instruction=rendered.instruction,
+        disposition=rendered.disposition,
+        cache_policy=rendered.cache_policy,
+    )
 
 
 def session_id_from_guide_uri(uri: str) -> str | None:
@@ -41,6 +281,7 @@ class ReadResourceArgs(ToolArguments):
             "A guide:// URI to resolve. "
             "Content URIs (guide://expression/pattern) return category or collection content. "
             "Command URIs (guide://_command/args?kwargs) execute server commands. "
+            "Skill URIs (guide://$ or guide://$skill/path) return the skills catalogue or a skill instruction. "
             "A unique ?session_id= query value is copied onto the session_id argument when "
             "that argument is omitted."
         ),
@@ -58,7 +299,9 @@ class ReadResourceArgs(ToolArguments):
         return self
 
 
-async def internal_read_resource(args: ReadResourceArgs, request_context: RequestContext) -> Result[Any]:
+async def internal_read_resource(
+    args: ReadResourceArgs, request_context: RequestContext, *, mcp_context: Context | None = None
+) -> Result[Any] | InputRequiredResult:
     """Resolve a guide:// URI and return its content or command output.
 
     Args:
@@ -97,6 +340,20 @@ async def internal_read_resource(args: ReadResourceArgs, request_context: Reques
             request_context=request_context,
         )
 
+    if parsed.is_skill:
+        if not parsed.expression:
+            try:
+                list_args = ListSkillsArgs.model_validate({**parsed.kwargs, "session_id": args.session_id})
+            except ValidationError as error:
+                return Result.failure(str(error), error_type=ERROR_VALIDATION)
+            return await internal_list_skills(list_args, request_context)
+        return await _read_guide_skill(
+            parsed.expression,
+            request_context,
+            kwargs=parsed.kwargs,
+            mcp_context=mcp_context,
+        )
+
     content_args = ContentArgs(
         expression=parsed.expression,
         pattern=parsed.pattern,
@@ -107,12 +364,19 @@ async def internal_read_resource(args: ReadResourceArgs, request_context: Reques
 
 
 @toolfunc(ReadResourceArgs)
-async def read_resource(args: ReadResourceArgs, request_context: RequestContext) -> ToolResult:
+async def read_resource(
+    args: ReadResourceArgs,
+    request_context: RequestContext,
+    mcp_context: Context | None = None,
+) -> ToolResult | InputRequiredResult:
     """Resolve a guide:// URI and return its content or command output.
 
     Accepts content URIs (guide://expression/pattern) to retrieve category or collection
-    content, and command URIs (guide://_command) to execute server commands. A unique
+    content, command URIs (guide://_command) to execute server commands, and skill URIs
+    (guide://$ or guide://$skill/path) to retrieve Guide-provided skills. A unique
     session_id on the URI query is used when the sibling session_id argument is omitted.
     """
-    result = await internal_read_resource(args, request_context)
+    result = await internal_read_resource(args, request_context, mcp_context=mcp_context)
+    if isinstance(result, InputRequiredResult):
+        return result
     return await tool_result("read_resource", result, session=request_context.session, session_id=args.session_id)

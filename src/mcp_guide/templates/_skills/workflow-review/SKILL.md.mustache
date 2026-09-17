@@ -1,0 +1,99 @@
+---
+name: workflow-review
+description: Run two independent reviews and coordinate the review phase.
+usage: Use when the user asks to enter, apply, or follow workflow review, or requests a review target.
+cache: short, private
+elicitation:
+  review-target:
+    message: Choose the target for this code review.
+    fallback: render
+    schema:
+      type: object
+      properties:
+        mode:
+          type: string
+          description: "Review target: uncommitted, main, a branch name, a pull-request URL or reference, or a pull-request number"
+      required: [mode]
+---
+# Code Review
+
+## Directives
+
+{{#workflow}}
+- Read `{{workflow-file}}` to identify the current issue and review scope
+- Update `{{workflow-file}}` to `phase: review` when changing phase, then send its complete content using `send_file_content`
+{{/workflow}}
+
+- Obtain two fresh, independent reviews of the selected target, using the heavier available model at medium or high effort for one review and a different lighter available model at its highest supported effort for the other
+- Run those reviews concurrently in isolated subprocesses when separate subprocess execution is supported; otherwise run them sequentially without exposing either reviewer to the other's findings
+- Give each reviewer only the selected target, the relevant repository evidence, governing repository guidance, applicable OpenSpec artefacts, and the required report format
+- Do not provide, load, or ask either reviewer to account for prior conversation, prior reviews, existing review records, collated inventories, or findings from another source
+- Require both reviews to inspect the selected diff and surrounding code, governing repository guidance, and applicable OpenSpec artefacts; each review must return prioritised P1-to-P6 findings with location, analysis, and recommendation
+- Use the workflow file's required `issue` field as the review key. If it is empty, report that there is no active workflow issue and do not dispatch reviewers
+- Require every reviewer to write only its own JSON report to `{{path.documents}}reviews/<issue>/<agent-name>.json`, using a unique lowercase hyphenated agent name such as `codex-heavy` or `codex-light`; do not load, merge, or update adjacent review records while writing it
+- Each report must identify its reviewer, target, scope, and creation time, and contain a `findings` array whose entries have a stable identifier, P1-to-P6 priority, location, description, analysis, and recommendation
+- Preserve optional triage fields on each finding for the user decision, variation, rationale, action, and completion state so later triage can update the source record without replacing it
+- After both fresh reviews are complete, collate only the two reports produced for this review: deduplicate the same underlying defect, retain the strongest evidence, and create one fixed finding inventory
+- Use `guide://$just-one` when the user explicitly elects it, or when their established preference is to triage findings sequentially; otherwise use the user's requested presentation or ordinary review presentation
+- Keep handoff context `{{path.documents}}context.json` updated at meaningful milestones when present
+
+## Review record format
+
+```json
+{
+  "reviewer": "<model used>",
+  "target": "<selected review target>",
+  "scope": "<review scope>",
+  "created_at": "<ISO 8601 timestamp>",
+  "findings": [
+    {
+      "id": "<agent-#>",
+      "priority": "P#",
+      "location": {"file": "<path>", "start": 1, "end": 1},
+      "description": "<short description>",
+      "analysis": "<evidence and consequence>",
+      "recommendation": "<specific action>",
+      "triage": {
+        "decision": "pending",
+        "variation": null,
+        "rationale": null,
+        "action": null,
+        "completion": "not started"
+      }
+    }
+  ]
+}
+```
+
+## Modes: what to review
+{{#kwargs.mode}}- Use `{{kwargs.mode}}` as the review target
+{{/kwargs.mode}}{{^kwargs.mode}}- The server may request `review-target` before this skill is rendered. If it does not, ask the user to choose a target using the client's choice-picker interaction
+  - Uncommitted work — review the complete working tree against `HEAD`
+  - Current change — review the current change against `main`
+  - Named branch — review that branch against its merge base
+  - Pull request — review a pull-request URL, `<owner>/<repo>/pulls/#<number>` reference, or current-repository pull-request number
+  - When the client cannot render a choice picker, present these same options as a numbered list and ask the user to select one
+  - Do not begin the review until the user selects a target
+{{/kwargs.mode}}
+- `mode=uncommitted` — the complete working tree against `HEAD`
+- `mode=main` — the current change against `main`
+- A branch name — that branch's change against its merge base
+- A pull-request URL, `<owner>/<repo>/pulls/#<number>` reference, or current-repository pull-request number — that pull request
+- A numeric value — that pull-request number in the current repository
+- An unsupported mode — ask the user to clarify; do not infer another review scope
+
+## Guidelines
+
+- Read `guide://review/general` for requirements on reviewing the code
+
+{{#openspec}}
+## OpenSpec Association
+
+- Run `openspec validate <active-change> --strict` before completing the review, using the active change identified by the workflow or the reviewed work
+- Compare implementation against the active change's proposal, design, specifications, and tasks
+{{/openspec}}
+
+## Guardrails
+
+- Keep both reviews independent; do not provide prior findings, conclusions, prior conversation, existing review records, or one reviewer's output to the other
+- Do not implement, format, commit, push, or discard changes during review or finding triage unless the user explicitly confirms the collected accepted actions

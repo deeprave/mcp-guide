@@ -1,0 +1,33 @@
+---
+name: workflow-explore
+description: Investigate requirements, risks, and options in the Guide exploration phase.
+usage: Use when the user asks to enter, apply, or follow the workflow phase for exploration.
+cache: short, private
+---
+# Exploration Phase
+{{#workflow}}
+Source Guide URI: `guide://_explore`.
+{{/workflow}}
+## Directives
+
+{{#workflow}}
+- Read `{{workflow-file}}` to understand the current issue context.
+- Update `{{workflow-file}}` to `phase: exploration` when changing phase, then send its complete content using `send_file_content`.
+{{/workflow}}
+- Investigate requirements, constraints, and possible approaches.
+- Ask focused questions, establish goals, and record requirements.
+- Compare options and capture findings before planning or implementation.
+- Preserve current issue context unless the user asks to switch topics.
+- Capture durable findings in `{{path.documents}}`{{#openspec}} or OpenSpec artefacts{{/openspec}}.
+- Keep handoff context `{{path.documents}}/context.json` updated at meaningful milestones when present.
+
+## Guardrails
+
+- Do not modify production code or tests.
+- Explicit consent or request is required before transitioning from exploration to any other delivery phase.
+- Keep exploration bounded by the user's question or current issue.
+{{#openspec}}
+## OpenSpec Association
+
+If OpenSpec is active for the current project, use `openspec-explore` for OpenSpec-oriented investigation and requirements discovery. Exploration may create or update OpenSpec proposals and design notes, but should not implement tasks. Use `openspec-new-change` only when exploration concludes that a new change should be tracked.
+{{/openspec}}

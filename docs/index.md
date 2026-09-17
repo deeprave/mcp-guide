@@ -46,6 +46,7 @@ mcp-guide is an MCP server that provides AI agents with organised access to proj
 ### Developer Notes
 - [Developer Setup](developer/SETUP.md) - Setting up mcp-guide for development
 - [Command Authoring](developer/command-authoring.md) - Creating custom commands
+- [Skill Authoring](developer/skill-authoring.md) - Creating Guide skill packages
 - [Template Rendering](developer/template-rendering.md) - Working with templates and frontmatter
 - [Filesystem Access](developer/filesystem-access.md) - Security and access patterns
 - [Debugging](developer/DEBUGGING.md) - Debugging and troubleshooting

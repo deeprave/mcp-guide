@@ -8,6 +8,7 @@ from mcp_guide.core.validation import (
     is_absolute_path,
     validate_description,
     validate_directory_path,
+    validate_name,
     validate_pattern,
 )
 
@@ -89,6 +90,17 @@ class TestValidateDirectoryPath:
         """Test that None and empty string return default value."""
         result = validate_directory_path(value, "default_dir")
         assert result == expected
+
+
+class TestValidateName:
+    """Tests for category and collection name validation."""
+
+    @pytest.mark.parametrize("entity", ["Category", "Collection"])
+    @pytest.mark.parametrize("prefix", ["_", "$", "!"], ids=["underscore", "dollar", "future-reserved"])
+    def test_rejects_reserved_leading_characters(self, entity, prefix):
+        """Reserved leading characters leave namespace expansion available."""
+        with pytest.raises(ArgValidationError, match="name is not accepted"):
+            validate_name(f"{prefix}workflow-status", "name", entity)
 
 
 class TestValidateDescription:

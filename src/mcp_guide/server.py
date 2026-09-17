@@ -1,9 +1,11 @@
 """MCP server creation and configuration."""
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
+import yaml
 from fastmcp import FastMCP
 
 if TYPE_CHECKING:
@@ -15,6 +17,36 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.runtime import GuideRuntime, create_runtime
 
 logger = get_logger(__name__)
+
+
+def _startup_feature_enabled(config: "ServerConfig", flag_name: str) -> bool:
+    """Read one process-level boolean flag without starting runtime services."""
+    from mcp_guide.config_paths import get_config_file
+    from mcp_guide.feature_flags.validators import coerce_boolean_like
+    from mcp_guide.lazy_path import LazyPath
+
+    config_file = LazyPath(get_config_file(config.configdir)).resolve()
+    try:
+        content = config_file.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return False
+    except OSError:
+        logger.warning("Unable to read startup feature flags from %s", config_file, exc_info=True)
+        return False
+
+    try:
+        config_data = yaml.safe_load(content) or {}
+    except yaml.YAMLError:
+        logger.warning("Unable to parse startup feature flags from %s", config_file, exc_info=True)
+        return False
+    if not isinstance(config_data, Mapping):
+        logger.warning("Ignoring non-mapping startup configuration in %s", config_file)
+        return False
+    feature_flags = config_data.get("feature_flags", {})
+    if not isinstance(feature_flags, Mapping):
+        logger.warning("Ignoring non-mapping feature_flags in %s", config_file)
+        return False
+    return coerce_boolean_like(feature_flags.get(flag_name)) is True
 
 
 @dataclass(frozen=True)
@@ -174,11 +206,20 @@ def create_application(config: "ServerConfig") -> GuideApplication:
 
     # Use MCP_GUIDE_NAME env var if set, otherwise use generic name
     server_name = os.getenv("MCP_GUIDE_NAME", "guide")
+    from mcp_guide.feature_flags.constants import FLAG_MCP_SKILLS
+
+    mcp_skills_enabled = _startup_feature_enabled(config, FLAG_MCP_SKILLS)
+    experimental_capabilities = {"skills": {}} if mcp_skills_enabled else None
     mcp = FastMCP(
         name=server_name,
         instructions="MCP server for project documentation and development guidance",
         lifespan=lambda _server: runtime.lifespan(),
+        experimental_capabilities=experimental_capabilities,
     )
+    if mcp_skills_enabled:
+        from mcp_guide.mcp_skills_extension import GuideSkillsExtension
+
+        mcp.add_extension(GuideSkillsExtension(runtime))
 
     # Set tool prefix from config
     os.environ["MCP_TOOL_PREFIX"] = config.tool_prefix

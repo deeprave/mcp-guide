@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pytest
 import yaml
+from pydantic_core import ValidationError
 from tests.helpers import bind_isolated_test_session, create_bound_test_session, create_test_runtime
+
+from mcp_guide.feature_flags.types import FeatureValue
+from mcp_guide.feature_flags.validators import FlagValidationError
 
 
 def _prepare_runtime(config_dir: Path):
@@ -54,3 +58,31 @@ async def test_project_flags_remain_separate_and_persist_across_sessions(tmp_pat
     assert await second.project_flags().list() == expected
     persisted = yaml.safe_load((tmp_path / "config.yaml").read_text())
     assert persisted["projects"][session.project.key]["project_flags"] == expected
+
+
+@pytest.mark.anyio
+async def test_project_flag_api_rejects_global_only_mcp_skills_flag(tmp_path):
+    """The project-scoped setter enforces the startup-only flag boundary."""
+    runtime = _prepare_runtime(tmp_path)
+    session = await create_bound_test_session(runtime, "test-project")
+
+    with pytest.raises(FlagValidationError, match="Cannot set project flag `mcp-skills`"):
+        await session.project_flags().set("mcp-skills", True)
+
+
+@pytest.mark.anyio
+async def test_global_mcp_skills_flag_accepts_boolean_values(tmp_path):
+    """The experiment can be configured only through global feature flags."""
+    runtime = _prepare_runtime(tmp_path)
+
+    await runtime.feature_flags().set("mcp-skills", "enabled")
+
+    assert await runtime.feature_flags().get("mcp-skills") == FeatureValue(True)
+
+
+def test_project_configuration_rejects_global_only_mcp_skills_flag() -> None:
+    """MCP capability negotiation cannot be selected by one project."""
+    from mcp_guide.models import Project
+
+    with pytest.raises(ValidationError, match="Cannot set project flag `mcp-skills`"):
+        Project(name="test-project", project_flags={"mcp-skills": True})

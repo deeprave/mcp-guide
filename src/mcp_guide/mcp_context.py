@@ -102,7 +102,14 @@ def resource_uri_from_fastmcp(ctx: Any | None) -> str | None:
     request_context = getattr(ctx, "request_context", None)
     request = request_context.request if request_context is not None else None
     params = getattr(request, "params", None)
-    uri = getattr(params, "uri", None)
+    if params is None:
+        # FastMCP exposes the original transport parameters through its request
+        # context for resource-template invocations. Its public request is None
+        # on this path, but the original URI is essential: Guide URI query
+        # keywords are template inputs, not FastMCP template parameters.
+        server_request_context = getattr(request_context, "_srctx", None)
+        params = getattr(server_request_context, "params", None)
+    uri = params.get("uri") if isinstance(params, Mapping) else getattr(params, "uri", None)
     uri_text = str(uri) if uri is not None else None
     return uri_text if uri_text and uri_text.startswith("guide://") else None
 

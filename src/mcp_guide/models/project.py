@@ -7,7 +7,7 @@ from typing import Optional
 from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
-from mcp_guide.core.validation import validate_directory_path
+from mcp_guide.core.validation import validate_directory_path, validate_reserved_content_name_prefix
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models.constants import _NAME_REGEX, DEFAULT_ALLOWED_WRITE_PATHS
 
@@ -119,6 +119,22 @@ class Project:
             raise ValueError("Project name must contain only alphanumeric characters, underscores, and hyphens")
         return v
 
+    @field_validator("categories")
+    @classmethod
+    def validate_category_names(cls, values: dict[str, Category]) -> dict[str, Category]:
+        """Reject category keys beginning with reserved characters."""
+        for category_name in values:
+            validate_reserved_content_name_prefix(category_name, "Category")
+        return values
+
+    @field_validator("collections")
+    @classmethod
+    def validate_collection_names(cls, values: dict[str, Collection]) -> dict[str, Collection]:
+        """Reject collection keys beginning with reserved characters."""
+        for collection_name in values:
+            validate_reserved_content_name_prefix(collection_name, "Collection")
+        return values
+
     @field_validator("allowed_write_paths")
     @classmethod
     def validate_allowed_write_paths(cls, v: list[str]) -> list[str]:
@@ -165,13 +181,26 @@ class Project:
     @field_validator("project_flags")
     @classmethod
     def validate_project_flags(cls, v: dict[str, FeatureValue]) -> dict[str, FeatureValue]:
-        from mcp_guide.feature_flags.validators import validate_flag_name, validate_flag_value
+        from mcp_guide.feature_flags.validators import (
+            FlagScope,
+            FlagValidationError,
+            get_flag_scope,
+            validate_flag_name,
+            validate_flag_value,
+            validate_flag_with_registered,
+        )
 
         for flag_name, flag_value in v.items():
             if not validate_flag_name(flag_name):
                 raise ValueError(f"Invalid feature flag name: {flag_name}")
             if not validate_flag_value(flag_value):
                 raise ValueError(f"Invalid feature flag value type for '{flag_name}': {type(flag_value)}")
+            if get_flag_scope(flag_name) is not FlagScope.FEATURE_ONLY:
+                continue
+            try:
+                validate_flag_with_registered(flag_name, flag_value, is_project=True)
+            except FlagValidationError as exc:
+                raise ValueError(str(exc)) from exc
         return v
 
     def with_category(self, name: str, category: Category) -> "Project":

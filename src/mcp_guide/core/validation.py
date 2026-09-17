@@ -17,9 +17,16 @@ ERR_INVALID_CHARACTERS = "Description contains quote characters"
 # Name validation constants
 _INVALID_NAME_CHARS = frozenset("/\\ !")
 _MAX_NAME_LENGTH = 30
+RESERVED_CHARACTERS = "_$!"
 
 # Default instruction for validation errors
 DEFAULT_INSTRUCTION = "Return error to user without attempting remediation"
+
+
+def validate_reserved_content_name_prefix(name: str, entity: str) -> None:
+    """Reject names beginning with reserved characters."""
+    if name and name[0] in RESERVED_CHARACTERS:
+        raise ValueError(f"{entity} name is not accepted")
 
 
 class ArgValidationError(ValueError):
@@ -200,10 +207,10 @@ def validate_name(name: str, field: str, entity: str) -> str:
     """
     if not name or not name.strip():
         raise ArgValidationError([{"field": field, "message": f"{entity} name cannot be empty"}])
-    if name.startswith("_"):
-        raise ArgValidationError(
-            [{"field": field, "message": f"{entity} names cannot start with underscore (reserved for system use)"}]
-        )
+    try:
+        validate_reserved_content_name_prefix(name, entity)
+    except ValueError as error:
+        raise ArgValidationError([{"field": field, "message": str(error)}]) from error
     if _INVALID_NAME_CHARS.intersection(name):
         raise ArgValidationError(
             [{"field": field, "message": f"{entity} name cannot contain spaces or special characters"}]

@@ -19,6 +19,36 @@ def test_server_has_instructions() -> None:
     assert "project documentation" in server.instructions.lower()
 
 
+def test_mcp_skills_capability_is_snapshotted_from_global_configuration(tmp_path) -> None:
+    """The experimental capability is fixed when the server is constructed."""
+    from mcp_guide.cli import ServerConfig
+    from mcp_guide.server import create_application
+
+    config_file = tmp_path / "config.yaml"
+    config_file.write_text("feature_flags:\n  mcp-skills: true\n")
+
+    application = create_application(ServerConfig(configdir=str(tmp_path)))
+    capabilities = application.server._mcp_server.get_capabilities()
+
+    assert capabilities.experimental == {"skills": {}}
+    assert capabilities.model_dump(mode="json")["experimental"] == {"skills": {}}
+
+    config_file.write_text("feature_flags:\n  mcp-skills: false\n")
+    assert application.server._mcp_server.get_capabilities().experimental == {"skills": {}}
+
+
+def test_mcp_skills_capability_is_absent_without_the_global_flag(tmp_path) -> None:
+    """Skill resources remain available without advertising the experiment."""
+    from mcp_guide.cli import ServerConfig
+    from mcp_guide.server import create_application
+
+    (tmp_path / "config.yaml").write_text("feature_flags: {}\n")
+
+    application = create_application(ServerConfig(configdir=str(tmp_path)))
+
+    assert application.server._mcp_server.get_capabilities().experimental is None
+
+
 def test_runtime_factory_injects_one_config_manager_into_each_session(tmp_path) -> None:
     """Production Sessions receive the runtime-owned configuration service."""
     from mcp_guide.cli import ServerConfig
@@ -70,3 +100,4 @@ async def test_fastmcp_surface_negotiates_retained_and_modern_client_eras(mode: 
     tool_names = {tool.name for tool in tools}
     assert "set_project" in tool_names
     assert "switch_project" in tool_names
+    assert "list_skills" in tool_names

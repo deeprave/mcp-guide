@@ -4,8 +4,10 @@ import json
 from types import SimpleNamespace
 
 import pytest
+from mcp_types import InputRequiredResult
 
 from mcp_guide.models import Category
+from mcp_guide.prompts import guide_prompt
 from mcp_guide.prompts.guide_prompt import guide
 from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY, INSTRUCTION_ERROR_MESSAGE
 
@@ -110,3 +112,51 @@ async def test_empty_content_and_template_error(resource_project):
     assert not error["success"]
     assert error["error_type"] == "validation_error"
     assert error["error_data"]["errors"] == ["Missing required argument: name"]
+
+
+@pytest.mark.anyio
+async def test_prompt_routes_underscore_prefixed_command(resource_project):
+    """An underscore-prefixed prompt request executes the matching command URI."""
+    result = await invoke(resource_project, "_openspec/show/my-change?verbose")
+
+    assert result["success"], result
+    assert result["value"] == "Show my-change verbose"
+
+
+@pytest.mark.anyio
+async def test_prompt_routes_dollar_prefixed_skill_with_query(resource_project):
+    """A dollar-prefixed prompt request renders a selected skill member with URI keywords."""
+    result = await invoke(resource_project, "$workflow-status/resources/checklist.md?mode=summary")
+
+    assert result["success"], result
+    assert result["value"] == "Package=workflow-status; resources=guide://$workflow-status/resources; mode=summary"
+
+
+@pytest.mark.anyio
+async def test_prompt_converts_unrenderable_skill_input_request_to_a_result(resource_project, monkeypatch):
+    """Prompts retain their ordinary result contract when a skill requests MCP input."""
+
+    async def requires_input(*_args, **_kwargs):
+        return InputRequiredResult(input_requests={}, request_state="skill-elicitation")
+
+    from mcp_guide.tools import tool_resource
+
+    monkeypatch.setattr(tool_resource, "internal_read_resource", requires_input)
+
+    result = await guide_prompt._handle_uri_namespace_request(["guide", "$workflow-review"], resource_project)
+
+    assert result.success is False
+    assert result.error_type == "validation_error"
+    assert (
+        result.error
+        == "This Guide prompt cannot request skill input; pass the required skill query arguments explicitly."
+    )
+
+
+@pytest.mark.anyio
+async def test_prompt_returns_structured_not_found_for_an_unknown_skill_member(resource_project):
+    """A missing skill member follows the ordinary Guide prompt error contract."""
+    result = await invoke(resource_project, "$workflow-status/resources/missing.md")
+
+    assert result["success"] is False
+    assert result["error_type"] == "not_found"

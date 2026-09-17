@@ -13,6 +13,7 @@ from mcp_guide.tools.tool_content import ContentArgs, ExportContentArgs
 from mcp_guide.tools.tool_feature_flags import SetFeatureFlagArgs, SetFlagArgs
 from mcp_guide.tools.tool_filesystem import SendDirectoryListingArgs, SendFileContentArgs
 from mcp_guide.tools.tool_project import CloneProjectArgs, SetCurrentProjectArgs, SwitchProjectArgs
+from mcp_guide.tools.tool_resource import ListSkillsArgs
 from mcp_guide.tools.tool_utility import GetClientInfoArgs
 
 
@@ -46,7 +47,7 @@ def _ensure_production_surface() -> None:
             _reload_module(f"mcp_guide.tools.{module_name}")
     if "guide" not in get_prompt_registry():
         _reload_module("mcp_guide.prompts.guide_prompt")
-    if "guide_resource" not in get_resource_registry():
+    if {"guide_resource", "guide_skills_catalog", "guide_skill_resource"}.difference(get_resource_registry()):
         _reload_module("mcp_guide.resources")
 
 
@@ -187,6 +188,8 @@ def test_guide_prompt_arguments_describe_command_and_session() -> None:
     arg1 = _annotated_description(signature.parameters["arg1"].annotation)
     session_id = _annotated_description(signature.parameters["session_id"].annotation)
     assert arg1 is not None and ":help" in arg1
+    assert "_status" in arg1
+    assert "$workflow-status" in arg1
     assert session_id == SESSION_ID_DESCRIPTION
 
 
@@ -201,3 +204,31 @@ def test_resource_templates_document_session_id() -> None:
     content_signature = inspect.signature(content.metadata.func)
     assert _annotated_description(content_signature.parameters["collection"].annotation)
     assert _annotated_description(content_signature.parameters["session_id"].annotation) == SESSION_ID_DESCRIPTION
+
+
+def test_guide_skill_resources_are_advertised_as_dedicated_entrypoints() -> None:
+    from fastmcp.resources.template import match_uri_template
+
+    _ensure_production_surface()
+    registry = get_resource_registry()
+
+    catalogue = registry["guide_skills_catalog"]
+    entrypoint = registry["guide_skill_resource"]
+    assert catalogue.metadata.uri_template == "guide://${?session_id,verbose,table}"
+    assert entrypoint.metadata.uri_template == "guide://${skill_path*}{?session_id}"
+    assert _annotated_description(inspect.signature(entrypoint.metadata.func).parameters["skill_path"].annotation)
+    assert match_uri_template("guide://$", catalogue.metadata.uri_template) == {}
+    assert match_uri_template("guide://$?verbose=true", catalogue.metadata.uri_template) == {"verbose": "true"}
+    assert match_uri_template("guide://$workflow/status", entrypoint.metadata.uri_template) == {
+        "skill_path": "workflow/status"
+    }
+
+
+def test_list_skills_is_advertised_as_a_standard_tool() -> None:
+    _ensure_production_surface()
+    registration = get_tool_registry()["list_skills"]
+
+    assert registration.metadata.args_class is ListSkillsArgs
+    description = registration.metadata.description or ""
+    assert "Guide-provided skills" in description
+    assert "entrypoint URI" in description

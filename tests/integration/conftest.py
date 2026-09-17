@@ -92,7 +92,15 @@ async def resource_project(runtime, tmp_path):
     from tests.helpers import create_bound_test_session, request_context_for
 
     docroot = tmp_path / "resource-docs"
-    for folder in ("docs", "policies/git/ops", "_commands/project", "_commands/openspec"):
+    for folder in (
+        "docs",
+        "policies/git/ops",
+        "_commands/project",
+        "_commands/openspec",
+        "_skills/workflow-status/resources",
+        "_skills/workflow-status/scripts",
+        "_skills/grouped/nested",
+    ):
         (docroot / folder).mkdir(parents=True, exist_ok=True)
     (docroot / "docs/readme.md").write_text("docs content")
     (docroot / "policies/git/ops/rules.md").write_text("git policy")
@@ -103,6 +111,41 @@ async def resource_project(runtime, tmp_path):
     )
     (docroot / "_commands/openspec/show.mustache").write_text(
         "Show {{#args}}{{value}}{{/args}}{{#kwargs.verbose}} verbose{{/kwargs.verbose}}"
+    )
+    (docroot / "_skills/workflow-status/SKILL.md.mustache").write_text(
+        "---\n"
+        "name: workflow-status\n"
+        "description: Report the current Guide workflow and OpenSpec status without changing it.\n"
+        "usage: Use when the user asks for the current Guide workflow or OpenSpec status.\n"
+        "type: agent/instruction\n"
+        "---\n"
+        "Read the current Guide workflow and OpenSpec status."
+    )
+    (docroot / "_skills/workflow-review").mkdir()
+    (docroot / "_skills/workflow-review/SKILL.md.mustache").write_text(
+        "---\n"
+        "name: workflow-review\n"
+        "description: Review the selected target.\n"
+        "usage: Use when the user requests a review.\n"
+        "elicitation:\n"
+        "  review-target:\n"
+        "    message: Choose the target for this review.\n"
+        "    fallback: render\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        mode:\n"
+        "          type: string\n"
+        "      required: [mode]\n"
+        "---\n"
+        "Review {{kwargs.mode}}"
+    )
+    (docroot / "_skills/workflow-status/resources/checklist.md.mustache").write_text(
+        "Package={{skill.path}}; resources={{skill.resources_uri}}; mode={{kwargs.mode}}"
+    )
+    (docroot / "_skills/workflow-status/scripts/inspect.py").write_text("print('inspect locally')\n")
+    (docroot / "_skills/grouped/nested/SKILL.md.mustache").write_text(
+        "---\nname: grouped-nested\ndescription: This must not be discoverable.\n---\nIgnored."
     )
     runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
     session = await create_bound_test_session(runtime, "resource-project")

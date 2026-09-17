@@ -79,6 +79,18 @@ def promptfunc(description: Optional[str] = None) -> Callable[[Callable[..., Any
                 async with request_context_scope(
                     ctx, application_kwargs.get("session_id"), allow_pwd_bootstrap=True
                 ) as request_context:
+                    # Prompts have the same project-binding boundary as ordinary
+                    # Guide tools. Optional stdio PWD binding has already run,
+                    # but an unbound request must not initialise tasks or render
+                    # command/content templates against an empty project.
+                    if not request_context.is_bound:
+                        from mcp_guide.mcp_result_adapter import prompt_response
+                        from mcp_guide.result_constants import make_no_project_result
+
+                        return prompt_response(
+                            await make_no_project_result(),
+                            protocol_type=request_context.session.protocol_type,
+                        )
                     result = await func(*args, request_context=request_context, **application_kwargs)
                     from mcp_guide.result import Result
 

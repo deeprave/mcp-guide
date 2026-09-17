@@ -5,7 +5,7 @@ from collections import ChainMap
 from collections.abc import MutableMapping
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 
@@ -20,6 +20,15 @@ def convert_lists_to_indexed(obj: Any) -> Any:
         return {k: convert_lists_to_indexed(v) for k, v in obj.items()}
     else:
         return obj
+
+
+def keyword_context(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    """Return the shared template representation of URI or command keywords."""
+    raw_kwargs = dict(kwargs)
+    return {
+        "kwargs": convert_lists_to_indexed(raw_kwargs.copy()),
+        "raw_kwargs": raw_kwargs,
+    }
 
 
 class IndexedList(list[Any]):

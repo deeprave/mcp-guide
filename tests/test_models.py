@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from mcp_guide.models import Category, Project
+from mcp_guide.models import Category, Collection, Project
 
 
 class TestProject:
@@ -77,14 +77,26 @@ class TestProject:
 
     def test_collections_as_dict(self):
         """Collections should be stored as dict[str, Collection]."""
-        from mcp_guide.models import Collection
-
         collection = Collection(categories=["docs"], description="All docs")
         project = Project(name="test", collections={"all": collection})
 
         assert isinstance(project.collections, dict)
         assert "all" in project.collections
         assert project.collections["all"] == collection
+
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("categories", {"!future": Category(dir="docs", patterns=["*.md"])}),
+            ("categories", {"$guide": Category(dir="docs", patterns=["*.md"])}),
+            ("collections", {"$all": Collection(categories=["docs"])}),
+        ],
+        ids=["future-reserved", "category", "collection"],
+    )
+    def test_reserved_namespace_is_rejected_in_project_configuration(self, field, value):
+        """Persisted project mappings cannot claim internal namespaces."""
+        with pytest.raises(ValueError, match="name is not accepted"):
+            Project(name="test", **{field: value})
 
     def test_with_category_dict_based(self):
         """with_category should work with dict-based categories."""
