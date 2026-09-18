@@ -1,7 +1,7 @@
 # cache-management Specification
 
 ## Purpose
-TBD - created by archiving change optimize-openspec-cache. Update Purpose after archive.
+Define cached OpenSpec change discovery and its invalidation behaviour.
 ## Requirements
 ### Requirement: Cache State Management
 
@@ -123,4 +123,3 @@ AND cache is valid
 WHEN the event is handled
 THEN changes reminder SHALL NOT request refresh
 AND event SHALL return True
-

@@ -1,7 +1,7 @@
 # config-management Specification
 
 ## Purpose
-TBD - created by archiving change add-config-file-watcher. Update Purpose after archive.
+Define configuration loading, change detection, snapshots, and runtime publication.
 ## Requirements
 ### Requirement: Config File Change Detection
 The system SHALL automatically detect configuration file modifications,

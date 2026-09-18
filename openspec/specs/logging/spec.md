@@ -1,7 +1,7 @@
 # logging Specification
 
 ## Purpose
-TBD - created by archiving change logging-implementation. Update Purpose after archive.
+Define Guide logging levels, records, and diagnostic output.
 ## Requirements
 ### Requirement: TRACE Level Support
 The system SHALL provide a TRACE logging level (value 5) below DEBUG (value 10) for detailed execution tracing.
@@ -162,4 +162,3 @@ The system SHALL be implemented as a reusable module independent of mcp-guide sp
 - **WHEN** FastMCP is not installed
 - **THEN** the module still functions correctly
 - **AND** falls back to standard logging gracefully
-

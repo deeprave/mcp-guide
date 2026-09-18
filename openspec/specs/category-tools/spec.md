@@ -1,7 +1,7 @@
 # category-tools Specification
 
 ## Purpose
-TBD - created by archiving change add-category-tools. Update Purpose after archive.
+Define tools for listing, inspecting, and managing configured content categories.
 ## Requirements
 ### Requirement: category_list Tool
 

@@ -1,7 +1,7 @@
 # content-serving-limits Specification
 
 ## Purpose
-TBD - created by archiving change fix-unbounded-content. Update Purpose after archive.
+Define global limits for document count and content returned by Guide.
 
 ## Requirements
 

@@ -1,7 +1,7 @@
 # feature-flags Specification
 
 ## Purpose
-TBD - created by archiving completed changes. Update Purpose after archive.
+Define feature-flag values, scope, resolution, and runtime behaviour.
 
 ## Requirements
 

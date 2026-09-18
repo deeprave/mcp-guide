@@ -1,7 +1,7 @@
 # filesystem-tools Specification
 
 ## Purpose
-TBD - created by archiving change agent-server-filesystem-interaction. Update Purpose after archive.
+Define Guide tools that exchange validated filesystem information with agents.
 ## Requirements
 ### Requirement: guide_list_directory Tool
 The system SHALL provide guide_list_directory tool for agents to provide directory listings.
@@ -154,4 +154,3 @@ The system SHALL enforce security policies in all filesystem tools.
 - **THEN** tracks call frequency per client
 - **AND** logs warning for unusual patterns
 - **AND** provides statistics for rate limiting decisions
-

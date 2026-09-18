@@ -10,9 +10,8 @@ Guide response carry an OpenSpec task instruction.
 **Goals:**
 
 - Separate OpenSpec project detection from collection of change data.
-- Make changes data lazy, deduplicated while a refresh is pending, and
-  invalidated by TTL or the client-reported `openspec/changes` modification
-  time.
+- Make changes data lazy and invalidated by TTL or the client-reported
+  `openspec/changes` modification time.
 - Keep CLI availability, version, and project-structure detection unchanged.
 
 **Non-Goals:**
@@ -24,18 +23,17 @@ Guide response carry an OpenSpec task instruction.
 
 ## Decisions
 
-- Make the OpenSpec changes list demand-driven. The first context or command
-  consumer with no valid cached data queues the existing client command once;
-  concurrent consumers reuse that pending request rather than enqueuing
-  duplicates.
+- Make the OpenSpec changes list demand-driven. The explicit OpenSpec list
+  command renders one instruction to list `openspec/changes` and run
+  `openspec list --json` when cached data is absent or invalid. Passive
+  template-context construction never requests changes data.
 - Store the list with its acquisition time and the `openspec/changes`
   modification time observed by the client. A later consumer reuses it only
   when both the TTL and modification-time checks succeed. This avoids a full
   list command when nothing changed while still responding promptly to local
   OpenSpec edits.
-- Retain the existing acknowledgement and activation ownership for an
-  on-demand request, so a project switch or task restart retires the pending
-  request and cached data consistently.
+- Keep cached changes data owned by the active OpenSpec task, so a project
+  switch or task restart retires it with the task.
 
 ## Risks / Trade-offs
 
@@ -44,5 +42,5 @@ Guide response carry an OpenSpec task instruction.
   manufacture an empty list.
 - [Client metadata is unavailable] → treat the cache as invalid and request a
   fresh list, preserving correctness over reuse.
-- [Several rendered consumers request changes together] → mark the refresh as
-  pending before queuing it so exactly one request is delivered.
+- [A command is rendered before changes data is available] → return the
+  explicit refresh instruction without manufacturing an empty list.

@@ -1,7 +1,7 @@
 # template-context Specification
 
 ## Purpose
-TBD - created by archiving change enhance-template-context-namespaces. Update Purpose after archive.
+Define values exposed to templates and their server, agent, and project namespaces.
 ## Requirements
 ### Requirement: Server Namespace Rename
 The system SHALL rename the existing `system` namespace to `server` for clarity in client-server architecture.

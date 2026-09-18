@@ -49,8 +49,6 @@ The project SHALL distinguish between:
 - **THEN** the client must be able to complete ingestion end-to-end, including `send_file_content`
 - **AND** cloud or background preparation alone does not qualify the client for that path
 
-## ADDED Requirements
-
 ### Requirement: Exported Frontmatter Guidance
 
 The export instruction template SHALL explain how agents must interpret frontmatter added to exported content.

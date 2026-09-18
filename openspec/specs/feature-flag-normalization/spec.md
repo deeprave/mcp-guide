@@ -1,7 +1,7 @@
 # feature-flag-normalization Specification
 
 ## Purpose
-TBD - created by archiving completed changes. Update Purpose after archive.
+Define normalisation and validation of persisted feature-flag values.
 
 ## Requirements
 

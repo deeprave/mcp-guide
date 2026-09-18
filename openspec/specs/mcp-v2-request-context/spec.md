@@ -7,6 +7,7 @@ cross-request Session binding and session-establishment protocol logging.
 ## Requirements
 
 ### Requirement: Framework-Neutral Request Context
+
 The system SHALL define a framework-neutral request-context adapter for MCP tool,
 prompt, and resource operations. The context SHALL expose the negotiated protocol
 revision, request identity, client and agent metadata when supplied, an explicit

@@ -1,4 +1,9 @@
-## ADDED Requirements
+# knowledge-export Specification
+
+## Purpose
+Define exported-content metadata so files retain their resolved delivery semantics.
+
+## Requirements
 
 ### Requirement: Exported Content Frontmatter
 

@@ -8,6 +8,7 @@ configuration updates without restarting or invalidating unrelated features.
 ## Requirements
 
 ### Requirement: Effective configuration update contract
+
 The system SHALL represent a configuration publication to a bound session as an
 update containing the session's previous and new effective configuration and
 the computed differences for active-project content, global flags,

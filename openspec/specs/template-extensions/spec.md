@@ -1,7 +1,7 @@
 # template-extensions Specification
 
 ## Purpose
-TBD - created by archiving change template-extension-support. Update Purpose after archive.
+Define recognised template filename extensions and their rendering behaviour.
 ## Requirements
 ### Requirement: Multiple Template Extension Support
 The system SHALL support multiple template file extensions for Mustache/Handlebars templates.
@@ -48,4 +48,3 @@ The system SHALL maintain equivalent performance when supporting multiple extens
 - WHEN discovering templates with multiple supported extensions
 - THEN performance SHALL not degrade significantly compared to single extension support
 - AND SHALL scale linearly with the number of files, not extensions
-

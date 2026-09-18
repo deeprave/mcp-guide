@@ -71,6 +71,7 @@ access to available agent/client information and global flags.
 - **AND** the outgoing Session's mutable resources SHALL NOT become the replacement's resources
 
 ### Requirement: Async factory for no-project result
+
 The system SHALL provide an async factory `make_no_project_result(ctx)` in
 `result_constants.py` that produces a `Result` with a rendered `_project-root`
 instruction when possible, falling back to the static `RESULT_NO_PROJECT` when not.
@@ -118,6 +119,7 @@ retained as the factory's internal fallback and SHALL NOT be removed.
 - **AND** the tool proceeds normally
 
 ### Requirement: Lazy Config Loading
+
 The system SHALL load project config lazily via async method.
 
 The system SHALL support deferred project binding, where a Session may begin with a
@@ -389,6 +391,7 @@ entries SHALL be ignored without legacy configuration migration.
 - **AND** it SHALL use only its explicitly owned project state
 
 ### Requirement: Shared Durable Configuration Publication
+
 `GuideRuntime` SHALL be the process-global Guide state and SHALL create one plainly
 named `ConfigManager` at runtime startup for the shared configuration-file resource,
 replacing the responsibility currently represented by the class-level
@@ -448,6 +451,7 @@ publication when the observed snapshot is unchanged.
 - **THEN** ConfigManager SHALL not publish a duplicate change notification
 
 ### Requirement: ConfigManager-Owned Immutable Docroot
+
 ConfigManager SHALL resolve docroot once at startup and own the resulting effective
 docroot for its full lifecycle. Docroot SHALL NOT be Session-owned and SHALL NOT be
 changed by a Session operation, an in-process configuration update, or a configuration

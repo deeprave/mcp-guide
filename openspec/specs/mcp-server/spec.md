@@ -6,6 +6,7 @@ client-bound MCP interactions.
 ## Requirements
 
 ### Requirement: Distinct Server And Client Initialization Phases
+
 The system SHALL distinguish process-level server startup from negotiated,
 request-scoped MCP dispatch.
 

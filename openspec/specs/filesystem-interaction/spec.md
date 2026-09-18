@@ -1,7 +1,7 @@
 # filesystem-interaction Specification
 
 ## Purpose
-TBD - created by archiving change agent-server-filesystem-interaction. Update Purpose after archive.
+Define agent-mediated filesystem discovery and the validation of returned data.
 ## Requirements
 ### Requirement: Sampling-Based Directory Listing
 The system SHALL request directory listings from the agent using MCP sampling requests.

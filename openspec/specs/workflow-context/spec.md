@@ -1,7 +1,7 @@
 # workflow-context Specification
 
 ## Purpose
-TBD - created by archiving change project-status. Update Purpose after archive.
+Define workflow values exposed to Guide templates when workflow tracking is enabled.
 ## Requirements
 ### Requirement: Workflow Template Context
 The system SHALL provide workflow-related variables in template context when workflow tracking is enabled.

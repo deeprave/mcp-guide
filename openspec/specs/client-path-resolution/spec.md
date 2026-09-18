@@ -44,6 +44,7 @@ MAY corroborate the same-user assumption but SHALL NOT be a required gate.
 - **THEN** it SHALL normalise lexically without environment expansion or server symlink resolution
 
 ### Requirement: One-shot filesystem probe
+
 After initial absolute-root binding on unverified stdio, one task SHALL
 exclusively create a uniquely named probe file with unpredictable contents
 directly beneath the server's system-wide `/tmp` shareable base. It SHALL grant

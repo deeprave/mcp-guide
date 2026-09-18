@@ -1,7 +1,7 @@
 # template-system Specification
 
 ## Purpose
-TBD - created by archiving change add-template-partials. Update Purpose after archive.
+Define the template system, partials, and template collection behaviour.
 ## Requirements
 ### Requirement: Template Partial Includes
 The template system SHALL support including partial templates via frontmatter includes specification.
@@ -53,4 +53,3 @@ The template system SHALL support a `_system/` directory for system-level templa
 #### Scenario: System templates support full Mustache features
 - **WHEN** a system template is rendered
 - **THEN** it supports conditionals, sections, partials, and all standard Mustache features
-

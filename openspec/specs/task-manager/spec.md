@@ -1,7 +1,7 @@
 # task-manager Specification
 
 ## Purpose
-TBD - created by archiving completed changes. Update Purpose after archive.
+Define task-manager lifecycle, subscriptions, caches, and project-bound task activation.
 
 ## Requirements
 
@@ -141,6 +141,7 @@ before comparing versions or queuing an update instruction.
 - **THEN** the system SHALL queue the acknowledged `update_documents` prompt
 
 ### Requirement: Session-Owned Instruction Delivery
+
 A context-owned Guide `Session`, selected through the request context, SHALL contain a
 non-global TaskManager instance. The Session and its TaskManager SHALL share a
 lifecycle. That TaskManager SHALL own pending instructions, acknowledgements, caches,

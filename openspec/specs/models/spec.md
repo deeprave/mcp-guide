@@ -1,7 +1,7 @@
 # models Specification
 
 ## Purpose
-TBD - created by archiving change config-session-management. Update Purpose after archive.
+Define Guide's configuration, project, and session data models.
 
 ## Requirements
 

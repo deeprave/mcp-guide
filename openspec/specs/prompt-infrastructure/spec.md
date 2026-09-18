@@ -1,7 +1,7 @@
 # prompt-infrastructure Specification
 
 ## Purpose
-TBD - created by archiving change add-guide-prompt. Update Purpose after archive.
+Define Guide prompt registration, argument handling, and dispatch behaviour.
 
 ## Requirements
 

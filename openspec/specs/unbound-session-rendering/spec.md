@@ -7,6 +7,7 @@ exists but no project is currently bound.
 ## Requirements
 
 ### Requirement: Project-root instruction template
+
 The system SHALL provide a mustache template at
 `src/mcp_guide/templates/_system/_project-root.mustache` that instructs the agent
 how to determine and send the correct project root when no project is currently bound.

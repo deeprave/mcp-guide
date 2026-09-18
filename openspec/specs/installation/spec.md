@@ -1,7 +1,7 @@
 # installation Specification
 
 ## Purpose
-TBD - created by archiving change add-guide-installer. Update Purpose after archive.
+Define installation, update comparison, and provenance tracking for Guide documents.
 ## Requirements
 ### Requirement: Async File Comparison
 The system SHALL compare files asynchronously using SHA256 hashes to determine if updates are needed.

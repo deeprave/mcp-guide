@@ -1,7 +1,7 @@
 # workflow-flags Specification
 
 ## Purpose
-TBD - created by archiving change project-status. Update Purpose after archive.
+Define workflow feature flags, workflow-file configuration, and phase semantics.
 ## Requirements
 ### Requirement: Workflow File Configuration ✅ IMPLEMENTED
 The system SHALL support a configurable workflow state file via the `workflow-file` project flag with variable substitution.

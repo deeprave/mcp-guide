@@ -1,7 +1,7 @@
 # document-store Specification
 
 ## Purpose
-TBD - created by archiving change add-documents. Update Purpose after archive.
+Define persistent storage, retrieval, and lifecycle management for user documents.
 
 ## Requirements
 

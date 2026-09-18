@@ -1,7 +1,7 @@
 # project-config Specification
 
 ## Purpose
-TBD - created by archiving change python-dev-environment. Update Purpose after archive.
+Define the persisted project configuration schema and its compatibility rules.
 ## Requirements
 ### Requirement: Python Project Structure
 The project SHALL use a monorepo structure with two separate packages for separation of concerns.
@@ -136,7 +136,7 @@ The onboarding system SHALL apply user choices using existing project configurat
 - **THEN** the system applies those choices through profiles, categories, collections, project flags, feature flags, workflow settings, or policy selections as appropriate
 - **AND** it does not require a separate standalone onboarding-specific configuration model
 
-### Requirement: Project Configuration Structure
+### Requirement: Default Policy Category
 
 The project configuration and default profile SHALL support a default `policy` category for optional steering documents.
 

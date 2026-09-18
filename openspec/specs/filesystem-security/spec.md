@@ -1,7 +1,7 @@
 # filesystem-security Specification
 
 ## Purpose
-TBD - created by archiving change agent-server-filesystem-interaction. Update Purpose after archive.
+Define filesystem read and write security policies for client and server paths.
 ## Requirements
 ### Requirement: Read/Write Security Policy Separation
 The system SHALL validate filesystem paths with separate read and write permissions using ReadWriteSecurityPolicy.
@@ -143,4 +143,3 @@ The system SHALL allow write operations to safe temporary directories regardless
 - **THEN** path is expanded to absolute path before validation
 - **AND** expanded path is validated as safe temporary location
 - **AND** access is granted if path resolves to safe temporary directory
-

@@ -1,7 +1,7 @@
 # content-formatting Specification
 
 ## Purpose
-TBD - created by archiving change content-delivery-format. Update Purpose after archive.
+Define plain and MIME content-delivery formats and their selection.
 
 ## Requirements
 

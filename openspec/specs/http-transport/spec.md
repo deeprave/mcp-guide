@@ -1,7 +1,7 @@
 # http-transport Specification
 
 ## Purpose
-TBD - created by archiving change add-streamable-http. Update Purpose after archive.
+Define Guide's MCP Streamable HTTP transport and its request handling.
 
 ## Requirements
 

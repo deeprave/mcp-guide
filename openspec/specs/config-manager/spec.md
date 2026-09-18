@@ -1,7 +1,7 @@
 # config-manager Specification
 
 ## Purpose
-TBD - created by archiving change config-session-management. Update Purpose after archive.
+Define the async-safe configuration manager and its persisted configuration lifecycle.
 
 ## Requirements
 

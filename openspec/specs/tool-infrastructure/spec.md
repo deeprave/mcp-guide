@@ -1,7 +1,7 @@
 # tool-infrastructure Specification
 
 ## Purpose
-TBD - created by archiving change tool-conventions. Update Purpose after archive.
+Define common Guide tool response, validation, and registration conventions.
 
 ## Requirements
 
@@ -320,6 +320,7 @@ The system SHALL support comma-separated expressions for retrieving content from
 - **AND** results SHALL be aggregated in order
 
 ### Requirement: CategoryCollection Args Cross-Field Validation
+
 `CategoryCollectionAddArgs`, `CategoryCollectionChangeArgs`, and `CategoryCollectionUpdateArgs` SHALL reject incompatible field combinations at model construction time with a descriptive `ValueError`.
 
 Fields that are category-only (`dir`, `patterns`, `new_dir`, `new_patterns`, `add_patterns`, `remove_patterns`) MUST NOT be provided when `type='collection'`.
@@ -384,6 +385,7 @@ placing protocol metadata in the modern response structure.
 - **AND** the client-visible error and embedded instructions SHALL be retained
 
 ### Requirement: Request-Scoped Tool Invocation
+
 The tool registration layer SHALL normalise each invocation through the request adapter
 and SHALL not use a global active session. It may continue to pass raw FastMCP context
 to transitional tool implementations; replacing those handler signatures with resolved
@@ -432,6 +434,7 @@ root's hash, preserving same-named configurations at different roots.
 - **AND** it SHALL NOT select a same-named configuration with a missing or different hash
 
 ### Requirement: Current-Target Configuration Cloning
+
 The public `clone_project` tool SHALL accept only source configuration
 `from_project`, merge, and force arguments. `from_project` SHALL accept either a
 display name or an exact hash-suffixed configuration key. The tool SHALL clone into

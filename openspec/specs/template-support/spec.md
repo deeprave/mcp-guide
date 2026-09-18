@@ -1,7 +1,7 @@
 # template-support Specification
 
 ## Purpose
-TBD - created by archiving change template-support. Update Purpose after archive.
+Define shared template context, caching, and helper support for document rendering.
 ## Requirements
 ### Requirement: Template Context Cache System (IMPLEMENTED ✅ - Phase 4)
 
@@ -479,6 +479,7 @@ Integration SHALL:
 - **THEN** render templates before adding to multipart format
 
 ### Requirement: Template Error Signaling
+
 The system SHALL provide an `_error` template lambda that allows templates to signal application-level errors through the rendering pipeline.
 
 The `_error` lambda SHALL:

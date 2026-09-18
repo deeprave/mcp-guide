@@ -1,7 +1,7 @@
 # workflow-templates Specification
 
 ## Purpose
-TBD - created by archiving change project-status. Update Purpose after archive.
+Define workflow-aware conditional rendering of Guide templates.
 ## Requirements
 ### Requirement: Frontmatter Conditional Rendering
 The system SHALL support frontmatter-based conditional template rendering based on workflow flags and phase requirements.

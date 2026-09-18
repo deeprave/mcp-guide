@@ -1,7 +1,7 @@
 # help-template-system Specification
 
 ## Purpose
-TBD - created by archiving change help-template-refactor. Update Purpose after archive.
+Define template-based rendering of Guide command help and its context.
 ## Requirements
 ### Requirement: Template-Based Help Rendering
 The system SHALL render individual command help using template-based rendering instead of programmatic string generation to enable richer formatting and workflow integration.

@@ -1,7 +1,7 @@
 # mcp-resources-guide-scheme Specification
 
 ## Purpose
-TBD - created by archiving change add-guide-uri-scheme. Update Purpose after archive.
+Define the `guide://` MCP resource scheme, routing, and resource responses.
 
 ## Requirements
 
@@ -416,6 +416,7 @@ into the canonical command invocation.
 - **AND** it SHALL preserve the target path `handoff.md`
 
 ### Requirement: Request-Scoped Guide URI Resolution
+
 The server SHALL obtain the requested `guide://` URI through the framework-neutral
 resource request context. Resource resolution SHALL NOT depend on the internal shape
 of a FastMCP request-context object.

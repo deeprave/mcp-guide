@@ -1,7 +1,7 @@
 # workflow Specification
 
 ## Purpose
-TBD - created by archiving change enforce-explicit-permission. Update Purpose after archive.
+Define workflow phases, transitions, and their user-permission requirements.
 ## Requirements
 ### Requirement: Workflow Phase Permission Markers
 The workflow system SHALL support explicit permission markers in phase definitions to control when user consent is required for phase transitions.
@@ -68,4 +68,3 @@ The system SHALL support custom workflow configurations with user-defined permis
 - **THEN** it MUST include a discussion phase (starting phase)
 - **AND** it MUST include an implementation phase
 - **AND** other phases (planning, check, review) SHALL be optional
-

@@ -1,7 +1,7 @@
 # refactor-task-pubsub Specification
 
 ## Purpose
-TBD - created by archiving change project-status. Update Purpose after archive.
+Define task-manager event types and subscriptions used by workflow processing.
 ## Requirements
 ### Requirement: EventType Bitflag System
 The TaskManager SHALL use EventType as a bitflag enumeration for event categorization and filtering.
@@ -184,4 +184,3 @@ The TaskManager SHALL provide a RetryTask that monitors for unacknowledged instr
 - **WHEN** RetryTask receives timer event
 - **THEN** check if instruction queue is empty
 - **AND** trigger retry_unacknowledged() if idle
-

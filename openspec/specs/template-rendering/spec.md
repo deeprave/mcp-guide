@@ -1,7 +1,7 @@
 # template-rendering Specification
 
 ## Purpose
-TBD - created by archiving change fix-partial-frontmatter-handling. Update Purpose after archive.
+Define template rendering, partial inclusion, and document-property resolution.
 
 ## Requirements
 
@@ -119,6 +119,7 @@ The placeholder is informational only — it SHALL NOT cause template rendering 
       for the topic, not to treat the absence as an error
 
 ### Requirement: Unbound-session template rendering
+
 The system SHALL support rendering `_system/` category templates when no project is
 bound to the current session.
 
@@ -211,6 +212,7 @@ the parent template.
 - **THEN** no oversized result is passed to document formatting
 
 ### Requirement: Canonically contained frontmatter partials
+
 The system SHALL resolve each relative frontmatter partial reference from the
 directory of its including template and SHALL load it only when the final
 canonical file target, after independent partial-filename and extension

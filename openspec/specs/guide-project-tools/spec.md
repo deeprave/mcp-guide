@@ -7,6 +7,7 @@ Define project selection and project-management tool contracts.
 ## Requirements
 
 ### Requirement: Switch Current Project
+
 The system SHALL provide `set_project(path)` for initial project-root binding and
 `switch_project(name? | path?)` for selecting configuration projects during a
 retained interaction.
@@ -181,6 +182,7 @@ retaining the destination project's identity (`name`, `key`, and `hash`).
 - **AND** the destination project's identity fields SHALL remain unchanged
 
 ### Requirement: Client-aware project root paths
+
 Project binding and switching SHALL use LazyPath.client_resolve() after local
 file-URI decoding. HTTP/HTTPS and unverified/failed stdio SHALL require absolute
 client paths and SHALL reject relative, user-anchored and variable-bearing input.

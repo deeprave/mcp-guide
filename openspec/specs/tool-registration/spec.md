@@ -1,7 +1,7 @@
 # tool-registration Specification
 
 ## Purpose
-TBD - created by archiving change add-mcp-discovery. Update Purpose after archive.
+Define deferred MCP tool discovery and explicit server registration.
 ## Requirements
 ### Requirement: Deferred Tool Registration
 The system SHALL provide a `@toolfunc()` decorator that stores tool metadata without performing MCP registration at import time.
@@ -18,4 +18,3 @@ The system SHALL provide a `register_tools(mcp)` function that registers all col
 - **WHEN** `register_tools(mcp)` is called during server creation
 - **THEN** all tools in registry are registered with the MCP server
 - **AND** tools become available for invocation
-

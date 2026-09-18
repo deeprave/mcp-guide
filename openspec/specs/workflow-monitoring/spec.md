@@ -1,7 +1,7 @@
 # workflow-monitoring Specification
 
 ## Purpose
-TBD - created by archiving change semantic-workflow-change-detection. Update Purpose after archive.
+Define monitoring and semantic change detection for project workflow files.
 ## Requirements
 ### Requirement: Project-scoped workflow task activation
 The workflow monitoring task SHALL activate from the current project context rather than import-time initialization.

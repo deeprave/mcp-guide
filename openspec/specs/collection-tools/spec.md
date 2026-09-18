@@ -1,7 +1,7 @@
 # collection-tools Specification
 
 ## Purpose
-TBD - created by archiving change add-collection-tools. Update Purpose after archive.
+Define tools for listing, inspecting, and managing configured document collections.
 ## Requirements
 ### Requirement: collection_list Tool
 
@@ -287,4 +287,3 @@ Error messages SHALL be consistent between category and collection tools.
 #### Scenario: Consistent validation logic
 - **WHEN** validating category or collection names
 - **THEN** both use `name.startswith("_")` check
-

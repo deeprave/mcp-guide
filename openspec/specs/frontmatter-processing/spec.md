@@ -1,7 +1,7 @@
 # frontmatter-processing Specification
 
 ## Purpose
-TBD - created by archiving change frontmatter-instruction-handling. Update Purpose after archive.
+Define frontmatter parsing and its effects on document rendering and delivery.
 
 ## Requirements
 
@@ -65,6 +65,7 @@ The system MUST handle content types with appropriate behavior and default instr
 - **AND** frontmatter `Instruction` field MUST be used
 
 ### Requirement: Partial Template Support (Basic)
+
 The system SHALL parse the `partials` field in frontmatter and validate every
 partial reference before template rendering. Relative references SHALL be
 interpreted from the rendering template's location. Absolute references SHALL

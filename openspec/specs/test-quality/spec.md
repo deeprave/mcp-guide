@@ -1,7 +1,7 @@
 # test-quality Specification
 
 ## Purpose
-TBD - created by archiving change prune-test-suite. Update Purpose after archive.
+Define behavioural test-quality standards and test-suite maintenance expectations.
 
 ## Requirements
 

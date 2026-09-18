@@ -6,6 +6,7 @@ Hosted content and explicitly opted-in deterministic responses need a precise, a
 ## Requirements
 
 ### Requirement: Hosted-document cache declaration
+
 The system SHALL accept a concise `cache` frontmatter declaration containing comma-separated symbolic tokens. The valid lifetime tokens are `long` (24 hours), `medium` (15 minutes), and `short` (2 minutes); the valid scope tokens are `private` and `public`. `shared` SHALL be accepted as an alias for `public`.
 
 Documents declaring `none` or `no-cache`, and documents without a valid declaration other than ordinary non-template Markdown, SHALL have the no-cache policy. Ordinary non-template Markdown without a `cache` key SHALL resolve to the `long, public` policy. A declaration without scope SHALL default to `public`; one without lifetime SHALL default to `medium`. A templated document SHALL be eligible for caching when its declared policy resolves to a cacheable policy; the presence of template expressions SHALL NOT override the declaration.
@@ -70,6 +71,7 @@ The system SHALL resolve a cache policy for a content delivery from every hosted
 - **THEN** the resolved delivery policy is no-cache
 
 ### Requirement: Document-only cache delivery in this change
+
 The cache-policy carrier and response adapter SHALL accept an explicitly resolved policy from any response producer. This change SHALL attach cache policy only to document-delivery operations. Commands, prompts, command URIs, and non-document tools SHALL carry no cache policy unless a later change explicitly opts them in.
 
 When document content is delivered with MIME formatting, every MIME document part SHALL include its own `Cache-Control` header. A cacheable part SHALL express its resolved scope and TTL in seconds; a no-cache part SHALL use `Cache-Control: no-cache`. Part headers SHALL use each file's own resolved policy, independently of the conservative aggregate policy attached to the overall response.
