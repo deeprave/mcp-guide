@@ -13,3 +13,20 @@
 
 - [x] 3.1 Route every OpenSpec changes-data consumer through the demand-driven cache path and verify explicit OpenSpec list rendering remains correct.
 - [x] 3.2 Run focused OpenSpec task, template-context, and command tests to verify no unrelated Guide response triggers a changes-list request.
+
+## 4. Review follow-up
+
+- [x] 4.1 Invalidate rendered OpenSpec template context when changes cache validity transitions, including directory-mtime changes and TTL expiry, with behavioural coverage.
+- [x] 4.2 Route post-operation changes refreshes through the explicit OpenSpec list flow so every list is paired with fresh directory metadata.
+- [x] 4.3 Document directory-mtime cache validity and directory-listing metadata in the cache-management and filesystem-tools specifications, then validate strictly.
+
+## 5. Lazy context and forced refresh follow-up
+
+- [x] 5.1 Keep OpenSpec data outside the materialised template-context cache so each consumer evaluates TTL and directory-mtime validity lazily, without a recurring task timer.
+- [x] 5.2 Add forced OpenSpec-list refresh handling and direct successful OpenSpec mutations to `guide://_openspec/list?force`.
+- [x] 5.3 Add focused behavioural coverage and update the cache-management and template-context specifications, then validate strictly.
+
+## 6. Review follow-up: complete mutation and timer contracts
+
+- [x] 6.1 Remove the obsolete recurring Timer Integration requirement from the cache-management delta.
+- [x] 6.2 Direct successful proposal creation to `guide://_openspec/list?force`.

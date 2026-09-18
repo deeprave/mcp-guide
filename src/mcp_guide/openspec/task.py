@@ -25,9 +25,8 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# Cache and timer constants
+# Cache constants
 CHANGES_CACHE_TTL = 3600  # 1 hour
-CHANGES_CHECK_INTERVAL = 3600.0  # 60 minutes
 OPENSPEC_CHECK_INTERVAL = 24 * 60 * 60
 
 
@@ -45,7 +44,6 @@ class OpenSpecTask(InitialisableMixin):
         self._flag_checked = False
         self._available: Optional[bool] = None
         self._project_requested = False
-        self._project_enabled: Optional[bool] = None
         self._version_requested = False
         self._version: Optional[str] = None
         self._version_this_session: Optional[str] = None  # Session-level cache
@@ -69,8 +67,7 @@ class OpenSpecTask(InitialisableMixin):
             return False
 
         activation.subscribe(
-            EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY | EventType.TIMER,
-            CHANGES_CHECK_INTERVAL,
+            EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY,
             once_interval=DEFAULT_ONCE_INTERVAL,
         )
         return True
@@ -310,13 +307,6 @@ class OpenSpecTask(InitialisableMixin):
         if result := await self._handle_timer_once(event_type):
             return result
 
-        # Handle timer events for changes monitoring
-        if event_type & EventType.TIMER:
-            interval = data.get("interval")
-            if interval == CHANGES_CHECK_INTERVAL:
-                await self._handle_changes_reminder()
-                return EventResult(result=True)
-
         # Handle command location events
         if event_type & EventType.FS_COMMAND:
             command = data.get("command")
@@ -345,9 +335,6 @@ class OpenSpecTask(InitialisableMixin):
         if event_type & EventType.FS_DIRECTORY:
             path = data.get("path", "")
             if path == "openspec":
-                files = data.get("files", [])
-                self._project_enabled = any(f.get("name") == "config.yaml" for f in files)
-
                 # Acknowledge project check instruction
                 if self._project_instruction_id:
                     await self._activation.acknowledge_instruction(self._project_instruction_id)
@@ -433,12 +420,6 @@ class OpenSpecTask(InitialisableMixin):
                 self._activation.set_cached_data("openspec_changes", changes)
                 logger.debug(f"Cached {len(changes)} OpenSpec changes")
 
-                # Invalidate template context cache to pick up fresh changes
-                from mcp_guide.render.cache import invalidate_template_context_cache
-
-                invalidate_template_context_cache(self._session)
-                logger.debug("Template context cache invalidated after OpenSpec changes update")
-
                 # Render and return the changes list
                 rendered = await render_openspec_template(self._session, "_list-format")
                 if rendered:
@@ -466,17 +447,6 @@ class OpenSpecTask(InitialisableMixin):
                 return None
 
         return None
-
-    async def _handle_changes_reminder(self) -> None:
-        """Handle timer events for changes monitoring.
-
-        Invalidates cache when TTL expires. Data will be fetched on-demand
-        when :openspec/list command is next invoked.
-        """
-        if not self.is_cache_valid():
-            self._changes_timestamp = None
-            self._changes_directory_mtime = None
-            logger.trace("OpenSpec changes cache invalidated")
 
     async def _parse_version(self, content: str) -> None:
         """Parse OpenSpec version from command output and store global state.

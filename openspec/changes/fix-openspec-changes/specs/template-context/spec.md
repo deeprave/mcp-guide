@@ -2,8 +2,9 @@
 
 ### Requirement: On-demand OpenSpec changes context
 The template context system SHALL obtain OpenSpec change data only when a
-rendered feature requires that data. It SHALL reuse a valid per-session cached
-changes list rather than issuing another client request.
+rendered feature requires that data. It SHALL evaluate that data in a dynamic
+context layer on every render, reusing a valid per-session cached changes list
+rather than issuing another client request.
 
 #### Scenario: First change-data consumer
 - **WHEN** an OpenSpec-enabled command or template requires changes data and
@@ -25,3 +26,9 @@ changes list rather than issuing another client request.
 - **THEN** the system SHALL request a refreshed changes list
 - **AND** SHALL replace the cached list and its cache metadata after receiving
   the response
+
+#### Scenario: Forced refresh after a mutation
+- **WHEN** a successful OpenSpec mutation directs the agent to
+  `guide://_openspec/list?force`
+- **THEN** the list command SHALL request a fresh directory listing and
+  `openspec list --json` even when cached changes data remains valid

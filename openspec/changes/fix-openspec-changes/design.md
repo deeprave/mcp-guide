@@ -34,6 +34,13 @@ Guide response carry an OpenSpec task instruction.
   OpenSpec edits.
 - Keep cached changes data owned by the active OpenSpec task, so a project
   switch or task restart retires it with the task.
+- Keep OpenSpec data in a dynamic template-context layer rather than the
+  materialised session context. Every render therefore evaluates the lazy TTL
+  and observed directory-mtime checks without a task-manager timer.
+- Route post-operation changes refreshes through
+  `guide://_openspec/list?force`. The forced mode bypasses a warm cache and
+  requests a fresh client-reported `openspec/changes` directory modification
+  time together with `openspec list --json`.
 
 ## Risks / Trade-offs
 
@@ -44,3 +51,5 @@ Guide response carry an OpenSpec task instruction.
   fresh list, preserving correctness over reuse.
 - [A command is rendered before changes data is available] → return the
   explicit refresh instruction without manufacturing an empty list.
+- [An agent mutates OpenSpec artefacts] → direct it to the forced list mode.
+  TTL expiry remains the fallback if the agent omits that refresh.

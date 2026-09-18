@@ -8,8 +8,9 @@ import yaml
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.openspec.state import parse_openspec_state
 from mcp_guide.openspec.task import OpenSpecTask
+from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.result import Result
-from mcp_guide.task_manager import EventType
+from mcp_guide.task_manager import EventType, TaskActivation
 from tests.helpers import bind_isolated_test_session
 
 
@@ -22,7 +23,6 @@ async def openspec_session(runtime, tmp_path):
         "openspec-cli-check": "Locate CLI",
         "openspec-version-check": "Read version",
         "openspec-project-check": "Check project",
-        "openspec-get-changes": "Read changes",
         "_status-format": "{{changeName}} {{#isComplete}}complete{{/isComplete}}{{^isComplete}}pending{{/isComplete}}",
         "_show-format": "{{changeName}}: {{description}}",
         "_error-format": "{{error}}: {{message}}",
@@ -134,7 +134,7 @@ async def test_response_rendering_and_cache(openspec_session, name, data, expect
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("empty", [False, True], ids=["grouped", "empty"])
-async def test_changes_grouping_and_timer_expiry(openspec_session, monkeypatch, empty):
+async def test_changes_grouping_and_ttl_expiry(openspec_session, monkeypatch, empty):
     now = 1000.0
     monkeypatch.setattr("time.time", lambda: now)
     task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
@@ -153,6 +153,7 @@ async def test_changes_grouping_and_timer_expiry(openspec_session, monkeypatch, 
             {"name": "done", "status": "complete", "completedTasks": 5, "totalTasks": 5},
         ]
     )
+    await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec/changes", "files": [], "mtime": 10.0})
     result = await task.handle_event(
         EventType.FS_FILE_CONTENT, {"path": ".openspec-changes.json", "content": json.dumps({"changes": changes})}
     )
@@ -167,12 +168,69 @@ async def test_changes_grouping_and_timer_expiry(openspec_session, monkeypatch, 
         assert grouped["draft"][0]["progress"] == "N/A"
         assert grouped["complete"][0]["name"] == "done"
     now += 100
-    assert (await task.handle_event(EventType.TIMER, {"interval": 3600.0})).result
     assert task.get_changes() == grouped
     now += 3600
-    assert (await task.handle_event(EventType.TIMER, {"interval": 3600.0})).result
     assert task.get_changes() is None
     assert not task.is_cache_valid()
+
+
+@pytest.mark.anyio
+async def test_changes_cache_requires_client_directory_mtime(openspec_session):
+    task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
+    changes = {"changes": []}
+
+    await task.handle_event(
+        EventType.FS_FILE_CONTENT, {"path": ".openspec-changes.json", "content": json.dumps(changes)}
+    )
+    assert not task.is_cache_valid()
+
+    await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec/changes", "files": [], "mtime": 10.0})
+    assert task.is_cache_valid()
+
+    await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec/changes", "files": [], "mtime": 11.0})
+    assert not task.is_cache_valid()
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("invalidator", ["directory_change", "ttl_expiry"])
+async def test_invalid_changes_cache_rebuilds_openspec_template_context(openspec_session, monkeypatch, invalidator):
+    now = 1_000.0
+    monkeypatch.setattr("time.time", lambda: now)
+    task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
+    changes = [{"name": "active", "status": "in-progress", "completedTasks": 0, "totalTasks": 1}]
+
+    await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec/changes", "files": [], "mtime": 10.0})
+    await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-changes.json", "content": json.dumps({"changes": changes})},
+    )
+    cached_context = await get_template_contexts(openspec_session)
+    assert cached_context["openspec"]["changes"]
+
+    if invalidator == "directory_change":
+        await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec/changes", "files": [], "mtime": 11.0})
+    else:
+        now += 3601
+
+    refreshed_context = await get_template_contexts(openspec_session)
+    assert refreshed_context is not cached_context
+    assert refreshed_context["openspec"]["changes"] == []
+
+
+@pytest.mark.anyio
+async def test_changes_cache_is_not_carried_to_a_replacement_task(openspec_session):
+    manager = openspec_session.task_manager
+    task = manager.get_task_by_type(OpenSpecTask)
+    await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec/changes", "files": [], "mtime": 10.0})
+    await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".openspec-changes.json", "content": '{"changes": []}'})
+    assert task.is_cache_valid()
+
+    replacement = OpenSpecTask()
+    replacement.activation = TaskActivation(manager, replacement, openspec_session)
+    replacement._session = openspec_session
+    task.activation.retire()
+
+    assert replacement.get_changes() is None
 
 
 @pytest.mark.anyio

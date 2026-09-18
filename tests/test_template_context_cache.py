@@ -33,7 +33,11 @@ async def test_complete_context_contains_real_project_category_and_system(sessio
     assert context["server"]["platform"] == platform.platform()
     assert context["server"]["python_version"] == platform.python_version()
     assert context["@"] == "@"
-    assert await get_template_contexts(session) is context
+    refreshed_context = await get_template_contexts(session)
+    # OpenSpec data is a dynamic layer so its cache validity is evaluated on
+    # each render, while the remaining session context stays materialised.
+    assert refreshed_context is not context
+    assert refreshed_context["project"] == context["project"]
     category = (await get_template_contexts(session, "docs"))["category"]
     assert category["name"] == "docs"
     assert category["dir"] == "./docs/"
@@ -113,6 +117,7 @@ async def test_openspec_context_uses_global_state_not_task_local_availability(se
     assert openspec["changes"] == []
     assert openspec["show"] is None
     assert openspec["status"] is None
+    assert session.task_manager.is_queue_empty()
     assert openspec["has_version"]("1.9.0", lambda text: text) is True
     assert openspec["has_version"]("1.11.0", lambda text: text) is False
 
