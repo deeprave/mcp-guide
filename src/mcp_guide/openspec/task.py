@@ -49,15 +49,15 @@ class OpenSpecTask(InitialisableMixin):
         self._version_requested = False
         self._version: Optional[str] = None
         self._version_this_session: Optional[str] = None  # Session-level cache
-        self._changes_requested = False
         self._changes_cache: Optional[list[dict[str, Any]]] = None
         self._changes_timestamp: Optional[float] = None
+        self._changes_directory_mtime: Optional[float] = None
+        self._observed_changes_directory_mtime: Optional[float] = None
 
         # Instruction tracking IDs
         self._cli_instruction_id: Optional[str] = None
         self._project_instruction_id: Optional[str] = None
         self._version_instruction_id: Optional[str] = None
-        self._changes_instruction_id: Optional[str] = None
 
     async def start(self, activation: "TaskActivation") -> bool:
         """Start OpenSpec detection if enabled for the current project."""
@@ -271,7 +271,13 @@ class OpenSpecTask(InitialisableMixin):
         Returns:
             True if cache exists and is not expired, False otherwise.
         """
-        if self._changes_cache is None or self._changes_timestamp is None:
+        if (
+            self._changes_cache is None
+            or self._changes_timestamp is None
+            or self._changes_directory_mtime is None
+            or self._observed_changes_directory_mtime is None
+            or self._changes_directory_mtime != self._observed_changes_directory_mtime
+        ):
             return False
 
         import time
@@ -347,12 +353,14 @@ class OpenSpecTask(InitialisableMixin):
                     await self._activation.acknowledge_instruction(self._project_instruction_id)
                     self._project_instruction_id = None
 
-                if self._project_enabled:
-                    # Request changes list after validation
-                    if not self._changes_requested:
-                        self._changes_requested = True
-                        await self.request_changes_json()
-
+                return EventResult(result=True)
+            if path == "openspec/changes":
+                mtime = data.get("mtime")
+                self._observed_changes_directory_mtime = (
+                    float(mtime) if isinstance(mtime, (int, float)) and not isinstance(mtime, bool) else None
+                )
+                if self._changes_cache is not None and self._changes_directory_mtime is None:
+                    self._changes_directory_mtime = self._observed_changes_directory_mtime
                 return EventResult(result=True)
             return None
 
@@ -421,13 +429,9 @@ class OpenSpecTask(InitialisableMixin):
                 changes = json_data.get("changes", [])
                 self._changes_cache = changes
                 self._changes_timestamp = time.time()
+                self._changes_directory_mtime = self._observed_changes_directory_mtime
                 self._activation.set_cached_data("openspec_changes", changes)
                 logger.debug(f"Cached {len(changes)} OpenSpec changes")
-
-                # Acknowledge changes request instruction
-                if self._changes_instruction_id:
-                    await self._activation.acknowledge_instruction(self._changes_instruction_id)
-                    self._changes_instruction_id = None
 
                 # Invalidate template context cache to pick up fresh changes
                 from mcp_guide.render.cache import invalidate_template_context_cache
@@ -463,12 +467,6 @@ class OpenSpecTask(InitialisableMixin):
 
         return None
 
-    async def request_changes_json(self) -> None:
-        """Request openspec changes JSON via command execution."""
-        rendered = await render_openspec_template(self._session, "openspec-get-changes")
-        if rendered:
-            self._changes_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
-
     async def _handle_changes_reminder(self) -> None:
         """Handle timer events for changes monitoring.
 
@@ -477,6 +475,7 @@ class OpenSpecTask(InitialisableMixin):
         """
         if not self.is_cache_valid():
             self._changes_timestamp = None
+            self._changes_directory_mtime = None
             logger.trace("OpenSpec changes cache invalidated")
 
     async def _parse_version(self, content: str) -> None:

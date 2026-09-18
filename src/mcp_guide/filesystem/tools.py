@@ -130,6 +130,7 @@ async def send_directory_listing(
     files: list[Dict[str, Any]],
     pattern: Optional[str] = None,
     recursive: bool = False,
+    mtime: Optional[float] = None,
 ) -> "Result[Dict[str, Any]]":
     """Agent tool to send directory listing from its filesystem to the server.
 
@@ -143,6 +144,7 @@ async def send_directory_listing(
         files: List of files/directories from agent's filesystem
         pattern: Pattern filter that was requested
         recursive: Whether recursive listing was requested
+        mtime: Directory modification time reported by the client
 
     Returns:
         Result with directory listing metadata
@@ -203,6 +205,7 @@ async def send_directory_listing(
                 "pattern": pattern,
                 "recursive": recursive,
                 "count": len(files),
+                "mtime": mtime,
             },
         )
 
@@ -218,6 +221,7 @@ async def send_directory_listing(
                 "pattern": pattern,
                 "recursive": recursive,
                 "count": len(files),
+                "mtime": mtime,
             }
         )
 

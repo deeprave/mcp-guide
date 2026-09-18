@@ -51,6 +51,7 @@ class SendDirectoryListingArgs(ToolArguments):
     entries: list[Dict[str, Any]] = Field(
         description="Directory entries. Each object should include name, type, size, and mtime."
     )
+    mtime: Optional[float] = Field(default=None, description="Directory modification time as a Unix timestamp")
 
 
 class SendCommandLocationArgs(ToolArguments):
@@ -96,6 +97,7 @@ async def internal_send_directory_listing(
             session=request_context.session,
             path=args.path,
             files=args.entries,
+            mtime=args.mtime,
         )
     except Exception as e:
         return Result.failure(error=f"Error processing directory listing: {str(e)}", error_type=ERROR_UNEXPECTED)

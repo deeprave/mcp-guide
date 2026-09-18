@@ -13,6 +13,8 @@ includes:
 {{/changes}}
 
 {{^changes}}
-Run `openspec list --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-changes.json` to refresh the cache, then re-render this template to display the results.
+First list `openspec/changes` and send it using {{tool_prefix}}send_directory_listing with path `openspec/changes`, its entries, and the directory's `mtime`.
+
+Then run `openspec list --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-changes.json` to refresh the cache, then re-render this template to display the results.
 {{/changes}}
 {{/openspec}}
