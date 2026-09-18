@@ -75,28 +75,32 @@ enough for Codex to follow that skill in a real task.
   findings. The coordinator collates only the two reports created for that
   review after both have completed. Review completes from the evidence needed
   for its selected scope; reviewers may use targeted commands to investigate a
-  suspected defect or claimed behaviour.
+  suspected defect or claimed behaviour. For a pull-request target, the
+  coordinator examines existing pull-request comments only after those fresh
+  reviews finish, marking matching combined findings as already flagged or
+  adding useful context without changing source reports.
   It presents the collated inventory through `just-one` when the user elects
   that workflow or has an established preference for sequential triage;
   otherwise it uses the user's requested or ordinary review presentation.
 - Provide `just-one` as the user-facing finding-triage skill. It presents the
   complete fixed inventory one finding at a time from P1 through P6, records
-  each accept, decline, discussion outcome, or variation in the originating
-  review JSON record, and never changes code during triage. After every
+  each accept, decline, discussion outcome, or variation in the canonical
+  combined review JSON record, and never changes code during triage. After every
   finding has a recorded disposition, it presents the accepted action list and
   requires the user's explicit confirmation before carrying it out.
 - Treat review reports as durable, shared workflow data rather than transient
-  prose. Each independent reviewer writes
-  `{{path.documents}}reviews/<issue>/<agent-name>.json`; the workflow file's
-  required `issue` field is the sole review key. An empty value means there is
-  no active workflow issue, so review dispatch and triage stop. The record identifies
-  its reviewer, target, scope, and
-  timestamp, and stores stable finding identifiers, priority, location,
-  description, analysis, recommendation, and optional triage fields. Triage
-  updates the originating finding with its decision, variation, rationale,
-  action, and completion state. This leaves independently produced reports
-  intact while giving a later agent a common input for deduplication,
-  collation, or implementation hand-off.
+  prose. Each independent reviewer writes a fresh source report to
+  `{{path.documents}}Reviews/<issue>/<agent-name>.json`; the workflow file's
+  required `issue` field is the sole review key. Before dispatch, the
+  coordinator determines each reviewer's next version without exposing earlier
+  findings, so its report can overwrite the previous report while its findings
+  carry that version. An empty issue value means there is no active workflow
+  issue, so review dispatch and triage stop. After collation, the coordinator
+  writes `{{path.documents}}Reviews/<issue>.json` as the canonical inventory.
+  It references source reports and versions, stores combined finding details
+  and triage fields, and is the only review artefact triage updates. This keeps
+  independently produced reports intact while giving a later agent a common
+  input for implementation hand-off.
 - Treat selection as explicit: the user or agent requests the named skill, then
   Codex reads it through Guide and follows it for the current task. Catalogue
   responses are `agent/information` by default so an agent can inspect

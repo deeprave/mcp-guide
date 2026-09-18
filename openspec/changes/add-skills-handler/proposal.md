@@ -24,9 +24,10 @@ establishing the central value.
   workflow status focused solely on the configured workflow file.
 - Add a `workflow-review` skill for independent, collated reviews and a
   `just-one` skill for recording the user's disposition of findings before any
-  accepted work begins. Each reviewer records findings in a shared,
-  machine-readable review directory so that independent reports and later
-  triage remain available for collation and hand-off.
+  accepted work begins. Each reviewer records fresh findings in a
+  machine-readable source-report directory; collation writes a separate
+  canonical inventory for triage and hand-off without modifying the source
+  reports.
 - Let any skill entrypoint declare required MCP forms in frontmatter, so Guide
   requests missing input without hard-coding a package name or prescribing a
   client-specific question tool.

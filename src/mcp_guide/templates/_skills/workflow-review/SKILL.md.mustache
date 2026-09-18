@@ -30,24 +30,52 @@ elicitation:
 - Do not provide, load, or ask either reviewer to account for prior conversation, prior reviews, existing review records, collated inventories, or findings from another source
 - Require both reviews to inspect the selected diff and surrounding code, governing repository guidance, and applicable OpenSpec artefacts; each review must return prioritised P1-to-P6 findings with location, analysis, and recommendation
 - Use the workflow file's required `issue` field as the review key. If it is empty, report that there is no active workflow issue and do not dispatch reviewers
-- Require every reviewer to write only its own JSON report to `{{path.documents}}reviews/<issue>/<agent-name>.json`, using a unique lowercase hyphenated agent name such as `codex-heavy` or `codex-light`; do not load, merge, or update adjacent review records while writing it
-- Each report must identify its reviewer, target, scope, and creation time, and contain a `findings` array whose entries have a stable identifier, P1-to-P6 priority, location, description, analysis, and recommendation
-- Preserve optional triage fields on each finding for the user decision, variation, rationale, action, and completion state so later triage can update the source record without replacing it
-- After both fresh reviews are complete, collate only the two reports produced for this review: deduplicate the same underlying defect, retain the strongest evidence, and create one fixed finding inventory
+- Require every reviewer to write only its own fresh JSON report to `{{path.documents}}Reviews/<issue>/<agent-name>.json`, using a unique lowercase hyphenated agent name such as `codex-heavy` or `codex-light`; do not load, merge, or update adjacent review records while writing it
+- Before dispatch, determine the next positive review version for each reviewer without exposing its earlier findings. Pass that version to the reviewer, which overwrites its own report and assigns the same `version` to every finding in that report
+- Each source report must identify its reviewer, version, target, scope, and creation time, and contain a `findings` array whose entries have a stable identifier, version, P1-to-P6 priority, location, description, analysis, and recommendation
+- After both fresh reviews are complete, collate only the two reports produced for this review: deduplicate the same underlying defect, retain the strongest evidence, and write the canonical combined inventory to `{{path.documents}}Reviews/<issue>.json`
+- For a pull-request target, inspect existing pull-request comments only after the fresh reviews are complete. Mark a matching combined finding as already flagged or add useful context there; do not expose those comments to reviewers or alter their source reports
+- Preserve source reports as independent evidence. Record all user decisions, variations, actions, and completion state only in the corresponding finding of the combined inventory
 - Use `guide://$just-one` when the user explicitly elects it, or when their established preference is to triage findings sequentially; otherwise use the user's requested presentation or ordinary review presentation
 - Keep handoff context `{{path.documents}}context.json` updated at meaningful milestones when present
 
-## Review record format
+## Source review record format
 
 ```json
 {
   "reviewer": "<model used>",
+  "version": 1,
   "target": "<selected review target>",
   "scope": "<review scope>",
   "created_at": "<ISO 8601 timestamp>",
   "findings": [
     {
       "id": "<agent-#>",
+      "version": 1,
+      "priority": "P#",
+      "location": {"file": "<path>", "start": 1, "end": 1},
+      "description": "<short description>",
+      "analysis": "<evidence and consequence>",
+      "recommendation": "<specific action>"
+    }
+  ]
+}
+```
+
+## Combined inventory format
+
+```json
+{
+  "issue": "<workflow issue>",
+  "target": "<selected review target>",
+  "created_at": "<ISO 8601 timestamp>",
+  "source_reports": [
+    {"reviewer": "<agent-name>", "version": 1, "path": "Reviews/<issue>/<agent-name>.json"}
+  ],
+  "findings": [
+    {
+      "id": "<combined-#>",
+      "sources": [{"reviewer": "<agent-name>", "id": "<agent-#>", "version": 1}],
       "priority": "P#",
       "location": {"file": "<path>", "start": 1, "end": 1},
       "description": "<short description>",

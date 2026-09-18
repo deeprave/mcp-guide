@@ -69,6 +69,11 @@
   collation uses only the two reports created for the current review
 - [x] 5.7 Remove the obsolete instruction to cease review on failed basic
   checks, leaving reviewers to use the evidence needed for their selected scope
+- [x] 5.8 Preserve independent source reports under `Reviews/<issue>/` with
+  per-reviewer finding versions, and use `Reviews/<issue>.json` as the
+  canonical combined inventory updated during finding triage
+- [x] 5.9 Keep independent pull-request reviews isolated from earlier comments,
+  then have the coordinator annotate only the combined inventory after collation
 
 ## 6. Accepted review remediations
 

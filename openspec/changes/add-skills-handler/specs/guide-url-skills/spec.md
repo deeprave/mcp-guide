@@ -222,6 +222,15 @@ OpenSpec change when OpenSpec mode is active.
   this review before user
   triage
 
+#### Scenario: Account for existing pull-request comments after independent review
+- **WHEN** the selected target is a pull request with existing review comments
+- **THEN** the coordinator SHALL inspect those comments only after the fresh
+  independent reviews have completed
+- **AND** SHALL annotate matching combined findings as already flagged or add
+  useful context to them
+- **AND** SHALL NOT expose those comments to the independent reviewers or
+  modify their source reports
+
 #### Scenario: Validate the active OpenSpec change
 - **WHEN** OpenSpec mode is active for a workflow review
 - **THEN** the skill SHALL direct the agent to run strict validation for the
@@ -255,28 +264,35 @@ review record before applying any accepted work.
 
 ### Requirement: Durable review finding records
 The workflow review skill SHALL record each independent review in
-`{{path.documents}}reviews/<issue>/<agent-name>.json`. The workflow file's
-required `issue` field SHALL name the directory. An empty value means there is
-no active workflow issue; the agent SHALL report that state and SHALL NOT
-dispatch a review or begin triage. Each record SHALL identify its reviewer and
-review target, and each finding SHALL carry a stable identifier, P1-to-P6
-priority, location, description, analysis, and recommendation. Triage MAY
-update that finding with its user decision, variation, rationale, action, and
-completion state.
+`{{path.documents}}Reviews/<issue>/<agent-name>.json`, and SHALL write its
+combined inventory to `{{path.documents}}Reviews/<issue>.json`. The workflow
+file's required `issue` field SHALL name both paths. An empty value means there
+is no active workflow issue; the agent SHALL report that state and SHALL NOT
+dispatch a review or begin triage. Each source record SHALL identify its
+reviewer, version, and review target, and each finding SHALL carry a stable
+identifier, version, P1-to-P6 priority, location, description, analysis, and
+recommendation. The combined inventory SHALL retain references to the source
+findings and their versions, and SHALL be the only review record triage updates
+with the user's decision, variation, rationale, action, and completion state.
 
 #### Scenario: Record independent reviews
 - **WHEN** workflow review obtains independent reviewer outputs
 - **THEN** each reviewer SHALL write its own JSON record below the shared
   review directory
+- **AND** before dispatch the coordinator SHALL determine each reviewer's next
+  positive version without exposing its earlier findings
+- **AND** a reviewer SHALL overwrite only its own prior record and SHALL assign
+  its current version to every finding it writes
 - **AND** one reviewer SHALL NOT overwrite another reviewer's record
 - **AND** a reviewer SHALL NOT load, merge, or update adjacent review records
   while producing its own report
-- **AND** the records SHALL be suitable for later collation into one complete
-  finding inventory
+- **AND** the coordinator SHALL write only the reports produced for the current
+  review into the canonical combined inventory
 
 #### Scenario: Record triage without implementation
 - **WHEN** the user decides a finding during `just-one` triage
-- **THEN** the agent SHALL update the originating JSON finding with that
+- **THEN** the agent SHALL update the corresponding finding in the canonical
+  combined JSON inventory with that
   decision and any variation or implementation guidance
 - **AND** SHALL NOT implement the finding while any finding remains undecided
 
