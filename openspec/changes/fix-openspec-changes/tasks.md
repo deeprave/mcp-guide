@@ -30,3 +30,9 @@
 
 - [x] 6.1 Remove the obsolete recurring Timer Integration requirement from the cache-management delta.
 - [x] 6.2 Direct successful proposal creation to `guide://_openspec/list?force`.
+
+## 7. Review follow-up: correlate concurrent refresh replies
+
+- [x] 7.1 Attach an opaque refresh identifier to paired changes-directory and
+  OpenSpec-list replies, ignore superseded responses, and add out-of-order
+  response coverage.

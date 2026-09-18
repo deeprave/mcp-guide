@@ -25,6 +25,11 @@ validated directory listings and optional metadata about the listed directory.
 - **AND** makes it available to task subscribers
 - **AND** permits consumers to use it for cache invalidation
 
+#### Scenario: Correlate a filesystem reply
+- **WHEN** the server requests a filesystem operation with an opaque request identifier
+- **THEN** the agent includes that identifier in its directory or file-content reply
+- **AND** task subscribers can use it to associate related replies safely
+
 #### Scenario: Recursive listing
 - **WHEN** guide_list_directory includes nested directories
 - **THEN** validates entire directory tree

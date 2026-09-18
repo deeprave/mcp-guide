@@ -25,6 +25,7 @@ async def send_file_content(
     type: Optional[str] = None,
     force: Optional[bool] = None,
     metadata: Optional[dict[str, Any]] = None,
+    request_id: Optional[str] = None,
 ) -> "Result[dict[str, Any]]":
     """Agent tool to send file content from its filesystem to the server.
 
@@ -44,6 +45,8 @@ async def send_file_content(
         type: Optional document type (e.g. agent/instruction)
         force: Optional flag to force overwrite regardless of mtime
         metadata: Optional arbitrary metadata dict to attach to the document
+        request_id: Optional opaque identifier correlating this reply to a
+            server-requested filesystem operation
 
     Returns:
         Result with the dispatched file path
@@ -103,6 +106,7 @@ async def send_file_content(
                         ("type", type),
                         ("force", force),
                         ("metadata", metadata),
+                        ("request_id", request_id),
                     ]
                     if v is not None
                 },
@@ -131,6 +135,7 @@ async def send_directory_listing(
     pattern: Optional[str] = None,
     recursive: bool = False,
     mtime: Optional[float] = None,
+    request_id: Optional[str] = None,
 ) -> "Result[Dict[str, Any]]":
     """Agent tool to send directory listing from its filesystem to the server.
 
@@ -145,6 +150,8 @@ async def send_directory_listing(
         pattern: Pattern filter that was requested
         recursive: Whether recursive listing was requested
         mtime: Directory modification time reported by the client
+        request_id: Optional opaque identifier correlating this reply to a
+            server-requested filesystem operation
 
     Returns:
         Result with directory listing metadata
@@ -197,17 +204,17 @@ async def send_directory_listing(
         from mcp_guide.task_manager.manager import aggregate_event_results
 
         task_manager = session.task_manager
-        event_results = await task_manager.dispatch_event(
-            EventType.FS_DIRECTORY,
-            {
-                "path": validated_path,
-                "files": files,
-                "pattern": pattern,
-                "recursive": recursive,
-                "count": len(files),
-                "mtime": mtime,
-            },
-        )
+        event_data = {
+            "path": validated_path,
+            "files": files,
+            "pattern": pattern,
+            "recursive": recursive,
+            "count": len(files),
+            "mtime": mtime,
+        }
+        if request_id is not None:
+            event_data["request_id"] = request_id
+        event_results = await task_manager.dispatch_event(EventType.FS_DIRECTORY, event_data)
 
         # Aggregate results
         result = aggregate_event_results(event_results)

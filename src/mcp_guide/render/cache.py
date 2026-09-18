@@ -244,6 +244,7 @@ class TemplateContextCache(SessionListener):
                             "available": openspec_state.validated,
                             "version": openspec_state.version,
                             "changes": openspec_task_subscriber.get_changes() or [],
+                            "changes_refresh_id": openspec_task_subscriber.changes_refresh_id,
                             "show": openspec_task_subscriber.get_show(),
                             "status": openspec_task_subscriber.get_status(),
                             "has_version": has_version,

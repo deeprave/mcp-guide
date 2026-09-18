@@ -36,6 +36,9 @@ class SendFileContentArgs(ToolArguments):
     )
     force: Optional[bool] = Field(default=None, description="Force overwrite regardless of mtime")
     metadata: Optional[dict[str, Any]] = Field(default=None, description="Arbitrary metadata to attach to the document")
+    request_id: Optional[str] = Field(
+        default=None, description="Opaque identifier correlating this reply to a server filesystem request"
+    )
 
 
 class SendDirectoryListingArgs(ToolArguments):
@@ -52,6 +55,9 @@ class SendDirectoryListingArgs(ToolArguments):
         description="Directory entries. Each object should include name, type, size, and mtime."
     )
     mtime: Optional[float] = Field(default=None, description="Directory modification time as a Unix timestamp")
+    request_id: Optional[str] = Field(
+        default=None, description="Opaque identifier correlating this reply to a server filesystem request"
+    )
 
 
 class SendCommandLocationArgs(ToolArguments):
@@ -84,6 +90,7 @@ async def internal_send_file_content(
         type=args.type,
         force=args.force,
         metadata=args.metadata,
+        request_id=args.request_id,
     )
 
 
@@ -98,6 +105,7 @@ async def internal_send_directory_listing(
             path=args.path,
             files=args.entries,
             mtime=args.mtime,
+            request_id=args.request_id,
         )
     except Exception as e:
         return Result.failure(error=f"Error processing directory listing: {str(e)}", error_type=ERROR_UNEXPECTED)

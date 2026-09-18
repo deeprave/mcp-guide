@@ -37,6 +37,14 @@ WHEN get_changes() is called
 THEN the cached changes list SHALL NOT be returned
 AND a later OpenSpec-list render SHALL request a refreshed list
 
+#### Scenario: Superseded refresh response
+
+GIVEN a changes refresh has been superseded by a newer refresh
+WHEN a directory listing or OpenSpec-list response for the older refresh arrives
+THEN the system SHALL ignore that response
+AND SHALL NOT associate its changes data with the newer directory modification
+time
+
 ## REMOVED Requirements
 
 ### Requirement: Timer Integration

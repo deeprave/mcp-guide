@@ -41,6 +41,10 @@ Guide response carry an OpenSpec task instruction.
   `guide://_openspec/list?force`. The forced mode bypasses a warm cache and
   requests a fresh client-reported `openspec/changes` directory modification
   time together with `openspec list --json`.
+- Assign each explicit changes refresh an opaque request identifier. The list
+  instruction carries that identifier in both filesystem replies; the task
+  accepts a changes-list response only after a matching directory listing and
+  ignores identifiers superseded by a later forced refresh.
 
 ## Risks / Trade-offs
 
@@ -53,3 +57,6 @@ Guide response carry an OpenSpec task instruction.
   explicit refresh instruction without manufacturing an empty list.
 - [An agent mutates OpenSpec artefacts] → direct it to the forced list mode.
   TTL expiry remains the fallback if the agent omits that refresh.
+- [Overlapping refreshes return out of order] → ignore replies whose opaque
+  request identifier is no longer active, rather than associating their data
+  with a newer directory mtime.
