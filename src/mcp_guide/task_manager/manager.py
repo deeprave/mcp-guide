@@ -14,6 +14,7 @@ from mcp_guide.core.result import Result
 from mcp_guide.decorators import get_registered_task_classes
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
+from mcp_guide.session_listener import SessionListener
 
 if TYPE_CHECKING:
     from mcp_guide.configuration_update import ConfigurationUpdate
@@ -187,7 +188,7 @@ class QueuedInstruction:
     tracking_id: str | None = None
 
 
-class TaskManager:
+class TaskManager(SessionListener):
     """Generic task coordination system."""
 
     def __init__(self, session: "Session | None" = None) -> None:
@@ -204,6 +205,10 @@ class TaskManager:
         # explicit and command-discovery keys cannot collide with task data.
         self.command_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
         self._command_cache_generation = 0
+        # Skills use the same project-scoped discovery lifecycle as commands,
+        # while retaining their own typed catalogue values.
+        self.skill_cache: dict[str, tuple[float, list[Any]]] = {}
+        self._skill_cache_generation = 0
 
         # Instruction tracking for acknowledgement-based retry
         self._tracked_instructions: Dict[str, TrackedInstruction] = {}
@@ -289,7 +294,7 @@ class TaskManager:
                 activation.retire()
             if clear_state:
                 self._clear_project_scoped_cache()
-                self.clear_command_cache()
+                self.clear_document_discovery_caches()
                 self._clear_queued_instructions()
             return active_tasks
 
@@ -450,6 +455,16 @@ class TaskManager:
         self._command_cache_generation += 1
         self.command_cache.clear()
 
+    def clear_skill_cache(self) -> None:
+        """Discard skill catalogues derived from the previous flag state."""
+        self._skill_cache_generation += 1
+        self.skill_cache.clear()
+
+    def clear_document_discovery_caches(self) -> None:
+        """Discard derived command and skill listings together."""
+        self.clear_command_cache()
+        self.clear_skill_cache()
+
     @property
     def command_cache_generation(self) -> int:
         """Return the generation associated with current command-cache data."""
@@ -468,6 +483,24 @@ class TaskManager:
         if generation != self._command_cache_generation:
             return False
         self.command_cache[cache_key] = (effective_mtime, commands)
+        return True
+
+    @property
+    def skill_cache_generation(self) -> int:
+        """Return the generation associated with current skill-cache data."""
+        return self._skill_cache_generation
+
+    def get_cached_skills(self, cache_key: str, generation: int) -> tuple[float, list[Any]] | None:
+        """Return a skill-cache entry only if its discovery generation remains current."""
+        if generation != self._skill_cache_generation:
+            return None
+        return self.skill_cache.get(cache_key)
+
+    def cache_skills(self, cache_key: str, effective_mtime: float, skills: list[Any], generation: int) -> bool:
+        """Store skills only when discovery still belongs to the active generation."""
+        if generation != self._skill_cache_generation:
+            return False
+        self.skill_cache[cache_key] = (effective_mtime, skills)
         return True
 
     def _clear_queued_instructions(self) -> None:
@@ -515,7 +548,7 @@ class TaskManager:
         """Start tasks for the replacement project after it is published."""
         self._resolved_flags = None
         self._resolved_flags_session = None
-        self.clear_command_cache()
+        self.clear_document_discovery_caches()
         await self.start_project_tasks(session)
 
     async def on_configuration_changed(self, session: "Session", update: "ConfigurationUpdate") -> None:
@@ -534,7 +567,7 @@ class TaskManager:
         self._resolved_flags_session = None
         if not update.changes.resolved_flags:
             return
-        self.clear_command_cache()
+        self.clear_document_discovery_caches()
         await self.reconcile_project_tasks(session, update.changes.resolved_flags)
 
     @classmethod
@@ -775,7 +808,7 @@ class TaskManager:
         self._tracked_instructions.clear()
         self._cache.clear()
         self._cache_owners.clear()
-        self.clear_command_cache()
+        self.clear_document_discovery_caches()
         self._resolved_flags = None
         self._resolved_flags_session = None
         if failure is not None:

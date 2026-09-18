@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, cast
 
 from fastmcp import Context
 from fastmcp.tools.base import ToolResult
-from mcp_types import TextContent
+from mcp_types import InputRequiredResult, TextContent
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.mcp_result_adapter import add_session_continuation, tool_response
@@ -104,6 +104,8 @@ def _transport_signature(func: Callable[..., Any]) -> inspect.Signature:
     """Expose FastMCP's injected ``ctx`` while keeping it out of application code."""
     parameters = []
     for parameter in inspect.signature(func).parameters.values():
+        if parameter.name == "mcp_context":
+            continue
         if parameter.name == "request_context":
             parameters.append(parameter.replace(name="ctx", annotation=Context, default=None))
         else:
@@ -117,7 +119,7 @@ async def _normalize_tool_output(
     session_id: str | None = None,
     *,
     session: "Session | None" = None,
-) -> ToolResult:
+) -> ToolResult | InputRequiredResult:
     """Return a native FastMCP tool result without flattening its semantics."""
     if isinstance(result, Result):
         from mcp_guide.tools.tool_result import tool_result
@@ -134,6 +136,9 @@ async def _normalize_tool_output(
                 meta=result.meta,
                 is_error=False,
             )
+        return result
+
+    if isinstance(result, InputRequiredResult):
         return result
 
     raise TypeError(f"Tool {tool_name} returned unsupported result type: {type(result).__name__}")
@@ -196,7 +201,10 @@ def toolfunc(
                         unbound = await _check_project_bound(request_context)
                         if unbound is not None:
                             return unbound
-                    result = await func(args, request_context)
+                    application_kwargs: dict[str, Any] = {}
+                    if "mcp_context" in inspect.signature(func).parameters:
+                        application_kwargs["mcp_context"] = ctx
+                    result = await func(args, request_context, **application_kwargs)
                     return await _normalize_tool_output(result, tool_name, request_context.session_id, session=session)
             except InvalidGuideSessionError:
                 return tool_response(make_invalid_session_result())

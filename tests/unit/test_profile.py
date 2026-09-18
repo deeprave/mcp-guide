@@ -103,6 +103,23 @@ unsupported_field: value
         with pytest.raises(ValueError, match="unsupported fields"):
             Profile.from_yaml("test", yaml_content)
 
+    @pytest.mark.parametrize(
+        "section, entry",
+        [
+            ("categories", "name: $guide\n    dir: guide/\n    patterns: []"),
+            ("collections", "name: $all\n    categories: [docs]"),
+        ],
+        ids=["category", "collection"],
+    )
+    def test_rejects_profile_entries_reserved_for_skills(self, section, entry):
+        yaml_content = f"""
+{section}:
+  - {entry}
+"""
+
+        with pytest.raises(ValueError, match="name is not accepted"):
+            Profile.from_yaml("test", yaml_content)
+
 
 @pytest.mark.anyio
 class TestProfileLoad:

@@ -1,0 +1,32 @@
+---
+name: workflow-implement
+description: Apply an approved plan in the Guide implementation phase.
+usage: Use when the user asks to enter, apply, or follow workflow implementation phase.
+cache: short, private
+---
+# Implementation
+{{#workflow}}
+Source Guide URI: `guide://_implement`.
+{{/workflow}}
+## Directives
+
+{{#workflow}}- Read `{{workflow-file}}` to confirm the current issue, tracker, and phase.
+{{/workflow}}- Review project guidelines via the `guide://guidelines` resource. Report a concrete resolution failure before continuing without it.
+- Fall back to repository guidance such as `AGENTS.md`, `.agents/steering/README.md`, and other relevant steering files.
+{{#workflow}}- Update `{{workflow-file}}` to `phase: implementation` when changing phase, then send its complete content using `send_file_content`.
+{{/workflow}}- Implement the approved plan with focused, requirement-driven changes.
+- Keep handoff context `{{path.documents}}/context.json` updated at meaningful milestones when present.
+
+## Guardrails
+
+- Implementation requires explicit user consent or request before entering this phase.
+- Keep edits scoped to the current issue or change.
+- Do not add runtime dependencies or framework structure before requirements need them.
+- Protect user changes in a dirty worktree; do not revert unrelated edits.
+- Run relevant checks before handing off, or clearly state what was not run.
+
+{{#openspec}}
+## OpenSpec Association
+
+Implementation should be tied to a concrete OpenSpec change. Use `openspec-apply-change` to implement tasks from an OpenSpec change. Use `openspec-continue-change` first if required artefacts are missing. Use `openspec-verify-change` after implementation to check that code, tests, and specs match the change artefacts.
+{{/openspec}}

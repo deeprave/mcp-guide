@@ -196,6 +196,33 @@ async def test_clone_recovers_explicit_hashless_legacy_source(runtime):
 
 
 @pytest.mark.anyio
+async def test_clone_prefers_hashless_legacy_source_over_same_named_hashed_project(runtime):
+    """An exact legacy key must not be shadowed by the new root's project record."""
+    target = await create_test_session(runtime, "target")
+    source = await create_test_session(runtime, "source")
+
+    config_manager = target._config()
+    config = yaml.safe_load(config_manager.config_file.read_text())
+    legacy_key = "source-deadbeef"
+    config["projects"][legacy_key] = {
+        "hash": None,
+        "name": "source",
+        "categories": {"legacy": {"dir": "legacy", "patterns": ["*.md"]}},
+    }
+    config_manager.config_file.write_text(yaml.safe_dump(config))
+    await config_manager._on_external_change(str(config_manager.config_file))
+
+    result = await internal_clone_project(
+        CloneProjectArgs(from_project=legacy_key, merge=False, force=True), await request_context_for(target)
+    )
+
+    assert result.success
+    cloned = await target.get_project()
+    assert set(cloned.categories) == {"legacy"}
+    assert "source" not in cloned.categories
+
+
+@pytest.mark.anyio
 async def test_clone_rejects_invalid_missing_sources_and_reports_write_failure(runtime, monkeypatch):
     source = await create_test_session(runtime, "source")
     target = await create_test_session(runtime, "target")

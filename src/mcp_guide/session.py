@@ -16,13 +16,13 @@ from mcp_guide.mcp_context import SessionProtocolType, cache_mcp_globals
 from mcp_guide.models import _NAME_REGEX, Project
 from mcp_guide.models.delegate import ProjectDelegate
 from mcp_guide.runtime import OwnerKey
+from mcp_guide.session_listener import SessionListener, SessionListenerScope, SessionListenerTarget
 
 if TYPE_CHECKING:
     from mcp_guide.agent_detection import AgentInfo
     from mcp_guide.feature_flags.protocol import FeatureFlags
     from mcp_guide.render.cache import TemplateContextCache
     from mcp_guide.runtime import GuideRuntime
-    from mcp_guide.session_listener import SessionListener
 
 from mcp_guide.result import Result
 
@@ -108,7 +108,7 @@ class Session:
         self._project_dirty = False
         self._pending_configuration_update: ConfigurationUpdate | None = None
         self._configuration_update_task: asyncio.Task[None] | None = None
-        self._listeners: list["SessionListener"] = []
+        self._listeners: list["SessionListenerTarget"] = []
         self._template_cache: Optional["TemplateContextCache"] = None
         # Session owns its mutable instruction and task lifecycle state.  The
         # transitional accessor remains only for callers not yet migrated.
@@ -303,6 +303,7 @@ class Session:
             await replacement.cleanup()
             raise
         _attach_session_listeners(replacement)
+        await self._transfer_replacement_listeners(replacement)
         try:
             await replacement._notify_project_changed("", replacement.project_name)
         finally:
@@ -360,7 +361,7 @@ class Session:
                         self.__delegate.bind(current_project)
                         self._project_dirty = False
                     if update.changes.resolved_flags:
-                        self.task_manager.clear_command_cache()
+                        self.task_manager.clear_document_discovery_caches()
                     await self._notify_configuration_changed(update)
             except Exception as error:
                 logger.debug("Configuration update consumer failed: %s", error, exc_info=True)
@@ -374,10 +375,21 @@ class Session:
             if task is self._configuration_update_task and self._pending_configuration_update is None:
                 return
 
-    def add_listener(self, listener: "SessionListener") -> None:
+    def add_listener(self, listener: "SessionListenerTarget") -> None:
         """Add a session change listener."""
         if listener not in self._listeners:
             self._listeners.append(listener)
+
+    async def _transfer_replacement_listeners(self, replacement: "Session") -> None:
+        """Transfer explicitly interaction-scoped listeners to ``replacement``."""
+        for listener in self._listeners:
+            if not isinstance(listener, SessionListener) or listener.scope is not SessionListenerScope.INTERACTION:
+                continue
+            try:
+                replacement.add_listener(listener)
+                await listener.on_session_replaced(self, replacement)
+            except Exception as error:
+                logger.debug("Session replacement listener handover failed: %s", error, exc_info=True)
 
     async def _notify_project_changed(self, old_project: str, new_project: str) -> None:
         """Notify all listeners of project change."""
@@ -395,6 +407,16 @@ class Session:
                 await listener.on_configuration_changed(self, update)
             except Exception as e:
                 logger.debug(f"Config change listener notification failed: {e}")
+
+    async def _notify_request_started(self) -> None:
+        """Give listeners the current request stream for deferred work."""
+        for listener in self._listeners:
+            if not isinstance(listener, SessionListener):
+                continue
+            try:
+                await listener.on_request_started(self)
+            except Exception as error:
+                logger.debug("Request-start listener notification failed: %s", error, exc_info=True)
 
     async def cleanup(self) -> None:
         """Cleanup resources owned by this Session, including its TaskManager."""
@@ -658,6 +680,7 @@ async def request_context_scope(
                     },
                 )
                 session._protocol_logged = True
+            await session._notify_request_started()
             yield await runtime.request_context(session, session_id=session.session_id, seq=seq)
         finally:
             if not session.project_is_bound and minted_session_id is not None:

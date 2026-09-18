@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.render.rendering import render_content
+from mcp_guide.session_listener import SessionListener
 
 if TYPE_CHECKING:
     from mcp_guide.configuration_update import ConfigurationUpdate
@@ -12,7 +13,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class StartupInstructionListener:
+class StartupInstructionListener(SessionListener):
     """Listener that renders and queues startup instructions. One instance per session."""
 
     async def on_configuration_changed(self, session: "Session", update: "ConfigurationUpdate") -> None:

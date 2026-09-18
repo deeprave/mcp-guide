@@ -397,7 +397,7 @@ class TestCollectionAdd:
 
         assert result.success is False
         assert result.error_type == "validation_error"
-        assert "underscore" in result.error.lower()
+        assert "name is not accepted" in result.error.lower()
 
     @pytest.mark.anyio
     async def test_add_collection_save_error(self, test_session_with_data: Session, monkeypatch: MonkeyPatch) -> None:
@@ -763,7 +763,7 @@ class TestCollectionChange:
 
         assert result.success is False
         assert result.error_type == "validation_error"
-        assert "underscore" in result.error.lower()
+        assert "name is not accepted" in result.error.lower()
 
     @pytest.mark.anyio
     async def test_change_collection_invalid_categories(

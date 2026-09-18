@@ -172,3 +172,23 @@ async def test_workflow_context_combines_state_phase_order_and_consent(
         assert workflow["consent"]["discussion"] == {"entry": False, "exit": False, "any": False}
     else:
         assert all(not workflow["consent"][name]["any"] for name in workflow["phases"])
+
+
+@pytest.mark.anyio
+async def test_workflow_file_template_value_defaults_without_workflow_enabled(session):
+    """Workflow-file templates must retain the default path when workflow is disabled."""
+    context = await get_template_contexts(session)
+
+    assert context["workflow-file"] == ".guide.yaml"
+
+
+@pytest.mark.anyio
+async def test_workflow_file_template_value_uses_the_enabled_workflow_override(session):
+    """Workflow-file templates must use an enabled workflow's configured override."""
+    await session.project_flags().set("workflow", True)
+    await session.project_flags().set("workflow-file", ".workflow.yml")
+
+    context = await get_template_contexts(session)
+
+    assert context["workflow-file"] == ".workflow.yml"
+    assert context["workflow"]["file"] == ".workflow.yml"

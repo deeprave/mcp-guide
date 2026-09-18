@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.feature_flags.constants import FLAG_AUTOUPDATE
-from mcp_guide.feature_flags.validators import coerce_boolean_like
+from mcp_guide.feature_flags.constants import FLAG_AUTOUPDATE, FLAG_GUIDE_DEVELOPMENT
+from mcp_guide.feature_flags.validators import coerce_boolean_like, is_value_true
 from mcp_guide.installer.core import (
     DocrootValidationError,
     read_version,
@@ -65,12 +65,16 @@ class McpUpdateTask:
         try:
             # Autoupdate is opt-out: only explicit false disables startup prompting.
             session = self.session
+            from mcp_guide.runtime import get_runtime
+
+            if is_value_true(await get_runtime().feature_flags().get(FLAG_GUIDE_DEVELOPMENT)):
+                logger.debug("McpUpdateTask disabled while guide-development is enabled")
+                return EventResult(result=True)
+
             autoupdate = (await self.task_manager.resolved_flags(session)).get(FLAG_AUTOUPDATE)
             if coerce_boolean_like(autoupdate) is False:
                 logger.debug("McpUpdateTask disabled - autoupdate explicitly set to false")
                 return EventResult(result=True)
-
-            from mcp_guide.runtime import get_runtime
 
             raw_docroot = await get_runtime().get_docroot()
             docroot_async = await LazyPath(raw_docroot).aresolve()

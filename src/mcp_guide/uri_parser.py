@@ -10,6 +10,7 @@ class GuideUri:
 
     is_command: bool
     expression: str
+    is_skill: bool = False
     pattern: str | None = None
     args: list[str] = field(default_factory=list)
     kwargs: dict[str, str | bool] = field(default_factory=dict)
@@ -109,6 +110,16 @@ def parse_guide_uri(uri: str, command_names: list[str] | None = None) -> GuideUr
         if command_path is None:
             raise ValueError(f"Command not found: {'/'.join(segments)}")
         return GuideUri(is_command=True, expression=command_path, args=args, kwargs=kwargs)
+
+    # Skill URI: dollar prefix. An empty path is the skills catalogue.
+    if full_path.startswith("$"):
+        segments = _decode_path_segments([segment for segment in full_path[1:].split("/") if segment])
+        return GuideUri(
+            is_command=False,
+            is_skill=True,
+            expression="/".join(segments),
+            kwargs=parse_query_kwargs(parsed.query),
+        )
 
     # Content URI: expression[/pattern]
     parts = full_path.split("/", 1)

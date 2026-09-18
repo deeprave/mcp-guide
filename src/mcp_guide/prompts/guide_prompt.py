@@ -20,6 +20,7 @@ from typing import (
 )
 
 from anyio import Path as AsyncPath
+from mcp_types import InputRequiredResult
 from pydantic import Field
 
 from mcp_guide.commands.formatting import format_args_string
@@ -34,7 +35,7 @@ from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render import render_template
 from mcp_guide.render.cache import get_template_contexts
-from mcp_guide.render.context import TemplateContext, convert_lists_to_indexed
+from mcp_guide.render.context import TemplateContext, convert_lists_to_indexed, keyword_context
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_CONTEXT,
@@ -297,9 +298,6 @@ def _build_command_context(
             enriched["aliases_csv"] = ",".join(str(alias) for alias in aliases)
         return enriched
 
-    # Use kwargs directly without underscore manipulation
-    template_kwargs = convert_lists_to_indexed(kwargs.copy())
-
     enriched_commands = [enrich_command_metadata(cmd) for cmd in commands]
 
     # If args provided (for help command), look up the requested command
@@ -338,8 +336,7 @@ def _build_command_context(
     args_string = format_args_string(args)
 
     context_data = {
-        "kwargs": template_kwargs,
-        "raw_kwargs": kwargs,
+        **keyword_context(kwargs),
         "args": args,
         "args_str": args_string,
         "command": {"name": command_path, "path": str(file_info.path)},
@@ -539,6 +536,24 @@ async def _handle_command_request(argv: list[str], request_context: RequestConte
     return await handle_command(command_path, argv=argv[1:], request_context=request_context)
 
 
+async def _handle_uri_namespace_request(argv: list[str], request_context: RequestContext) -> Result[Any]:
+    """Resolve an underscore- or dollar-prefixed prompt argument as a Guide URI."""
+    from mcp_guide.tools.tool_resource import ReadResourceArgs, internal_read_resource
+
+    result = await internal_read_resource(
+        ReadResourceArgs(uri=f"guide://{argv[1]}", session_id=request_context.session_id), request_context
+    )
+    if isinstance(result, InputRequiredResult):
+        forms = ", ".join(sorted(result.input_requests or {}))
+        form_detail = f" for: {forms}" if forms else ""
+        return Result.failure(
+            "This Guide prompt cannot request skill input"
+            f"{form_detail}; pass the required skill query arguments explicitly.",
+            error_type=ERROR_VALIDATION,
+        )
+    return result
+
+
 async def _handle_content_request(argv: list[str], request_context: RequestContext) -> Result[Any]:
     """Handle content-mode request."""
     # Separate flags from content arguments
@@ -609,21 +624,26 @@ async def _route_guide_request(argv: list[str], request_context: RequestContext)
         result: Result[Any] = Result.failure(error_msg, error_type=ERROR_VALIDATION)
         return result
 
-    # Check for command prefix
+    # Route URI-compatible command and skill namespaces before content lookup.
     first_arg = argv[1]
-    if first_arg.startswith(":") or first_arg.startswith(";"):
+    if first_arg.startswith((":", ";")):
         return await _handle_command_request(argv, request_context)
+    if first_arg.startswith(("_", "$")):
+        return await _handle_uri_namespace_request(argv, request_context)
     else:
         return await _handle_content_request(argv, request_context)
 
 
 _GUIDE_ARG1_DESCRIPTION = (
-    "First argument: a command starting with : or ; (for example :help or :status), "
-    "or a content expression (collection or category name, optional /pattern)."
+    "First argument: a command starting with :, ;, or _ (for example :help or _status); "
+    "a skill starting with $ (for example $workflow-status); or a content expression "
+    "(collection or category name, optional /pattern)."
 )
 _GUIDE_ARGN_DESCRIPTION = (
     "Further positional argument in order after arg1. Commands use these as argv; "
-    "content requests use them as additional path or expression segments. "
+    "content requests use them as additional path or expression segments. Skills "
+    "and underscore-prefixed commands carry any member path and query arguments "
+    "in their URI-compatible first argument. "
     "Stop at the first omitted argument. arga–argf are arguments 10–15."
 )
 
@@ -653,9 +673,9 @@ async def guide(
 ) -> object:
     """Access Guide commands and project content.
 
-    Pass arg1 as a command (:help, :status) or a content expression. Further arg2–argf
-    continue that argv in order (arga–argf are arguments 10–15). Include session_id from
-    set_project on later calls.
+    Pass arg1 as a command (:help, :status, _help), a skill ($workflow-status), or a
+    content expression. Further arg2–argf continue command or content argv in order
+    (arga–argf are arguments 10–15). Include session_id from set_project on later calls.
     """
     prompt_name = get_prompt_name()
 

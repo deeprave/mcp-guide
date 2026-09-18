@@ -115,6 +115,7 @@ async def test_prompt_and_resource_boundaries_handle_invalid_and_unbound_session
 
     async with Client(application.server, mode="2026-07-28") as client:
         unbound_prompt = await client.get_prompt("guide", {"arg1": "docs"})
+        unbound_status_prompt = await client.get_prompt("guide", {"arg1": ":status"})
         with pytest.raises(ToolError, match="no_project"):
             await client.call_tool("read_resource", {"args": {"uri": "guide://docs"}})
         stale_prompt = await client.get_prompt("guide", {"session_id": "00000000-0000-4000-8000-000000000000"})
@@ -144,3 +145,113 @@ async def test_prompt_and_resource_boundaries_handle_invalid_and_unbound_session
     assert payload_json(stale_prompt)["error_type"] == "invalid_session"
     assert payload_json(stale_resource)["error_type"] == "invalid_session"
     assert payload_json(unbound_prompt)["error_type"] == "no_project"
+    assert payload_json(unbound_status_prompt)["error_type"] == "no_project"
+
+
+@pytest.mark.anyio
+async def test_mcp_prompt_routes_explicit_command_and_skill_namespaces(tmp_path, monkeypatch) -> None:
+    """Prompt retrieval routes underscore commands and dollar skills like Guide URIs."""
+    from fastmcp import Client
+
+    from mcp_guide.cli import ServerConfig
+    from mcp_guide.server import create_application
+
+    monkeypatch.setenv("MCP_GUIDE_DISABLE_SERVER_TASKS", "1")
+    docroot = tmp_path / "docs"
+    project_root = tmp_path / "project"
+    config_dir = tmp_path / "config"
+    project_root.mkdir()
+    config_dir.mkdir()
+    (config_dir / "config.yaml").write_text(f"docroot: {docroot}\nprojects: {{}}\n", encoding="utf-8")
+    (docroot / "_commands").mkdir(parents=True)
+    (docroot / "_skills" / "workflow-status").mkdir(parents=True)
+    (docroot / "_commands" / "project.mustache").write_text(
+        "{{project.name}}{{#kwargs.verbose}} verbose{{/kwargs.verbose}}", encoding="utf-8"
+    )
+    (docroot / "_skills" / "workflow-status" / "SKILL.md.mustache").write_text(
+        "---\n"
+        "name: workflow-status\n"
+        "description: Report workflow status.\n"
+        "usage: Use when the user asks for workflow status.\n"
+        "type: agent/instruction\n"
+        "---\n"
+        "Mode={{kwargs.mode}}",
+        encoding="utf-8",
+    )
+    application = create_application(ServerConfig(configdir=str(config_dir), docroot=str(docroot)))
+
+    async with Client(application.server, mode="2026-07-28") as client:
+        bound = await client.call_tool("set_project", {"args": {"path": str(project_root)}})
+        assert bound.structured_content is not None
+        session_id = bound.structured_content["session_id"]
+
+        command = await client.get_prompt("guide", {"arg1": "_project?verbose", "session_id": session_id})
+        skill = await client.get_prompt("guide", {"arg1": "$workflow-status?mode=summary", "session_id": session_id})
+
+    command_payload = json.loads(command.messages[0].content.text)
+    skill_payload = json.loads(skill.messages[0].content.text)
+    assert command_payload["value"] == "project verbose"
+    assert skill_payload["value"] == "Mode=summary"
+
+
+@pytest.mark.anyio
+async def test_read_resource_drives_frontmatter_declared_skill_elicitation(tmp_path, monkeypatch) -> None:
+    """The ordinary read_resource tool drives any skill's declared selection round trip."""
+    from fastmcp import Client
+
+    from mcp_guide.cli import ServerConfig
+    from mcp_guide.server import create_application
+
+    monkeypatch.setenv("MCP_GUIDE_DISABLE_SERVER_TASKS", "1")
+    config_dir = tmp_path / "config"
+    docroot = tmp_path / "docs"
+    project_root = tmp_path / "project"
+    config_dir.mkdir()
+    project_root.mkdir()
+    (config_dir / "config.yaml").write_text("feature_flags:\n  guide-development: true\n", encoding="utf-8")
+    (docroot / "_skills" / "custom-review").mkdir(parents=True)
+    (docroot / "_skills" / "custom-review" / "SKILL.md.mustache").write_text(
+        "---\n"
+        "name: custom-review\n"
+        "description: Review the selected target.\n"
+        "usage: Use when the user requests a review.\n"
+        "elicitation:\n"
+        "  review-target:\n"
+        "    message: Choose the target for this review.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        mode:\n"
+        "          type: string\n"
+        "          enum: [uncommitted, main, branch, pull-request]\n"
+        "        reference:\n"
+        "          type: string\n"
+        "      required: [mode]\n"
+        "---\n"
+        "Review {{kwargs.mode}} {{kwargs.reference}}\n",
+        encoding="utf-8",
+    )
+    application = create_application(ServerConfig(configdir=str(config_dir), docroot=str(docroot)))
+
+    async def select_branch(*_args):
+        return {"mode": "branch", "reference": "feature/example"}
+
+    async with Client(
+        application.server,
+        mode="2026-07-28",
+        elicitation_handler=select_branch,
+    ) as client:
+        bound = await client.call_tool("set_project", {"args": {"path": str(project_root)}})
+        assert bound.structured_content is not None
+        session_id = bound.structured_content["session_id"]
+        result = await client.call_tool(
+            "read_resource",
+            {"args": {"uri": "guide://$custom-review", "session_id": session_id}},
+        )
+        resource = await client.read_resource(f"guide://$custom-review?session_id={session_id}")
+
+    assert result.structured_content is not None
+    assert result.structured_content["success"] is True
+    assert result.structured_content["value"] == "Review branch feature/example\n"
+    assert resource[0].text is not None
+    assert "Review branch feature/example" in resource[0].text

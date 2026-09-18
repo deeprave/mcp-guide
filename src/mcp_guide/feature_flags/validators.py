@@ -12,6 +12,7 @@ from mcp_guide.feature_flags.constants import (
     FLAG_CONTENT_FORMAT,
     FLAG_CONTENT_STYLE,
     FLAG_GUIDE_DEVELOPMENT,
+    FLAG_MCP_SKILLS,
     FLAG_ONBOARDED,
     FLAG_OPENSPEC,
     FLAG_OPENSPEC_STATE,
@@ -424,6 +425,12 @@ register_flag_validator(
     FLAG_AUTOUPDATE,
     validate_autoupdate,
     FlagScope.FEATURE_ONLY,
+    normaliser=normalise_boolean_flag,
+)
+register_flag_validator(
+    FLAG_MCP_SKILLS,
+    validate_boolean_flag,
+    scope=FlagScope.FEATURE_ONLY,
     normaliser=normalise_boolean_flag,
 )
 register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag, normaliser=normalise_boolean_flag)

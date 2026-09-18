@@ -1,0 +1,34 @@
+---
+name: workflow-plan
+description: Prepare an implementation plan in the Guide planning phase without changing production code.
+usage: Use when the user asks to enter, apply, or follow the planning phase.
+cache: short, private
+---
+# Planning
+{{#workflow}}
+Requested Guide URI: `guide://_plan`.
+{{/workflow}}
+
+## Directives
+
+{{#workflow}}
+- Read `{{workflow-file}}` first to understand the current issue and tracking state.
+- Update `{{workflow-file}}` to `phase: planning` when changing phase, then send the complete file using `send_file_content`.
+{{/workflow}}
+- Create or update planning artefacts under `.todo/`.
+{{#openspec}}
+- Use OpenSpec artefacts instead when the user asks for them.
+{{/openspec}}
+- Keep plans concrete enough for implementation: scope, affected areas, risks, validation, and ordered tasks.
+- Do not automatically start implementation in planning phase.
+- Keep handoff context `{{path.documents}}/context.json` updated at meaningful milestones when present.
+
+## Guardrails
+
+- Do not edit production source, tests, migrations, or runtime configuration except workflow and planning artefacts.
+- Surface unknowns, blockers and open questions before implementation.
+{{#openspec}}
+## OpenSpec Association
+
+Planning should align with the relevant OpenSpec change. Use `openspec-continue-change` to create the next required artefact after a proposal, design, specs, or tasks become ready. Use `openspec-propose` when a complete proposal/design/spec/task bundle is requested. Use `.todo/` for implementation plans derived from approved OpenSpec artefacts.
+{{/openspec}}

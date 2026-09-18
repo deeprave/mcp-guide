@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Optional
 
+from mcp_guide.core.validation import validate_content_name
+
 
 @dataclass
 class ProfileCategory:
@@ -13,6 +15,9 @@ class ProfileCategory:
     dir: Optional[str] = None
     description: Optional[str] = None
 
+    def __post_init__(self) -> None:
+        validate_content_name(self.name, "Category")
+
 
 @dataclass
 class ProfileCollection:
@@ -21,3 +26,6 @@ class ProfileCollection:
     name: str
     categories: list[str]
     description: Optional[str] = None
+
+    def __post_init__(self) -> None:
+        validate_content_name(self.name, "Collection")

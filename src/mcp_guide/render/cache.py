@@ -404,6 +404,8 @@ class TemplateContextCache(SessionListener):
 
         # Resolve workflow flags for template context
         workflow_config: dict[str, Any] | None = None
+        # Skills can always name the workflow file, even when workflow behaviour is disabled.
+        workflow_file = DEFAULT_WORKFLOW_FILE
         try:
             if session and project:
                 from mcp_guide.models import resolve_all_flags
@@ -549,6 +551,7 @@ class TemplateContextCache(SessionListener):
             "feature_flag_values": global_flags_list,  # Global flags only (list format)
             "projects": projects_data,
             "projects_count": projects_count,
+            "workflow-file": workflow_file,
         }
 
         # Create base context and add workflow configuration as child if enabled

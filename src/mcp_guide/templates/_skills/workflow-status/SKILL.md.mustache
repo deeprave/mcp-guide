@@ -1,0 +1,19 @@
+---
+name: workflow-status
+description: Report the configured Guide workflow file without changing project state.
+usage: Use when the user asks for the current workflow status.
+cache: short, private
+---
+# Workflow status
+
+## Directives
+
+{{#workflow}}
+- Read `{{workflow-file}}` from the client workspace.
+- Report its workflow phase, active issue, tracking reference, description, and queue where present. If it is unavailable, say so.
+{{/workflow}}
+{{^workflow}}
+- Report that workflow mode is disabled.
+{{/workflow}}
+- Present one concise status report.
+- Do not change project state.

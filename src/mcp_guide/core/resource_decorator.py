@@ -40,7 +40,7 @@ def _transport_signature(func: Callable[..., Any]) -> inspect.Signature:
     """Expose resource URI parameters and FastMCP context, not application inputs."""
     parameters = []
     for parameter in inspect.signature(func).parameters.values():
-        if parameter.name in {"request_context", "request_uri"}:
+        if parameter.name in {"request_context", "request_uri", "mcp_context"}:
             continue
         parameters.append(parameter)
     parameters.append(inspect.Parameter("ctx", inspect.Parameter.KEYWORD_ONLY, annotation=Context, default=None))
@@ -75,6 +75,8 @@ def resourcefunc(
                 raise RuntimeError("A resource invocation requires a FastMCP context")
             application_kwargs = dict(kwargs)
             application_kwargs.pop("ctx", None)
+            if "mcp_context" in inspect.signature(func).parameters:
+                application_kwargs["mcp_context"] = ctx
             try:
                 async with request_context_scope(
                     ctx, application_kwargs.get("session_id"), allow_pwd_bootstrap=True

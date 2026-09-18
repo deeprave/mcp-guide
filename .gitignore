@@ -178,6 +178,10 @@ cython_debug/
 
 # macOS
 .DS_Store
+
+# Installer metadata is never valid in the packaged template source.
+/src/mcp_guide/templates/.original.zip
+/src/mcp_guide/templates/.version
 .AppleDouble
 .LSOverride
 

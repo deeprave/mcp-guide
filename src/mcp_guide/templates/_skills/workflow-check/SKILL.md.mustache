@@ -1,0 +1,31 @@
+---
+name: workflow-check
+description: Run the Guide check phase to validate completed implementation before review.
+usage: Use when the user asks to enter, apply, or follow the check phase.
+cache: short, private
+---
+# Code Checks
+{{#workflow}}
+Requested Guide URI: `guide://_check`.
+{{/workflow}}
+
+## Directives
+
+{{#workflow}}- Read `{{workflow-file}}` to identify the current issue and implementation scope.
+- Update `{{workflow-file}}` to `phase: check` when changing phase, then send the complete file using `send_file_content`.
+{{/workflow}}- Run the repository's required code validation commands.
+- Fix failures that are in scope for the current issue.
+- Record check results and remaining risks in `{{path.documents}}/` when useful.
+- Keep handoff context `{{path.documents}}/context.json` updated at meaningful milestones when present.
+
+## Guardrails
+
+- Do not broaden implementation while checking; fix only issues required to make the current change correct.
+- Treat every failure after work begins as related to the current change. The task starts from a passing main branch, so an untouched or unread test is not evidence that its failure is unrelated.
+- Investigate direct and indirect effects of the current change before concluding that any failure has another cause.
+- Do not skip tests or verification silently.
+{{#openspec}}
+## OpenSpec Association
+
+Use `openspec-verify-change` during check phase to validate that implementation matches the OpenSpec artefacts. Use `openspec-sync-specs` only when main specs intentionally need updating outside archival. Keep `openspec-archive-change` for completed changes after verification and when the user or project process allows archiving.
+{{/openspec}}

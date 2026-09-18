@@ -119,7 +119,7 @@ class CloneProjectArgs(ToolArguments):
     """Arguments for cloning transferable configuration into the bound project."""
 
     from_project: str = Field(
-        description="Source project name, or its exact <name>-<hash> configuration key when the name is ambiguous"
+        description="Source project name, or its exact <name>-<hash> configuration key when the name is ambiguous or to recover a hashless legacy record"
     )
     merge: bool = Field(
         default=True, description="If True, merge with the bound project's config; if False, replace it"

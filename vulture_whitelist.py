@@ -97,6 +97,14 @@ _.require_project
 _.is_ok  # public Result API
 _.get_or_create  # WatcherRegistry public API
 _.resolve_session  # GuideRuntime public owner lookup
+
+# FastMCP extension and Guide Session protocols
+_.ServerRequestContext
+_.SkillsListRequest
+_.SkillsListChangedNotification
+_.SessionListenerTarget
+_.methods
+_.method
 # Module-level names
 _.__all__
 _.main

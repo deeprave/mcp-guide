@@ -376,29 +376,33 @@ class _ConfigManagerCore:
             if source_name in strict_projects:
                 return strict_projects[source_name], []
 
+            # An exact key also permits recovery of a pre-root-hash record.
+            # These records sometimes retained an old short-hash-looking
+            # suffix while storing ``hash: null``. Preserve their stored name
+            # so cloning ``name-oldhash`` cannot accidentally select a newer
+            # root with the same display name.
+            project_data = projects_data.get(source_name)
+            if isinstance(project_data, dict) and project_data.get("hash") is None:
+                project_data_copy = dict(project_data)
+                if not isinstance(project_data_copy.get("name"), str) or not project_data_copy["name"]:
+                    project_data_copy["name"] = extract_name_from_key(source_name)
+                project_data_copy["key"] = source_name
+                return self._dict_to_project(project_data_copy), []
+
             # A caller that supplied an exact hash-suffixed key has already
             # selected its intended source; never silently broaden that into a
             # name lookup.
             if extract_name_from_key(source_name) != source_name:
                 return None, []
 
+            # Preserve the explicit legacy recovery contract before looking up
+            # a hash-suffixed entry by display name. A new root can legitimately
+            # have the same name as its former hashless configuration; in that
+            # case clone_project("name") must select the exact raw legacy key.
             for project in strict_projects.values():
                 if project.name == source_name:
                     return project, []
 
-            # Ordinary list/select use the filtered public image, so hashless
-            # keys never appear there. Clone still consults the unfiltered
-            # on-disk map: if from_project equals a discarded YAML key (the
-            # pre-hash project name), recover that entry so older configs can
-            # still be cloned. A listed name or hash-suffixed key never
-            # reaches this loop.
-            for project_key, project_data in projects_data.items():
-                if project_key != source_name or not isinstance(project_data, dict):
-                    continue
-                project_data_copy = dict(project_data)
-                project_data_copy["name"] = source_name
-                project_data_copy["key"] = source_name
-                return self._dict_to_project(project_data_copy), []
             return None, []
 
         raw_projects_snapshot = getattr(self, "_raw_projects_snapshot", None)

@@ -120,6 +120,15 @@ class TestQueryParams:
         result = parse_guide_uri("guide://_openspec/show?change=my-feature", COMMANDS)
         assert result.kwargs == {"change": "my-feature"}
 
+    def test_skill_query_values_are_preserved(self) -> None:
+        result = parse_guide_uri("guide://$workflow/status?mode=summary&dry-run")
+        assert result == GuideUri(
+            is_command=False,
+            is_skill=True,
+            expression="workflow/status",
+            kwargs={"mode": "summary", "dry_run": True},
+        )
+
     def test_multiple_params(self) -> None:
         result = parse_guide_uri("guide://_openspec/show?change=my-feature&verbose=true", COMMANDS)
         assert result.kwargs == {"change": "my-feature", "verbose": True}
