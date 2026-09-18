@@ -12,6 +12,9 @@ work and needlessly asks the client for information that may never be used.
   result is available.
 - Retain the per-session changes cache until its TTL expires or the client
   reports that the `openspec/changes` directory has changed.
+- Correlate each changes-directory listing with its matching OpenSpec-list
+  response, so an out-of-order response from a superseded refresh cannot
+  overwrite the cache.
 - Preserve existing OpenSpec CLI, version, and project-structure checks.
 
 ## Capabilities

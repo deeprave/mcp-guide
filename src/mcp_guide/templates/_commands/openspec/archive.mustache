@@ -25,4 +25,4 @@ Or set a workflow issue first with `{{agent.prefix}}guide :workflow/issue <chang
 {{/workflow.issue}}
 {{/args.0.value}}
 
-After successful archive, refresh the cache by running `openspec list --json` and sending via {{tool_prefix}}send_file_content with path `.openspec-changes.json`.
+After successful archive, use `guide://_openspec/list?force` to refresh the cached changes list.

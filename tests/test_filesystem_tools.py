@@ -50,6 +50,7 @@ async def test_filesystem_replies_dispatch_content_and_metadata_to_the_session(r
         type="agent/instruction",
         force=True,
         metadata={"topic": "test"},
+        request_id="content-request",
     )
     result = await internal_send_file_content(args, context)
     assert result.success
@@ -66,11 +67,14 @@ async def test_filesystem_replies_dispatch_content_and_metadata_to_the_session(r
             "type": "agent/instruction",
             "force": True,
             "metadata": {"topic": "test"},
+            "request_id": "content-request",
         },
     )
 
     entries = [{"name": "readme.md", "type": "file", "size": 1024, "mtime": 123.0}]
-    result = await internal_send_directory_listing(SendDirectoryListingArgs(path="docs/", entries=entries), context)
+    result = await internal_send_directory_listing(
+        SendDirectoryListingArgs(path="docs/", entries=entries, mtime=456.0, request_id="directory-request"), context
+    )
     assert result.success
     assert result.value["count"] == 1
     assert received[-1] == (
@@ -81,6 +85,8 @@ async def test_filesystem_replies_dispatch_content_and_metadata_to_the_session(r
             "pattern": None,
             "recursive": False,
             "count": 1,
+            "mtime": 456.0,
+            "request_id": "directory-request",
         },
     )
 

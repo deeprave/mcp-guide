@@ -16,10 +16,9 @@ from mcp_guide.task_manager import EventType, TaskActivation
     [
         ("cli", EventType.FS_COMMAND, {"command": "openspec", "found": True, "path": "/usr/bin/openspec"}, "version"),
         ("version", EventType.FS_FILE_CONTENT, {"path": ".openspec-version.txt", "content": "1.2.3"}, "project"),
-        ("project", EventType.FS_DIRECTORY, {"path": "openspec", "files": [{"name": "config.yaml"}]}, "changes"),
-        ("changes", EventType.FS_FILE_CONTENT, {"path": ".openspec-changes.json", "content": '{"changes": []}'}, None),
+        ("project", EventType.FS_DIRECTORY, {"path": "openspec", "files": [{"name": "config.yaml"}]}, None),
     ],
-    ids=["cli", "version", "project", "changes"],
+    ids=["cli", "version", "project"],
 )
 async def test_responses_acknowledge_requests_and_only_followup_is_retried(
     runtime, tmp_path, monkeypatch, check_kind, event, data, followup
@@ -32,7 +31,6 @@ async def test_responses_acknowledge_requests_and_only_followup_is_retried(
         "cli": "openspec-cli-check",
         "version": "openspec-version-check",
         "project": "openspec-project-check",
-        "changes": "openspec-get-changes",
     }.items():
         (templates / f"{pattern}.mustache").write_text(f"Request {name}")
     (templates / "_list-format.mustache").write_text("Current changes")
@@ -56,7 +54,6 @@ async def test_responses_acknowledge_requests_and_only_followup_is_retried(
         "cli": task.request_cli_check,
         "version": task.request_version_check,
         "project": task.request_project_check,
-        "changes": task.request_changes_json,
     }
     await methods[check_kind]()
     assert await delivered() == f"Request {check_kind}"
@@ -67,9 +64,6 @@ async def test_responses_acknowledge_requests_and_only_followup_is_retried(
     assert response is not None and response.result
     if followup:
         assert await delivered() == f"Request {followup}"
-    else:
-        assert response.rendered_content.content == "Current changes"
-        assert manager.get_cached_data("openspec_changes") == []
     now += 31
     await manager.retry_unacknowledged()
     if followup:

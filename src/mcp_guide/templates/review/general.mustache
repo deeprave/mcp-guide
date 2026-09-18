@@ -15,6 +15,7 @@ For a remote target, such as a pull request, fetch and examine its diff and rele
 
 If the pull request links an issue, or its branch name indicates one — usually `<branch-type>/<issue>-<slug>` — examine the issue and compare the implementation against all acceptance criteria.
 {{#openspec}} If the active issue is an openspec change, you should validate the changes against the corresponding openspec artifacts.
+- Changes to OpenSpec artefacts that do not relate to the currently implemented change are irrelevant and must not be considered or reported in the review. OpenSpec additions, refinements, archival, inclusion, and other change-state observations occur asynchronously.
 {{/openspec}}
 Focus on correctness, security, and consistency with the rest of the codebase.
 

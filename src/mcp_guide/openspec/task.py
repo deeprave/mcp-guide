@@ -25,9 +25,8 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# Cache and timer constants
+# Cache constants
 CHANGES_CACHE_TTL = 3600  # 1 hour
-CHANGES_CHECK_INTERVAL = 3600.0  # 60 minutes
 OPENSPEC_CHECK_INTERVAL = 24 * 60 * 60
 
 
@@ -45,19 +44,21 @@ class OpenSpecTask(InitialisableMixin):
         self._flag_checked = False
         self._available: Optional[bool] = None
         self._project_requested = False
-        self._project_enabled: Optional[bool] = None
         self._version_requested = False
         self._version: Optional[str] = None
         self._version_this_session: Optional[str] = None  # Session-level cache
-        self._changes_requested = False
         self._changes_cache: Optional[list[dict[str, Any]]] = None
         self._changes_timestamp: Optional[float] = None
+        self._changes_directory_mtime: Optional[float] = None
+        self._observed_changes_directory_mtime: Optional[float] = None
+        self._changes_refresh_generation = 0
+        self._pending_changes_refresh_id: Optional[str] = None
+        self._changes_directory_refresh_id: Optional[str] = None
 
         # Instruction tracking IDs
         self._cli_instruction_id: Optional[str] = None
         self._project_instruction_id: Optional[str] = None
         self._version_instruction_id: Optional[str] = None
-        self._changes_instruction_id: Optional[str] = None
 
     async def start(self, activation: "TaskActivation") -> bool:
         """Start OpenSpec detection if enabled for the current project."""
@@ -69,8 +70,7 @@ class OpenSpecTask(InitialisableMixin):
             return False
 
         activation.subscribe(
-            EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY | EventType.TIMER,
-            CHANGES_CHECK_INTERVAL,
+            EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY,
             once_interval=DEFAULT_ONCE_INTERVAL,
         )
         return True
@@ -271,13 +271,43 @@ class OpenSpecTask(InitialisableMixin):
         Returns:
             True if cache exists and is not expired, False otherwise.
         """
-        if self._changes_cache is None or self._changes_timestamp is None:
+        if (
+            self._changes_cache is None
+            or self._changes_timestamp is None
+            or self._changes_directory_mtime is None
+            or self._observed_changes_directory_mtime is None
+            or self._changes_directory_mtime != self._observed_changes_directory_mtime
+        ):
             return False
 
         import time
 
         age = time.time() - self._changes_timestamp
         return age < ttl
+
+    def prepare_changes_refresh(self, *, force: bool = False) -> str:
+        """Return the opaque identifier for a requested changes refresh.
+
+        A non-forced request reuses an in-flight refresh so concurrent renders
+        cannot solicit indistinguishable replies. A forced request supersedes
+        the prior refresh; replies carrying the old identifier are ignored.
+        """
+        if self._pending_changes_refresh_id is not None and not force:
+            return self._pending_changes_refresh_id
+
+        self._changes_refresh_generation += 1
+        self._pending_changes_refresh_id = f"openspec-changes-{self._changes_refresh_generation}"
+        self._changes_directory_refresh_id = None
+        return self._pending_changes_refresh_id
+
+    @property
+    def changes_refresh_id(self) -> Optional[str]:
+        """Return the identifier for the active changes refresh, if any."""
+        return self._pending_changes_refresh_id
+
+    def _is_current_changes_refresh(self, request_id: object) -> bool:
+        """Return whether a filesystem reply belongs to the active refresh."""
+        return isinstance(request_id, str) and request_id == self._pending_changes_refresh_id
 
     async def request_cli_check(self) -> None:
         """Request OpenSpec CLI availability check from client."""
@@ -303,13 +333,6 @@ class OpenSpecTask(InitialisableMixin):
 
         if result := await self._handle_timer_once(event_type):
             return result
-
-        # Handle timer events for changes monitoring
-        if event_type & EventType.TIMER:
-            interval = data.get("interval")
-            if interval == CHANGES_CHECK_INTERVAL:
-                await self._handle_changes_reminder()
-                return EventResult(result=True)
 
         # Handle command location events
         if event_type & EventType.FS_COMMAND:
@@ -339,20 +362,32 @@ class OpenSpecTask(InitialisableMixin):
         if event_type & EventType.FS_DIRECTORY:
             path = data.get("path", "")
             if path == "openspec":
-                files = data.get("files", [])
-                self._project_enabled = any(f.get("name") == "config.yaml" for f in files)
-
                 # Acknowledge project check instruction
                 if self._project_instruction_id:
                     await self._activation.acknowledge_instruction(self._project_instruction_id)
                     self._project_instruction_id = None
 
-                if self._project_enabled:
-                    # Request changes list after validation
-                    if not self._changes_requested:
-                        self._changes_requested = True
-                        await self.request_changes_json()
-
+                return EventResult(result=True)
+            if path == "openspec/changes":
+                request_id = data.get("request_id")
+                if request_id is None:
+                    # Preserve passive directory-mtime invalidation for clients
+                    # that report a listing outside the explicit refresh flow.
+                    # Such a listing can invalidate cached data, but cannot
+                    # authorise a changes-list response for a pending refresh.
+                    mtime = data.get("mtime")
+                    self._observed_changes_directory_mtime = (
+                        float(mtime) if isinstance(mtime, (int, float)) and not isinstance(mtime, bool) else None
+                    )
+                    return EventResult(result=True)
+                if not self._is_current_changes_refresh(request_id):
+                    logger.debug("Ignoring OpenSpec changes directory response for a superseded refresh")
+                    return EventResult(result=True)
+                mtime = data.get("mtime")
+                self._observed_changes_directory_mtime = (
+                    float(mtime) if isinstance(mtime, (int, float)) and not isinstance(mtime, bool) else None
+                )
+                self._changes_directory_refresh_id = request_id
                 return EventResult(result=True)
             return None
 
@@ -363,6 +398,12 @@ class OpenSpecTask(InitialisableMixin):
 
             path = data.get("path", "")
             path_name = Path(path).name
+
+            if path_name == ".openspec-changes.json":
+                request_id = data.get("request_id")
+                if not self._is_current_changes_refresh(request_id) or request_id != self._changes_directory_refresh_id:
+                    logger.debug("Ignoring OpenSpec changes response for a superseded or incomplete refresh")
+                    return EventResult(result=True)
 
             # Handle version detection
             if path_name == ".openspec-version.txt":
@@ -421,19 +462,11 @@ class OpenSpecTask(InitialisableMixin):
                 changes = json_data.get("changes", [])
                 self._changes_cache = changes
                 self._changes_timestamp = time.time()
+                self._changes_directory_mtime = self._observed_changes_directory_mtime
+                self._pending_changes_refresh_id = None
+                self._changes_directory_refresh_id = None
                 self._activation.set_cached_data("openspec_changes", changes)
                 logger.debug(f"Cached {len(changes)} OpenSpec changes")
-
-                # Acknowledge changes request instruction
-                if self._changes_instruction_id:
-                    await self._activation.acknowledge_instruction(self._changes_instruction_id)
-                    self._changes_instruction_id = None
-
-                # Invalidate template context cache to pick up fresh changes
-                from mcp_guide.render.cache import invalidate_template_context_cache
-
-                invalidate_template_context_cache(self._session)
-                logger.debug("Template context cache invalidated after OpenSpec changes update")
 
                 # Render and return the changes list
                 rendered = await render_openspec_template(self._session, "_list-format")
@@ -462,22 +495,6 @@ class OpenSpecTask(InitialisableMixin):
                 return None
 
         return None
-
-    async def request_changes_json(self) -> None:
-        """Request openspec changes JSON via command execution."""
-        rendered = await render_openspec_template(self._session, "openspec-get-changes")
-        if rendered:
-            self._changes_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
-
-    async def _handle_changes_reminder(self) -> None:
-        """Handle timer events for changes monitoring.
-
-        Invalidates cache when TTL expires. Data will be fetched on-demand
-        when :openspec/list command is next invoked.
-        """
-        if not self.is_cache_valid():
-            self._changes_timestamp = None
-            logger.trace("OpenSpec changes cache invalidated")
 
     async def _parse_version(self, content: str) -> None:
         """Parse OpenSpec version from command output and store global state.

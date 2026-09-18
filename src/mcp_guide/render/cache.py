@@ -191,7 +191,18 @@ class TemplateContextCache(SessionListener):
         except (AttributeError, KeyError) as e:
             logger.debug(f"Failed to get task statistics: {e}")
 
-        # Add OpenSpec-specific context (version, changes, status)
+        agent_vars.update(formatting_vars)
+
+        return TemplateContext(agent_vars)
+
+    async def _build_openspec_context(self) -> "TemplateContext":
+        """Build OpenSpec context fresh for each rendered document.
+
+        Changes data has a lazy TTL and client-observed directory-mtime
+        validity check.  It therefore must not be retained in the materialised
+        base template context.
+        """
+        task_manager = self._task_manager()
         try:
             # OpenSpecTask needs lazy import
             from mcp_guide.feature_flags.constants import FLAG_OPENSPEC_STATE
@@ -227,24 +238,24 @@ class TemplateContextCache(SessionListener):
                         )
                         return False
 
-                agent_vars["openspec"] = {
-                    "available": openspec_state.validated,
-                    "version": openspec_state.version,
-                    "changes": openspec_task_subscriber.get_changes() or [],
-                    "show": openspec_task_subscriber.get_show(),
-                    "status": openspec_task_subscriber.get_status(),
-                    "has_version": has_version,
-                }
+                return TemplateContext(
+                    {
+                        "openspec": {
+                            "available": openspec_state.validated,
+                            "version": openspec_state.version,
+                            "changes": openspec_task_subscriber.get_changes() or [],
+                            "changes_refresh_id": openspec_task_subscriber.changes_refresh_id,
+                            "show": openspec_task_subscriber.get_show(),
+                            "status": openspec_task_subscriber.get_status(),
+                            "has_version": has_version,
+                        }
+                    }
+                )
             else:
-                # Task not registered (feature flag disabled) - set to False
-                agent_vars["openspec"] = False
+                return TemplateContext({"openspec": False})
         except Exception as e:
             logger.debug(f"Failed to get OpenSpec context: {e}")
-            agent_vars["openspec"] = False
-
-        agent_vars.update(formatting_vars)
-
-        return TemplateContext(agent_vars)
+            return TemplateContext({"openspec": False})
 
     async def _build_project_context(self) -> "TemplateContext":
         """Build project context with current project data."""
@@ -596,31 +607,38 @@ class TemplateContextCache(SessionListener):
         Returns:
             TemplateContext with layered contexts (system → agent → project → category)
         """
-        # Check cache first (only for non-category contexts)
+        # Check cache first (only for non-category static contexts).
         if category_name is None:
             if self._cache is not None:
                 logger.trace("TemplateContextCache: Returning cached context")
-                return self._cache
-            logger.trace("TemplateContextCache: No cached context, building new one")
-
-        # Build contexts
-        system_context = await self._build_system_context()
-        client_context = await self._build_client_context()
-        agent_context = await self._build_agent_context()
-        project_context = await self._build_project_context()
-
-        # Create layered context: project → agent → client → system
-        layered_context = project_context.new_child(agent_context.new_child(client_context.new_child(system_context)))
+                layered_context = self._cache
+            else:
+                logger.trace("TemplateContextCache: No cached context, building new one")
+                system_context = await self._build_system_context()
+                client_context = await self._build_client_context()
+                agent_context = await self._build_agent_context()
+                project_context = await self._build_project_context()
+                layered_context = project_context.new_child(
+                    agent_context.new_child(client_context.new_child(system_context))
+                )
+                self._cache = layered_context
+        else:
+            system_context = await self._build_system_context()
+            client_context = await self._build_client_context()
+            agent_context = await self._build_agent_context()
+            project_context = await self._build_project_context()
+            layered_context = project_context.new_child(
+                agent_context.new_child(client_context.new_child(system_context))
+            )
 
         # Add category context if requested (not cached)
         if category_name is not None:
             category_context = await self._build_category_context(category_name)
             layered_context = category_context.new_child(layered_context)
-        else:
-            # Cache only when no category context (base contexts only)
-            self._cache = layered_context
 
-        return layered_context
+        # Keep the cache-aware OpenSpec layer dynamic, even when the rest of
+        # the context is materialised for this session.
+        return layered_context.new_child(await self._build_openspec_context())
 
     def get_transient_context(self) -> "TemplateContext":
         """Generate fresh transient context with timestamps.

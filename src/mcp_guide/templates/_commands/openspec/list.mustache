@@ -8,11 +8,20 @@ includes:
   - ../../_openspec/list-format
 ---
 {{#openspec}}
+{{#kwargs.force}}
+List `openspec/changes` and send it using {{tool_prefix}}send_directory_listing with path `openspec/changes`, its entries, the directory's `mtime`, and request_id `{{openspec.changes_refresh_id}}`.
+
+Then run `openspec list --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-changes.json` and request_id `{{openspec.changes_refresh_id}}` to refresh the cache, then re-render this template to display the results.
+{{/kwargs.force}}
+{{^kwargs.force}}
 {{#changes}}
 {{>list-format}}
 {{/changes}}
 
 {{^changes}}
-Run `openspec list --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-changes.json` to refresh the cache, then re-render this template to display the results.
+First list `openspec/changes` and send it using {{tool_prefix}}send_directory_listing with path `openspec/changes`, its entries, the directory's `mtime`, and request_id `{{openspec.changes_refresh_id}}`.
+
+Then run `openspec list --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-changes.json` and request_id `{{openspec.changes_refresh_id}}` to refresh the cache, then re-render this template to display the results.
 {{/changes}}
+{{/kwargs.force}}
 {{/openspec}}

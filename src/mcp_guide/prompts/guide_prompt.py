@@ -439,6 +439,14 @@ async def _execute_command(
 
     kwargs = _merge_alias_kwargs(default_kwargs=alias_implied_kwargs, override_kwargs=kwargs)
 
+    if command_path == "openspec/list":
+        from mcp_guide.openspec.task import OpenSpecTask
+
+        openspec_task = session.task_manager.get_task_by_type(OpenSpecTask)
+        force_refresh = bool(kwargs.get("force", False))
+        if openspec_task is not None and (force_refresh or not openspec_task.is_cache_valid()):
+            openspec_task.prepare_changes_refresh(force=force_refresh)
+
     # Build template context
     base_context = await get_template_contexts(session)
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
