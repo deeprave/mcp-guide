@@ -2,6 +2,7 @@
 
 """Read resource tool for resolving guide:// URIs."""
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
 from glob import has_magic
@@ -17,6 +18,7 @@ from mcp_guide.config_constants import COMMANDS_DIR, SKILLS_DIR
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
+from mcp_guide.core.validation import validate_content_name
 from mcp_guide.discovery.commands import discover_commands, normalise_alias_metadata
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, discover_document_files
 from mcp_guide.models import resolve_all_flags
@@ -65,6 +67,31 @@ class GuideSkill:
 async def discover_guide_skills(request_context: RequestContext) -> list[GuideSkill]:
     """Discover skills from their frontmatter, excluding unmet requirements."""
     skills_dir = request_context.resolve_document_path(SKILLS_DIR)
+    task_manager = request_context.session.task_manager
+    cache_key = str(skills_dir)
+    cache_generation = task_manager.skill_cache_generation
+
+    def _max_file_mtime(base: Path, fallback: float) -> float:
+        result = fallback
+        for candidate in base.rglob("*"):
+            if candidate.is_file():
+                try:
+                    result = max(result, candidate.stat().st_mtime)
+                except OSError:
+                    continue
+        return result
+
+    try:
+        root_mtime = (await asyncio.to_thread(skills_dir.stat)).st_mtime
+        effective_mtime = await asyncio.to_thread(_max_file_mtime, skills_dir, root_mtime)
+    except OSError:
+        task_manager.cache_skills(cache_key, 0.0, [], cache_generation)
+        return []
+    if cached := task_manager.get_cached_skills(cache_key, cache_generation):
+        cached_mtime, cached_skills = cached
+        if cached_mtime >= effective_mtime:
+            return cached_skills
+
     try:
         files = await discover_document_files(skills_dir, ["*/SKILL.md"])
     except FileNotFoundError:
@@ -76,8 +103,12 @@ async def discover_guide_skills(request_context: RequestContext) -> list[GuideSk
     flags = await resolve_all_flags(request_context.session)
     skills: list[GuideSkill] = []
     for file_info in files:
-        file_info.resolve(request_context.resolve_document_path, SKILLS_DIR)
-        frontmatter = parse_content_with_frontmatter(await file_info.read_raw()).frontmatter
+        try:
+            file_info.resolve(request_context.resolve_document_path, SKILLS_DIR)
+            frontmatter = parse_content_with_frontmatter(await file_info.read_raw()).frontmatter
+        except (OSError, UnicodeError) as error:
+            logger.warning("Ignoring unreadable Guide skill package %s: %s", file_info.path, error)
+            continue
         package_path = PurePosixPath(file_info.name).parent
         identifier = package_path.as_posix()
         name = frontmatter.get("name")
@@ -89,6 +120,12 @@ async def discover_guide_skills(request_context: RequestContext) -> list[GuideSk
         assert isinstance(name, str)
         assert isinstance(description, str)
         assert isinstance(usage, str)
+        try:
+            validate_content_name(identifier, "Guide skill package")
+            validate_content_name(name, "Guide skill")
+        except ValueError as error:
+            logger.warning("Ignoring Guide skill package %s: %s", file_info.path, error)
+            continue
         if not check_frontmatter_requirements(frontmatter, flags):
             continue
         skills.append(
@@ -101,7 +138,9 @@ async def discover_guide_skills(request_context: RequestContext) -> list[GuideSk
             )
         )
 
-    return sorted(skills, key=lambda skill: skill.identifier)
+    skills = sorted(skills, key=lambda skill: skill.identifier)
+    task_manager.cache_skills(cache_key, effective_mtime, skills, cache_generation)
+    return skills
 
 
 def _catalogue_table_cell(value: str) -> str:

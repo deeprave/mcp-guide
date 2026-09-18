@@ -1,5 +1,6 @@
 """Validation functions for tool arguments."""
 
+import re
 from typing import Any, Optional
 
 from mcp_guide.core.result import Result
@@ -15,9 +16,9 @@ ERR_DESCRIPTION_TOO_LONG = "Description exceeds {} characters"
 ERR_INVALID_CHARACTERS = "Description contains quote characters"
 
 # Name validation constants
-_INVALID_NAME_CHARS = frozenset("/\\ !")
 _MAX_NAME_LENGTH = 30
 RESERVED_CHARACTERS = "_$!"
+_CONTENT_NAME_REGEX = re.compile(r"^[\w-]+$", re.UNICODE)
 
 # Default instruction for validation errors
 DEFAULT_INSTRUCTION = "Return error to user without attempting remediation"
@@ -27,6 +28,23 @@ def validate_reserved_content_name_prefix(name: str, entity: str) -> None:
     """Reject names beginning with reserved characters."""
     if name and name[0] in RESERVED_CHARACTERS:
         raise ValueError(f"{entity} name is not accepted")
+
+
+def validate_content_name(name: str, entity: str) -> str:
+    """Validate a URI-addressable category, collection, or skill name.
+
+    Content names are used as the first component of Guide URIs.  Keep their
+    character set deliberately narrower than URI syntax so a name can always
+    be advertised and resolved without encoding ambiguity.
+    """
+    if not name or not name.strip():
+        raise ValueError(f"{entity} name cannot be empty")
+    validate_reserved_content_name_prefix(name, entity)
+    if not _CONTENT_NAME_REGEX.fullmatch(name):
+        raise ValueError(f"{entity} name must contain only alphanumeric characters, underscores, and hyphens")
+    if len(name) > _MAX_NAME_LENGTH:
+        raise ValueError(f"{entity} name must be {_MAX_NAME_LENGTH} characters or less")
+    return name
 
 
 class ArgValidationError(ValueError):
@@ -205,18 +223,7 @@ def validate_name(name: str, field: str, entity: str) -> str:
     Raises:
         ArgValidationError: If name is invalid
     """
-    if not name or not name.strip():
-        raise ArgValidationError([{"field": field, "message": f"{entity} name cannot be empty"}])
     try:
-        validate_reserved_content_name_prefix(name, entity)
+        return validate_content_name(name, entity)
     except ValueError as error:
         raise ArgValidationError([{"field": field, "message": str(error)}]) from error
-    if _INVALID_NAME_CHARS.intersection(name):
-        raise ArgValidationError(
-            [{"field": field, "message": f"{entity} name cannot contain spaces or special characters"}]
-        )
-    if len(name) > _MAX_NAME_LENGTH:
-        raise ArgValidationError(
-            [{"field": field, "message": f"{entity} name must be {_MAX_NAME_LENGTH} characters or less"}]
-        )
-    return name

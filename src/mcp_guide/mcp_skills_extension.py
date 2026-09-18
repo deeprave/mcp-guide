@@ -154,8 +154,14 @@ class GuideSkillsExtension(ServerExtension, SessionListener):
         await self._notify_if_effective_skills_changed(session)
 
     async def on_request_started(self, session: "Session") -> None:
-        """Flush a deferred refresh only through the request's owning session."""
-        await self._flush_pending_notification(session)
+        """Detect a delayed skill-tree update through the owning connection.
+
+        Skill packages are server-owned documents, so their cache is checked
+        on requests rather than through a dedicated filesystem watcher.  This
+        mirrors command discovery's delayed mtime invalidation while allowing
+        the negotiated connection to receive a list-change notification.
+        """
+        await self._notify_if_effective_skills_changed(session)
 
     async def _skills_for_session(self, session: "Session") -> tuple[GuideSkill, ...]:
         """Resolve the effective skills using the same catalogue implementation."""

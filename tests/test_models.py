@@ -98,6 +98,19 @@ class TestProject:
         with pytest.raises(ValueError, match="name is not accepted"):
             Project(name="test", **{field: value})
 
+    @pytest.mark.parametrize(
+        ("field", "value"),
+        [
+            ("categories", {"docs?draft": Category(dir="docs", patterns=["*.md"])}),
+            ("collections", {"docs#draft": Collection(categories=["docs"])}),
+        ],
+        ids=["category-query", "collection-fragment"],
+    )
+    def test_uri_unsafe_content_names_are_rejected_in_project_configuration(self, field, value):
+        """Persisted content mappings use the same URI-safe naming contract as tools."""
+        with pytest.raises(ValueError, match="must contain only alphanumeric"):
+            Project(name="test", **{field: value})
+
     def test_with_category_dict_based(self):
         """with_category should work with dict-based categories."""
         from mcp_guide.models import Category

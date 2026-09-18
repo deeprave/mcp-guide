@@ -196,6 +196,22 @@ list-change notifications. The underlying Guide skill catalogue and URI
 resolution remain available independently, so clients that do not implement
 the extension can use the standard Guide resource and tool paths.
 
+### Discovery resilience and delayed refresh
+
+Skill packages use the same URI-safe name contract as categories and
+collections. Both the filesystem package identifier and the public `name`
+frontmatter value must be valid addressable names. An invalid or unreadable
+package is logged and excluded without preventing valid packages from being
+listed.
+
+The skills catalogue is cached in the session task manager with the same
+generation and recursive-mtime strategy used for commands. It is intentionally
+delayed rather than backed by a separate live watcher: on a subsequent request
+from an already-negotiated owning session, Guide refreshes the catalogue when
+the skill tree has changed and sends `notifications/skills/list_changed` only
+if the effective list differs. This supports managed document-root updates
+without coupling skill availability to an unrelated configuration change.
+
 ### Accepted review remediations
 
 Skill package members are literal paths, not document patterns. The resolver

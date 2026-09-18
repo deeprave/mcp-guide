@@ -7,7 +7,7 @@ from typing import Optional
 from pydantic import ConfigDict, field_validator
 from pydantic.dataclasses import dataclass as pydantic_dataclass
 
-from mcp_guide.core.validation import validate_directory_path, validate_reserved_content_name_prefix
+from mcp_guide.core.validation import validate_content_name, validate_directory_path
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models.constants import _NAME_REGEX, DEFAULT_ALLOWED_WRITE_PATHS
 
@@ -122,17 +122,17 @@ class Project:
     @field_validator("categories")
     @classmethod
     def validate_category_names(cls, values: dict[str, Category]) -> dict[str, Category]:
-        """Reject category keys beginning with reserved characters."""
+        """Reject category keys that cannot be safely addressed by Guide."""
         for category_name in values:
-            validate_reserved_content_name_prefix(category_name, "Category")
+            validate_content_name(category_name, "Category")
         return values
 
     @field_validator("collections")
     @classmethod
     def validate_collection_names(cls, values: dict[str, Collection]) -> dict[str, Collection]:
-        """Reject collection keys beginning with reserved characters."""
+        """Reject collection keys that cannot be safely addressed by Guide."""
         for collection_name in values:
-            validate_reserved_content_name_prefix(collection_name, "Collection")
+            validate_content_name(collection_name, "Collection")
         return values
 
     @field_validator("allowed_write_paths")

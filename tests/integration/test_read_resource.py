@@ -148,6 +148,35 @@ async def test_skill_catalogue_is_available_through_read_resource(resource_proje
 
 
 @pytest.mark.anyio
+async def test_skill_catalogue_skips_invalid_or_malformed_packages(resource_project):
+    """One invalid package cannot hide independently valid Guide skills."""
+    skills_dir = resource_project.resolve_document_path("_skills")
+    invalid_identifier = skills_dir / "unsafe?skill"
+    invalid_identifier.mkdir(parents=True)
+    (invalid_identifier / "SKILL.md.mustache").write_text(
+        "---\nname: unsafe-skill\ndescription: Invalid package path.\nusage: Never.\n---\nIgnored.",
+        encoding="utf-8",
+    )
+    invalid_name = skills_dir / "invalid-name"
+    invalid_name.mkdir()
+    (invalid_name / "SKILL.md.mustache").write_text(
+        "---\nname: invalid?name\ndescription: Invalid public name.\nusage: Never.\n---\nIgnored.",
+        encoding="utf-8",
+    )
+    malformed = skills_dir / "malformed"
+    malformed.mkdir()
+    (malformed / "SKILL.md.mustache").write_text("---\nname: [\n---\nIgnored.", encoding="utf-8")
+
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+
+    assert result.success, result.error
+    assert "workflow-status" in result.value
+    assert "unsafe?skill" not in result.value
+    assert "invalid?name" not in result.value
+    assert "malformed" not in result.value
+
+
+@pytest.mark.anyio
 async def test_verbose_skill_catalogue_is_user_information_through_read_resource(resource_project):
     """A skill URI query reaches the catalogue loader unchanged."""
     result = await internal_read_resource(ReadResourceArgs(uri="guide://$?verbose=true"), resource_project)

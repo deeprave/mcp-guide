@@ -46,6 +46,19 @@ metadata needed for an agent to explicitly select a skill.
 - **AND** SHALL identify the resource URI for the skill entrypoint
 - **AND** SHALL deliver the catalogue as `agent/information` content by default
 
+#### Scenario: Isolate an invalid skill package
+- **WHEN** one discovered skill package is unreadable, malformed, or has an
+  invalid package identifier or public `name` value
+- **THEN** the system SHALL log and exclude that package
+- **AND** SHALL continue to return every independently valid skill package
+
+#### Scenario: Use URI-safe skill identities
+- **WHEN** Guide discovers a skill package
+- **THEN** its package identifier and public `name` frontmatter value SHALL
+  satisfy the shared category and collection name validation contract
+- **AND** SHALL be safe to advertise and resolve in a `guide://$` URI without
+  additional encoding
+
 #### Scenario: Display available skills
 - **WHEN** a caller requests `list_skills` with `verbose=true`
 - **THEN** the system SHALL list the same available-skill catalogue

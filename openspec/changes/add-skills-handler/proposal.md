@@ -50,3 +50,9 @@ establishing the central value.
 - A global, startup-scoped feature flag gates the complete protocol extension:
   its capability advertisement, `skills/list` method, and list-change
   notifications.
+- Shared URI-safe content-name validation also governs skill package
+  identifiers and public skill names. Invalid or unreadable packages are
+  excluded without blocking valid catalogue entries.
+- Skills reuse delayed command-style cache invalidation: a later request from
+  the owning negotiated session detects a changed skill tree and emits a
+  list-change notification only when the effective catalogue differs.

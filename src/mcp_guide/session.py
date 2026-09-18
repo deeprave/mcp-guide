@@ -361,7 +361,7 @@ class Session:
                         self.__delegate.bind(current_project)
                         self._project_dirty = False
                     if update.changes.resolved_flags:
-                        self.task_manager.clear_command_cache()
+                        self.task_manager.clear_document_discovery_caches()
                     await self._notify_configuration_changed(update)
             except Exception as error:
                 logger.debug("Configuration update consumer failed: %s", error, exc_info=True)

@@ -92,3 +92,10 @@
 - [x] 6.7 Replace optional session-listener lifecycle duck typing with explicit
   session and interaction listener scopes, transferring only protocol-scoped
   subscriptions on project replacement
+- [x] 6.8 Apply shared URI-safe category and collection name validation to
+  skill package identifiers and public skill `name` frontmatter values
+- [x] 6.9 Isolate malformed, invalid, and unreadable skill packages so they
+  are logged and skipped without hiding valid catalogue entries
+- [x] 6.10 Cache skill catalogue discovery with command-style generations and
+  recursive mtime checks, then notify an owning negotiated session on its next
+  request only when its effective catalogue changed
