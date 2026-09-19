@@ -285,3 +285,13 @@ When refactoring functions that violate this rule:
 4. Update tests to use Result directly (remove `json.loads()`)
 
 **Status:** Mandatory - Zero tolerance for violations
+
+## Amendment: Disposition Supersedes Imperative Instruction Patterns (2026-09-19)
+
+**Context:** `Result` has since gained `disposition`, `additional_agent_instructions`, and `arguments` fields not reflected in the original class listing above; `disposition` was defined but, until the `cooperative-result-disposition` OpenSpec change, essentially unused (5 of 229 construction sites).
+
+**Problem with the original "Instruction Field Semantics" catalog:** The imperative patterns listed above ("Present this error to the user and take no further action.", "Do NOT make any changes to the project.", etc.) were written as bare commands with no stated rationale. In practice, an unexplained imperative embedded in tool output is structurally indistinguishable, from a safety-conscious agent's perspective, from a prompt-injection attempt — this was confirmed directly during the `cooperative-result-disposition` change, where a bare instruction triggered defensive pushback that a disclosed, cooperative rewrite resolved.
+
+**Superseding guidance:** For new code and code touched by future changes, prefer setting `disposition` (see the `result-disposition` OpenSpec capability for the vocabulary and its semantics) over inventing a new imperative instruction string. `disposition` alone should convey standing, type-level behavior; a prose `instruction`, when still needed, should explain *why* an action matters or what result it produces, not issue an unexplained command. The specific patterns catalogued above under "Instruction Field Semantics" are superseded by this guidance for new code; they are retained here as historical record of the original design, not as a template to continue following.
+
+This amendment does not retroactively rewrite the ~220+ existing `Result` construction sites still using the older pattern — that migration is tracked as follow-up work outside `cooperative-result-disposition`'s pilot scope.
