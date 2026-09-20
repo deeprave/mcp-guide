@@ -14,11 +14,15 @@ from mcp_guide.task_manager import EventType, TaskActivation
 @pytest.mark.parametrize(
     "check_kind,event,data,followup",
     [
-        ("cli", EventType.FS_COMMAND, {"command": "openspec", "found": True, "path": "/usr/bin/openspec"}, "version"),
-        ("version", EventType.FS_FILE_CONTENT, {"path": ".openspec-version.txt", "content": "1.2.3"}, "project"),
+        (
+            "detection",
+            EventType.FS_FILE_CONTENT,
+            {"path": ".openspec-info.json", "content": '{"location": "/usr/bin/openspec", "version": "1.2.3"}'},
+            "project",
+        ),
         ("project", EventType.FS_DIRECTORY, {"path": "openspec", "files": [{"name": "config.yaml"}]}, None),
     ],
-    ids=["cli", "version", "project"],
+    ids=["detection", "project"],
 )
 async def test_responses_acknowledge_requests_and_only_followup_is_retried(
     runtime, tmp_path, monkeypatch, check_kind, event, data, followup
@@ -28,8 +32,7 @@ async def test_responses_acknowledge_requests_and_only_followup_is_retried(
     templates = docroot / "_openspec"
     templates.mkdir(parents=True)
     for name, pattern in {
-        "cli": "openspec-cli-check",
-        "version": "openspec-version-check",
+        "detection": "openspec-check",
         "project": "openspec-project-check",
     }.items():
         (templates / f"{pattern}.mustache").write_text(f"Request {name}")
@@ -51,8 +54,7 @@ async def test_responses_acknowledge_requests_and_only_followup_is_retried(
         return (await manager.process_result(Result.ok())).additional_agent_instructions
 
     methods = {
-        "cli": task.request_cli_check,
-        "version": task.request_version_check,
+        "detection": task.request_detection,
         "project": task.request_project_check,
     }
     await methods[check_kind]()
@@ -69,7 +71,7 @@ async def test_responses_acknowledge_requests_and_only_followup_is_retried(
     if followup:
         assert await delivered() == f"Request {followup}"
     assert manager.is_queue_empty()
-    if check_kind == "version":
+    if check_kind == "detection":
         state = parse_openspec_state(await runtime.feature_flags().get("openspec-state"))
         assert state.validated is True
         assert state.version == "1.2.3"

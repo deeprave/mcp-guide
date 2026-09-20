@@ -1,0 +1,1 @@
+Guide needs to validate the OpenSpec CLI and version for compatibility. Obtain its location in the PATH and return its version with `openspec --version`. Send both results in one JSON report using `{{tool_prefix}}send_file_content` at `.openspec-info.json`, using `{"location": "...", "version": "..."}`. Guide stores the result in its global `openspec-state` feature flag.
