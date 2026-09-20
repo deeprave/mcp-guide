@@ -399,7 +399,7 @@ Error handling SHALL:
 - Return Result.failure with error_type "template_error"
 - Log template errors at WARNING level
 - Provide clear error messages with file path and error details
-- Include agent instructions for error resolution
+- Set disposition `agent/error` so the taught vocabulary conveys that the failure is fixable by the agent, without a paired prose restatement
 - Never fall back to raw template content
 
 #### Scenario: Template parse error
@@ -416,7 +416,8 @@ Error handling SHALL:
 
 #### Scenario: Agent error instruction
 - **WHEN** template error occurs
-- **THEN** include instruction "Fix the template syntax or provide missing context variables"
+- **THEN** set disposition `agent/error` on the result
+- **AND** do not additionally include a paired instruction restating what the disposition already conveys
 
 #### Scenario: No fallback behavior
 - **WHEN** template error occurs

@@ -72,51 +72,28 @@ access to available agent/client information and global flags.
 
 ### Requirement: Async factory for no-project result
 
-The system SHALL provide an async factory `make_no_project_result(ctx)` in
-`result_constants.py` that produces a `Result` with a rendered `_project-root`
-instruction when possible, falling back to the static `RESULT_NO_PROJECT` when not.
-
-The factory SHALL:
-1. Attempt to obtain a session from `ctx` via `get_session(ctx)`
-2. If a session is available and no project is bound, render `_system/_project-root`
-   and construct `Result.failure(error_type=ERROR_NO_PROJECT, instruction=<rendered>)`
-3. If no session is available (ValueError), return the static `RESULT_NO_PROJECT`
-4. If rendering raises for any reason, log a warning and return `RESULT_NO_PROJECT`
-
-`_check_project_bound()` in `core/tool_decorator.py` SHALL delegate to the factory
-on the unbound-project path, replacing the direct `RESULT_NO_PROJECT.to_json_str()`
-reference with `(await make_no_project_result(ctx)).to_json_str()`.
-
-The static `INSTRUCTION_NO_PROJECT` and `RESULT_NO_PROJECT` constants SHALL be
-retained as the factory's internal fallback and SHALL NOT be removed.
-
-#### Scenario: Unbound session returns rendered instruction
-- **WHEN** a tool with `requires_project=True` is called
-- **AND** a session exists but no project is bound
-- **THEN** `_check_project_bound()` renders `_system/_project-root`
-- **AND** returns a `Result.failure` JSON string with the rendered template as instruction
-- **AND** the instruction contains guidance on git worktree detection and CWD fallback
-
-#### Scenario: No session falls back to static instruction
-- **WHEN** a tool with `requires_project=True` is called
-- **AND** `get_session(ctx)` raises ValueError (no session)
-- **THEN** `_check_project_bound()` returns `RESULT_NO_PROJECT.to_json_str()`
-- **AND** the static fallback instruction is used
+The system SHALL provide an async `make_no_project_result()` factory that returns an `agent/error` Result. It SHALL render `_system/_project-root` without a session when possible, cache that rendered instruction per process, and fall back to `INSTRUCTION_NO_PROJECT` if rendering is unavailable.
 
 #### Scenario: Rendering failure falls back to static instruction
-- **WHEN** a tool with `requires_project=True` is called
-- **AND** a session exists but no project is bound
-- **AND** `render_content("_project-root", "_system")` raises an exception
-- **THEN** `_check_project_bound()` catches the exception
-- **AND** logs a warning
-- **AND** returns `RESULT_NO_PROJECT.to_json_str()` as fallback
+
+- **WHEN** no-project guidance cannot be rendered
+- **THEN** the factory SHALL return the static fallback instruction
+- **AND** the unbound-project response SHALL remain a Result
+
+#### Scenario: Unbound session returns rendered instruction
+
+- **WHEN** a tool requiring a project is called while unbound
+- **THEN** the Result SHALL use rendered no-project guidance when available
+
+#### Scenario: No session falls back to static instruction
+
+- **WHEN** no runtime is available for rendering
+- **THEN** the Result SHALL use `INSTRUCTION_NO_PROJECT`
 
 #### Scenario: Bound session is unaffected
-- **WHEN** a tool with `requires_project=True` is called
-- **AND** a project is bound to the session
-- **THEN** `_check_project_bound()` returns `None`
-- **AND** no template rendering occurs
-- **AND** the tool proceeds normally
+
+- **WHEN** a tool requiring a project has a bound session
+- **THEN** normal tool execution SHALL continue
 
 ### Requirement: Lazy Config Loading
 

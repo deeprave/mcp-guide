@@ -146,9 +146,10 @@ expiring instance.
 All project management tools SHALL return responses using the Result pattern.
 
 #### Scenario: Unbound project error
+
 - **WHEN** any tool requires a bound project and the session is unbound
-- **THEN** return a consistent static `RESULT_NO_PROJECT` error
-- **AND** the error SHALL include an instruction telling the agent to call `set_project` with the project path or name
+- **THEN** it SHALL return the async no-project Result
+- **AND** the result SHALL carry `agent/error` and guidance to call `set_project`
 
 ### Requirement: Clone transferable project configuration
 The `clone_project` tool SHALL copy all transferable configuration from the
