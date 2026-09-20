@@ -1,6 +1,5 @@
 """Command discovery utilities for finding and parsing commands in _commands directory."""
 
-import asyncio
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -199,20 +198,17 @@ async def discover_commands(commands_dir: Path, session: "Session") -> list[dict
         try:
             current_mtime = (await AsyncPath(commands_dir).stat()).st_mtime
 
-            def _max_file_mtime(base: Path, fallback: float) -> float:
+            async def _max_file_mtime(base: Path, fallback: float) -> float:
                 result = fallback
-                for f in base.rglob("*"):
-                    if f.is_file():
+                async for f in AsyncPath(base).rglob("*"):
+                    if await f.is_file():
                         try:
-                            result = max(result, f.stat().st_mtime)
+                            result = max(result, (await f.stat()).st_mtime)
                         except OSError:
                             continue
                 return result
 
-            effective_mtime = max(
-                current_mtime,
-                await asyncio.to_thread(_max_file_mtime, commands_dir, current_mtime),
-            )
+            effective_mtime = max(current_mtime, await _max_file_mtime(commands_dir, current_mtime))
 
             if cached := get_cached_commands():
                 cached_mtime, cached_commands = cached

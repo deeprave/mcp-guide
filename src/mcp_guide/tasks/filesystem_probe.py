@@ -10,6 +10,8 @@ from anyio import Path as AsyncPath
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_register
 from mcp_guide.lazy_path import LazyPath
+from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.rendering import render_content
 from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.manager import EventResult
 
@@ -63,11 +65,18 @@ class FilesystemProbeTask:
                 await stream.write(self._challenge)
             await async_path.chmod(0o444)
             activation.subscribe(EventType.FS_FILE_CONTENT, priority=True)
+            rendered = await render_content(
+                session,
+                "_filesystem-probe",
+                "_system",
+                TemplateContext({"path": str(path)}),
+            )
+            if rendered is None:
+                logger.debug("Filesystem probe template did not render; abandoning probe")
+                await self._finish(False)
+                return False
             self._instruction_id = await activation.queue_instruction_with_ack(
-                f"Read the existing file {str(path)!r} using the client's filesystem and send its exact contents "
-                "through send_file_content with that exact absolute path. Do not create or modify the file. "
-                "If it cannot be read, send content='unreadable' for that path. "
-                "This one-time check determines whether client path shorthand is available.",
+                rendered.content,
                 max_retries=0,
                 on_dispatch=self._on_dispatch,
             )

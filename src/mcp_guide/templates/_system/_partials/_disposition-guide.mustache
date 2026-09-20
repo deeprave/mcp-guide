@@ -1,0 +1,15 @@
+---
+description: Explains the Result.disposition vocabulary
+---
+
+Most Guide responses carry a `disposition` telling you who it's for and what to do with it:
+- `user/information` — for the user; display it (verbatim, or formatted per the content's own markdown).
+- `agent/information` — for you, not necessarily the user; show it only if asked or relevant.
+- `agent/instruction` — a one-off action to take now.
+- `agent/error` — something you did is fixable; the response says what and how.
+- `user/error` — the user's request or state can't proceed as-is; report it and stop, don't guess a fix.
+- `unknown/error` — a failure occurred but hasn't been classified as yours or the user's; treat it like `user/error` and don't guess a fix until it's clearer.
+
+`agent/error` and `user/error` say who the error belongs to, not how bad it is: `agent/error` means something you did is wrong or fixable — fix it and retry; `user/error` means the problem is in the user's request or state — report it and stop, since guessing a fix on their behalf isn't yours to do.
+
+A response's `instruction` field, when present, adds detail specific to that response — it doesn't repeat what the disposition already tells you.

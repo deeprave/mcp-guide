@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Centralized Instruction Resolution
-The system SHALL provide a centralized function for resolving instructions from frontmatter that supports override semantics and type-based defaults.
+The system SHALL provide a centralized function for resolving instructions from frontmatter that supports override semantics. No content type SHALL have a fabricated default instruction; a disposition alone, once taught to the agent, conveys the required behavior without a paired prose restatement.
 
 #### Scenario: Important instruction override
 - **WHEN** frontmatter includes `instruction: ! <text>`
@@ -9,14 +9,8 @@ The system SHALL provide a centralized function for resolving instructions from 
 
 #### Scenario: Type-based default fallback
 - **WHEN** no explicit instruction is provided in frontmatter
-- **AND** the content type's disposition is not fully self-explanatory without one
-- **THEN** the system SHALL use a type-based default instruction for the content type
-
-#### Scenario: No default instruction when disposition is self-sufficient
-- **WHEN** no explicit instruction is provided in frontmatter
-- **AND** the content type's disposition alone conveys the required agent behavior
-- **THEN** the system SHALL return no default instruction for that content type
-- **AND** the rendered result SHALL still carry that content type as its disposition
+- **THEN** the system SHALL return no default instruction, regardless of content type
+- **AND** the rendered result SHALL still carry its content type as its disposition
 
 #### Scenario: Instruction deduplication
 - **WHEN** multiple sources provide the same instruction

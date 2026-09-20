@@ -43,7 +43,7 @@ async def discover_single_file(
 
 
 async def render_content(
-    session: "Session",
+    session: "Session | None",
     pattern: str,
     category_dir: str,
     extra_context: Optional[TemplateContext] = None,
@@ -56,6 +56,8 @@ async def render_content(
     """Render template from the category directory matching pattern.
 
     Args:
+        session: Session to derive context from, or None to render without any
+            session, project, or client context (e.g. before a project is bound).
         pattern: Glob pattern to match a template file
         category_dir: Directory name relative to docroot (e.g. "_workflow", "_openspec")
         extra_context: Optional additional context to layer on top
@@ -73,8 +75,6 @@ async def render_content(
     Raises:
         FileNotFoundError: No template matches pattern or multiple matches found (default behaviour)
     """
-    if session is None:
-        raise RuntimeError("Content rendering requires an explicit Session")
     if resolver is None:
         from mcp_guide.runtime import get_runtime
 

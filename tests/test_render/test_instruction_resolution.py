@@ -1,9 +1,8 @@
-"""Instruction resolution preserves explicit priority and type-based defaults."""
+"""Instruction resolution preserves explicit priority for the ^-important prefix."""
 
 import pytest
 
 from mcp_guide.render.frontmatter import resolve_instruction
-from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
 
 
 @pytest.mark.parametrize(
@@ -18,17 +17,3 @@ from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
 )
 def test_explicit_instruction(instruction, expected):
     assert resolve_instruction({"instruction": instruction}) == expected
-
-
-@pytest.mark.parametrize(
-    "frontmatter, content_type",
-    [
-        ({"type": "user/information"}, "user/information"),
-        ({}, None),
-        (None, None),
-        ({"instruction": 123}, None),
-    ],
-    ids=["type-default", "empty", "absent", "non-string"],
-)
-def test_default_instruction(frontmatter, content_type):
-    assert resolve_instruction(frontmatter, content_type) == (INSTRUCTION_DISPLAY_ONLY, False)

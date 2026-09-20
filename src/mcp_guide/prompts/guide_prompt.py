@@ -38,6 +38,7 @@ from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext, convert_lists_to_indexed, keyword_context
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
+    AGENT_ERROR,
     ERROR_CONTEXT,
     ERROR_FILE_ERROR,
     ERROR_NOT_FOUND,
@@ -45,9 +46,8 @@ from mcp_guide.result_constants import (
     ERROR_SECURITY,
     ERROR_TEMPLATE,
     ERROR_VALIDATION,
-    INSTRUCTION_FILE_ERROR,
-    INSTRUCTION_NOTFOUND_ERROR,
-    INSTRUCTION_TEMPLATE_ERROR,
+    UNKNOWN_ERROR,
+    USER_ERROR,
 )
 from mcp_guide.runtime import RequestContext
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
@@ -426,7 +426,9 @@ async def _execute_command(
         kwargs, args, parse_errors = parse_command_arguments(argv, argrequired=argrequired)
         if parse_errors:
             error_msg = "; ".join(parse_errors)
-            result: Result[Any] = Result.failure(f"Argument parsing failed: {error_msg}", error_type=ERROR_VALIDATION)
+            result: Result[Any] = Result.failure(
+                f"Argument parsing failed: {error_msg}", error_type=ERROR_VALIDATION, disposition=AGENT_ERROR
+            )
             return result
 
         # Check minimum required positional arguments
@@ -434,7 +436,7 @@ async def _execute_command(
         if isinstance(minargs, int) and minargs > 0 and len(args) < minargs:
             usage = frontmatter.get("usage", "")
             msg = f"Missing required argument\n\nUsage: {usage}" if usage else "Missing required argument"
-            result = Result.failure(msg, error_type=ERROR_VALIDATION)
+            result = Result.failure(msg, error_type=ERROR_VALIDATION, disposition=AGENT_ERROR)
             return result
 
     kwargs = _merge_alias_kwargs(default_kwargs=alias_implied_kwargs, override_kwargs=kwargs)
@@ -475,22 +477,23 @@ async def _execute_command(
         return Result.failure(
             f"Command file not found: {e}",
             error_type=ERROR_NOT_FOUND,
-            instruction=INSTRUCTION_NOTFOUND_ERROR,
+            disposition=AGENT_ERROR,
         )
     except PermissionError as e:
         logger.exception(f"Permission denied reading command: {command_path}")
         return Result.failure(
             f"Permission denied for command '{file_info.path}': {e}",
             error_type=ERROR_FILE_ERROR,
-            instruction=INSTRUCTION_FILE_ERROR,
+            disposition=USER_ERROR,
         )
     except RuntimeError as e:
-        # Template rendering error (syntax, missing variables, etc.)
+        # Template rendering error (syntax, missing variables, etc.) — agent-fixable:
+        # the agent authored or can edit the broken template (see template-support spec).
         logger.exception(f"Template rendering failed for command {command_path}")
         return Result.failure(
             f"Template rendering failed: {e}",
             error_type=ERROR_TEMPLATE,
-            instruction=INSTRUCTION_TEMPLATE_ERROR,
+            disposition=AGENT_ERROR,
         )
     except Exception as e:
         # Unexpected error
@@ -498,7 +501,7 @@ async def _execute_command(
         return Result.failure(
             f"Unexpected error: {e}",
             error_type=ERROR_FILE_ERROR,
-            instruction=INSTRUCTION_FILE_ERROR,
+            disposition=UNKNOWN_ERROR,
         )
 
     if rendered is None:
@@ -506,7 +509,7 @@ async def _execute_command(
         return Result.failure(
             f"Command '{command_path}' not found",
             error_type=ERROR_NOT_FOUND,
-            instruction=INSTRUCTION_NOTFOUND_ERROR,
+            disposition=AGENT_ERROR,
         )
 
     # Check for application-level errors signaled via {{#_error}} lambda
@@ -515,6 +518,7 @@ async def _execute_command(
         return Result.failure(
             "\n".join(errors),
             error_type=ERROR_VALIDATION,
+            disposition=AGENT_ERROR,
             error_data={"errors": errors},
         )
 
@@ -530,7 +534,9 @@ async def _handle_command_request(argv: list[str], request_context: RequestConte
     raw_command_path = first_arg[1:]  # Remove prefix
 
     if not raw_command_path:
-        result: Result[Any] = Result.failure("Command name cannot be empty", error_type=ERROR_VALIDATION)
+        result: Result[Any] = Result.failure(
+            "Command name cannot be empty", error_type=ERROR_VALIDATION, disposition=AGENT_ERROR
+        )
         return result
 
     # Validate and sanitize
@@ -538,7 +544,9 @@ async def _handle_command_request(argv: list[str], request_context: RequestConte
 
     error, command_path = validate_command_path_full(raw_command_path)
     if error:
-        result = Result.failure(f"Security validation failed: {error}", error_type=ERROR_SECURITY)
+        result = Result.failure(
+            f"Security validation failed: {error}", error_type=ERROR_SECURITY, disposition=AGENT_ERROR
+        )
         return result
 
     return await handle_command(command_path, argv=argv[1:], request_context=request_context)
@@ -558,6 +566,7 @@ async def _handle_uri_namespace_request(argv: list[str], request_context: Reques
             "This Guide prompt cannot request skill input"
             f"{form_detail}; pass the required skill query arguments explicitly.",
             error_type=ERROR_VALIDATION,
+            disposition=AGENT_ERROR,
         )
     return result
 
@@ -574,11 +583,13 @@ async def _handle_content_request(argv: list[str], request_context: RequestConte
         else:
             content_args.append(arg)
 
-    # Parse flags only
-    kwargs, _, parse_errors = parse_command_arguments(flags)
+    # Parse flags only (parse_command_arguments expects argv[0] to be a command name it skips)
+    kwargs, _, parse_errors = parse_command_arguments([argv[0], *flags])
     if parse_errors:
         error_msg = "; ".join(parse_errors)
-        result: Result[str] = Result.failure(f"Flag parsing failed: {error_msg}", error_type=ERROR_VALIDATION)
+        result: Result[str] = Result.failure(
+            f"Flag parsing failed: {error_msg}", error_type=ERROR_VALIDATION, disposition=AGENT_ERROR
+        )
         return result
 
     # Join content args as the category expression

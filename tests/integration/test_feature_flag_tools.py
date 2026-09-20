@@ -128,6 +128,7 @@ async def test_generic_global_flag_rejects_structured_value_as_validation_error(
 
         assert response["success"] is False
         assert response["error_type"] == "validation_error"
+        assert response["disposition"] == "agent/error"
 
 
 @pytest.mark.anyio
@@ -144,6 +145,7 @@ async def test_flag_validation_via_mcp(mcp_server, test_session):
 
         assert response["success"] is False
         assert response["error_type"] == "validation_error"
+        assert response["disposition"] == "agent/error"
         assert "periods" in response["error"].lower()
 
 

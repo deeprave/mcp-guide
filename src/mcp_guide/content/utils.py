@@ -15,7 +15,6 @@ from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.document_properties import DocumentContribution, DocumentProperties
 from mcp_guide.render.frontmatter import (
-    get_frontmatter_type,
     parse_content_with_frontmatter,
     process_file,
     resolve_instruction,
@@ -60,8 +59,7 @@ def extract_and_deduplicate_instructions(files: list[FileInfo]) -> Optional[str]
     for file_info in files:
         if not file_info.frontmatter:
             continue
-        content_type = get_frontmatter_type(file_info.frontmatter)
-        instruction, is_important = resolve_instruction(file_info.frontmatter, content_type)
+        instruction, is_important = resolve_instruction(file_info.frontmatter)
         if instruction:
             instructions_with_importance.append((instruction, is_important))
 

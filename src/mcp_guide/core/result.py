@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, ClassVar, Generic, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Optional, TypeVar
 
 if TYPE_CHECKING:
     from mcp_guide.render.cache_policy import CachePolicy
@@ -36,17 +36,6 @@ class Result(Generic[T]):
     cache_policy: Optional[CachePolicy] = None
     error_data: Optional[dict[str, Any]] = None
 
-    default_success_instruction: ClassVar[Optional[str]] = None
-    default_failure_instruction: ClassVar[Optional[str]] = None
-
-    @classmethod
-    def success_instruction(cls) -> Optional[str]:
-        return cls.default_success_instruction
-
-    @classmethod
-    def failure_instruction(cls) -> Optional[str]:
-        return cls.default_failure_instruction
-
     @classmethod
     def ok(
         cls,
@@ -64,8 +53,13 @@ class Result(Generic[T]):
             value: Result value (can be None)
             message: Optional message
             arguments: Optional arguments for agent
-            instruction: Optional instruction for agent
-            disposition: Optional content disposition (e.g. user/information, agent/instruction)
+            instruction: Optional instruction that adds detail beyond what disposition
+                already conveys - not a restatement of the disposition's standing meaning
+            disposition: Content disposition (e.g. user/information, agent/instruction).
+                Situational: only set it when the result's content genuinely has a known
+                disposition (a rendered document, skill, or command); leave it unset
+                otherwise. A result with no disposition is valid and omits the field
+                from the wire payload entirely (see to_json) rather than fabricating one.
             additional_agent_instructions: Optional side-band instruction for agent
 
         Returns:
@@ -76,7 +70,7 @@ class Result(Generic[T]):
             value=value,
             message=message,
             arguments=arguments,
-            instruction=instruction if instruction is not None else cls.default_success_instruction,
+            instruction=instruction,
             disposition=disposition,
             additional_agent_instructions=additional_agent_instructions,
             cache_policy=cache_policy,
@@ -101,8 +95,11 @@ class Result(Generic[T]):
             error_type: Error classification
             exception: Original exception (optional)
             message: Optional message
-            instruction: Optional instruction for agent
-            disposition: Optional content disposition (e.g. user/information, agent/instruction)
+            instruction: Optional instruction that adds detail beyond what disposition
+                already conveys - not a restatement of the disposition's standing meaning
+            disposition: Content disposition (e.g. agent/error, user/error). Situational:
+                set an explicit agent/error or user/error once the failure's audience is
+                known; leave it unset otherwise rather than guessing.
             additional_agent_instructions: Optional side-band instruction for agent
             error_data: Optional structured error data
 
@@ -115,7 +112,7 @@ class Result(Generic[T]):
             error_type=error_type,
             exception=exception,
             message=message,
-            instruction=instruction if instruction is not None else cls.default_failure_instruction,
+            instruction=instruction,
             disposition=disposition,
             additional_agent_instructions=additional_agent_instructions,
             error_data=error_data,

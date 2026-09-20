@@ -11,10 +11,9 @@ The system SHALL define exactly these content dispositions, each identifying bot
 - `agent/instruction`: a one-off action the agent SHALL take now, tied to the enclosed information.
 - `agent/error`: a failure the agent caused and SHALL be able to correct itself (for example, mutually exclusive arguments, a missing required value); the response SHALL describe what was wrong and what would fix it.
 - `user/error`: a failure caused by the user's request or current state that the agent SHALL NOT attempt to interpret or correct on the user's behalf; the agent SHALL report the failure to the user and stop.
+- `unknown/error`: a failure not yet classified as agent- or user-caused; the agent SHALL treat it as it would `user/error` (report and stop, do not guess a fix) until the failure is classified.
 
-#### Scenario: Agent receives an error result
-- **WHEN** a Guide tool, prompt, or resource call fails
-- **THEN** the result's disposition is either `agent/error` or `user/error`, never left unset
+A `Result`'s disposition SHALL NOT be fabricated when no call site has set one; it MAY remain unset, per the `tool-infrastructure` capability's "Result disposition is never fabricated" requirement.
 
 #### Scenario: Agent-correctable error names the fix
 - **WHEN** a Guide response has disposition `agent/error`

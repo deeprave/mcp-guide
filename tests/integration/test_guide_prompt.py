@@ -9,7 +9,7 @@ from mcp_types import InputRequiredResult
 from mcp_guide.models import Category
 from mcp_guide.prompts import guide_prompt
 from mcp_guide.prompts.guide_prompt import guide
-from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY, INSTRUCTION_ERROR_MESSAGE
+from mcp_guide.result_constants import USER_INFO
 
 
 async def invoke(context, *args, **kwargs):
@@ -47,22 +47,24 @@ async def test_known_session_prompt_uses_its_content_without_minting(resource_pr
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "args,override,expected",
+    "args,override,expected,expected_disposition",
     [
-        ((), None, "@guide :help"),
-        (("",), "g", "@g :help"),
-        ((":",), None, "Command name cannot be empty"),
-        ((";",), None, "Command name cannot be empty"),
+        ((), None, "@guide :help", None),
+        (("",), "g", "@g :help", None),
+        ((":",), None, "Command name cannot be empty", "agent/error"),
+        ((";",), None, "Command name cannot be empty", "agent/error"),
     ],
 )
-async def test_empty_prompt_and_command_errors(resource_project, monkeypatch, args, override, expected):
+async def test_empty_prompt_and_command_errors(
+    resource_project, monkeypatch, args, override, expected, expected_disposition
+):
     if override:
         monkeypatch.setenv("MCP_PROMPT_NAME", override)
     result = await invoke(resource_project, *args)
     assert not result["success"]
     assert result["error_type"] == "validation_error"
     assert expected in result["error"]
-    assert result["instruction"] == INSTRUCTION_ERROR_MESSAGE
+    assert result.get("disposition") == expected_disposition
 
 
 @pytest.mark.anyio
@@ -96,7 +98,7 @@ async def test_argument_routing_returns_requested_content(resource_project, args
         previous = position
     if names == ["docs"]:
         assert "git policy" not in body
-    assert result["instruction"].startswith(INSTRUCTION_DISPLAY_ONLY)
+    assert result["disposition"] == USER_INFO
 
 
 @pytest.mark.anyio
@@ -105,13 +107,61 @@ async def test_empty_content_and_template_error(resource_project):
     empty = await invoke(resource_project, "docs")
     assert empty["success"]
     assert empty["value"] == ""
-    assert empty["instruction"].startswith(INSTRUCTION_DISPLAY_ONLY)
+    assert empty["disposition"] == USER_INFO
     command = resource_project.resolve_document_path("_commands/error.mustache")
     command.write_text("{{#_error}}Missing required argument: name{{/_error}}")
     error = await invoke(resource_project, ":error")
     assert not error["success"]
     assert error["error_type"] == "validation_error"
     assert error["error_data"]["errors"] == ["Missing required argument: name"]
+
+
+@pytest.mark.anyio
+async def test_command_request_rejects_unsafe_path(resource_project):
+    result = await invoke(resource_project, ":../../../etc/passwd")
+    assert not result["success"]
+    assert result["error_type"] == "security_error"
+    assert result["disposition"] == "agent/error"
+
+
+@pytest.mark.anyio
+async def test_content_request_rejects_malformed_flag(resource_project):
+    result = await invoke(resource_project, "docs", "--pattern=x", "--")
+    assert not result["success"]
+    assert result["error_type"] == "validation_error"
+    assert result["disposition"] == "agent/error"
+    assert "flag parsing failed" in result["error"].lower()
+
+
+@pytest.mark.anyio
+async def test_content_request_rejects_a_single_malformed_flag(resource_project):
+    """A lone malformed flag must not be silently skipped as if it were a command name."""
+    result = await invoke(resource_project, "docs", "--")
+    assert not result["success"]
+    assert result["error_type"] == "validation_error"
+    assert result["disposition"] == "agent/error"
+    assert "flag parsing failed" in result["error"].lower()
+
+
+@pytest.mark.anyio
+async def test_content_request_parses_a_single_valid_flag(resource_project):
+    """A lone valid flag must be parsed, not dropped as a phantom command name."""
+    from mcp_guide.prompts import guide_prompt as guide_prompt_module
+
+    captured: dict = {}
+    original = guide_prompt_module.parse_command_arguments
+
+    def spy(argv, *args, **kwargs):
+        result = original(argv, *args, **kwargs)
+        captured["kwargs"] = result[0]
+        return result
+
+    import unittest.mock
+
+    with unittest.mock.patch.object(guide_prompt_module, "parse_command_arguments", side_effect=spy):
+        result = await invoke(resource_project, "docs", "--force")
+    assert result["success"]
+    assert captured["kwargs"] == {"force": True}
 
 
 @pytest.mark.anyio
@@ -147,6 +197,7 @@ async def test_prompt_converts_unrenderable_skill_input_request_to_a_result(reso
 
     assert result.success is False
     assert result.error_type == "validation_error"
+    assert result.disposition == "agent/error"
     assert (
         result.error
         == "This Guide prompt cannot request skill input; pass the required skill query arguments explicitly."

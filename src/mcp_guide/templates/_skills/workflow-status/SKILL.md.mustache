@@ -13,7 +13,19 @@ cache: short, private
 - Report its workflow phase, active issue, tracking reference, description, and queue where present. If it is unavailable, say so.
 {{/workflow}}
 {{^workflow}}
-- Report that workflow mode is disabled.
+Provide a concise update of the current todo list based on this conversation, including:
+- work completed so far
+- work remaining
+- open questions, decisions, or blockers
+
+If this conversation does not establish enough context, say so.
 {{/workflow}}
+{{#workflow}}
+Provide a concise update of the current issue, including:
+- a short summary of work that has been done so far
+- what remains to be done
+- any open questions, decisions or blockers
+{{/workflow}}
+
 - Present one concise status report.
 - Do not change project state.

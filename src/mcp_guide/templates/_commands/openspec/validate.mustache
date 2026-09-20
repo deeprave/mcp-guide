@@ -5,7 +5,6 @@ category: "openspec"
 usage: "guide://_openspec/validate[/<change-id>]"
 
 requires-openspec: true
-instruction: "{{INSTRUCTION_DISPLAY_ERRORS}}"
 ---
 {{#args.0.value}}
 Run `openspec validate {{args.0.value}} --strict --no-interactive` and send the result using {{tool_prefix}}send_file_content with path `.openspec-validate.txt`

@@ -81,6 +81,7 @@ class GuideRuntime(Generic[SessionT]):
         self._on_stop = on_stop
         self._lifecycle_lock = asyncio.Lock()
         self._started = False
+        self._no_project_instruction: str | None = None
 
     @property
     def started(self) -> bool:
@@ -221,6 +222,26 @@ class GuideRuntime(Generic[SessionT]):
         than this runtime method or ``get_docroot``.
         """
         return (await self.get_docroot_resolver())(relative_path)
+
+    async def get_no_project_instruction(self) -> str:
+        """Return the rendered _project-root instruction, rendering it once per process.
+
+        There is no session at this point — that's the point being reported —
+        so this renders with session=None (system/agent context only; no
+        project or client data). The template's only variable, tool_prefix,
+        is fixed for the life of the process, so the rendered text is cached
+        and reused for every unbound request rather than re-rendered per call.
+        """
+        if self._no_project_instruction is None:
+            from mcp_guide.render.rendering import render_content
+            from mcp_guide.result_constants import INSTRUCTION_NO_PROJECT
+
+            try:
+                rendered = await render_content(None, "_project-root", "_system")
+            except (FileNotFoundError, OSError, ValueError, RuntimeError):
+                rendered = None
+            self._no_project_instruction = rendered.content if rendered is not None else INSTRUCTION_NO_PROJECT
+        return self._no_project_instruction
 
     def configuration_service(self) -> "ConfigManager":
         """Return the runtime-owned configuration service to a Session."""

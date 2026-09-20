@@ -25,24 +25,30 @@ See proposal.md - Why. Relevant existing mechanics this design builds on:
 
 ## Decisions
 
-### Teaching mechanism: extend the existing startup-template pattern
+### Teaching mechanism: deliver guidance with startup
 
-**Decision:** Add a new `_system/_disposition-guide.mustache` template, rendered and queued once per session by `StartupInstructionListener` alongside the existing `_startup` and `_onboard_prompt` templates, gated by its own `requires-*` flag so it can be independently toggled.
+**Decision:** Deliver the disposition guide as part of startup guidance, once per bound session.
 
-**Why:** `StartupInstructionListener._render_and_queue` already renders exactly this shape of content (a `_system`-category template, queued once at project-bind time) and is tested. Reusing it costs one new template file and one new call in an already-existing loop, rather than new session-state-tracking machinery.
+**Why:** Startup already provides the tested, low-risk point at which to teach important Guide behaviour once per bound session, avoiding new session-state tracking.
 
 **Alternatives considered:**
 - *Per-disposition first-use teaching* (explain `agent/error` the first time it appears in a session, `user/error` the first time that appears, etc.): rejected — needs new per-session state (which dispositions have been explained), more moving parts, and staggers the agent's understanding of the vocabulary across arbitrary points in a session rather than giving it the whole picture up front.
 - *On-demand resource* (agent reads a `guide://` URI when it wants the vocabulary): rejected as the sole mechanism — passive, requires the agent to already suspect it needs to look something up; better suited as a secondary reference for re-reading mid-session than as the primary teaching path.
 - *Re-stating disposition meaning inline on every response*: this is the status quo's failure mode (redundant prose) and exactly what the proposal is retiring.
 
-### Disposition replaces paired instruction: enforced by rewriting the shared constants, not by new validation
+### Disposition replaces paired instruction: remove the default mechanism entirely, don't just neuter it
 
-**Decision:** Retire `INSTRUCTION_AGENT_INFORMATION`, `INSTRUCTION_AGENT_INSTRUCTIONS`, and `INSTRUCTION_DISPLAY_ONLY` as paired-with-disposition defaults in `get_default_instruction_for_type()` — return `None` for these three types once the disposition-guide template exists, rather than a bare imperative string. Introduce `INSTRUCTION_AGENT_ERROR` / `INSTRUCTION_USER_ERROR` only if response-specific detail is needed beyond the disposition itself (per the spec's "disposition may stand in place of a prose instruction" requirement); do not give the two error dispositions a generic paired default the way the three content types currently have.
+**Decision (as shipped, revised twice during implementation):** `get_default_instruction_for_type()` now always returns `None` — its per-type lookup table is gone, not just emptied. More significantly, the application-level blanket default mechanism it fed into is removed entirely: `Result.default_success_instruction`/`default_failure_instruction` class vars, their classmethods, and `mcp_guide/result.py`'s import-time assignment of `INSTRUCTION_DISPLAY_ONLY`/`INSTRUCTION_ERROR_MESSAGE` as universal defaults are all deleted. A `Result` with no explicit `instruction=` now has none at all — correctly omitted from `to_json()` — rather than acquiring a generic one regardless of what it actually contains.
 
-**Why:** The three existing constants exist solely to restate the disposition in prose; once the disposition-guide template teaches that meaning once, the per-response restatement is pure redundancy. The two new error dispositions are different: `agent/error` and `user/error` are structural signals (self-correct vs. stop), but *what specifically* went wrong is response-specific and cannot be a shared constant — that content stays as a per-call `instruction`, now reworded cooperatively per site rather than replaced.
+**A parallel mechanism was tried and reverted:** mid-implementation, `default_success_disposition`/`default_failure_disposition` class vars were added to give `disposition` the same blanket-default treatment the instruction fields used to have (`agent/information` for success, a new `unknown/error` for failure). This was corrected: disposition must stay *situational* — set only where content genuinely has a knowable one (a rendered document, skill, or command) — never blanket-applied regardless of content, which would fabricate meaning `Result.ok()`/`.failure()` has no basis for. `disposition=None` is a valid, meaningful `Result` state, not a gap to paper over. `UNKNOWN_ERROR = "unknown/error"` remains defined as available vocabulary for call sites that want to say "this failed, audience not yet classified," but nothing applies it automatically.
 
-**Alternatives considered:** Keep the three constants but shorten their wording — rejected; per the spec's core principle, the goal is dropping the field, not shrinking it, once the agent already knows the vocabulary.
+**Per-category defaults, verified rather than built:** the concern that removing defaults would leave skills/commands/documents without sensible per-category dispositions turned out to already be handled by existing code, unrelated to the (reverted) `Result`-level mechanism: `RenderedContent.__post_init__` still hardcodes `disposition_default=AGENT_INSTRUCTION` at construction time (unchanged, correct for skills and commands, confirmed live against this session's own `guide://$workflow-implement` call); `resolve_content_properties()` in `content/utils.py` already calls `.with_disposition_default(USER_INFO)` when combining files for document delivery (used by both `tool_content.py` and `tool_category.py`). No new plumbing was needed for this.
+
+Introduce `INSTRUCTION_AGENT_ERROR` / `INSTRUCTION_USER_ERROR` only if response-specific detail is needed beyond the disposition itself (per the spec's "disposition may stand in place of a prose instruction" requirement); do not give the two error dispositions a generic paired default the way the three content types used to have.
+
+**Why:** The three retired constants existed solely to restate the disposition in prose; once the disposition-guide template teaches that meaning once, the per-response restatement is pure redundancy — removing the mechanism outright, rather than leaving a `None`-returning stub, avoids leaving dead indirection in the codebase (`get_type_based_default_instruction`'s wrapper chain would otherwise have become a pure pass-through with no logic left in it). Keeping disposition situational (not blanket-defaulted) preserves the same principle that made removing the instruction defaults worthwhile in the first place: a field should reflect what's actually known about the content, not a guess applied indiscriminately.
+
+**Alternatives considered:** Keep the three constants but shorten their wording — rejected; the goal is dropping the field, not shrinking it. Give `Result` a blanket disposition default mirroring the removed instruction defaults — tried, reverted; disposition needs to stay `None` when genuinely unknown, exactly the property the old instruction-default mechanism lacked and that motivated retiring it.
 
 ### Pilot scope: `result_constants.py` helpers plus tool-layer no-project/no-session paths
 

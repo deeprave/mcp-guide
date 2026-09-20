@@ -62,22 +62,17 @@ class RenderedContent(Content):
         )
 
     @property
-    def template_type(self) -> str:
-        """Get the parent template type for existing instruction resolution."""
-        return self.frontmatter.get_str(FM_TYPE) or AGENT_INSTRUCTION
-
-    @property
     def instruction(self) -> Optional[str]:
         """Get combined instruction from parent and partial frontmatter."""
         # Imports at function level to avoid circular import with frontmatter module
         from mcp_guide.content.utils import combine_instructions
-        from mcp_guide.render.frontmatter import Frontmatter, get_frontmatter_type
+        from mcp_guide.render.frontmatter import Frontmatter
 
         # Collect instructions from parent and all partials
         instructions_with_importance: list[tuple[str, bool]] = []
 
         # Add parent instruction
-        parent_instruction, is_important = resolve_instruction(self.frontmatter, self.template_type)
+        parent_instruction, is_important = resolve_instruction(self.frontmatter)
         if parent_instruction:
             instructions_with_importance.append((parent_instruction, is_important))
 
@@ -89,8 +84,7 @@ class RenderedContent(Content):
                 continue
 
             partial_frontmatter = Frontmatter(partial_fm)
-            partial_type = get_frontmatter_type(partial_frontmatter)
-            partial_instruction, partial_is_important = resolve_instruction(partial_frontmatter, partial_type)
+            partial_instruction, partial_is_important = resolve_instruction(partial_frontmatter)
             if partial_instruction:
                 instructions_with_importance.append((partial_instruction, partial_is_important))
 

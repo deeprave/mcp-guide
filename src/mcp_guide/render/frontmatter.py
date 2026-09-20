@@ -14,16 +14,6 @@ from mcp_guide.feature_flags.types import to_raw_feature_value
 from mcp_guide.feature_flags.validators import normalise_flag
 from mcp_guide.render.frontmatter_types import Frontmatter
 from mcp_guide.render.requires import check_requires_directive
-from mcp_guide.result_constants import (
-    AGENT_INFO,
-    AGENT_INSTRUCTION,
-    AGENT_REQUIREMENTS,
-    INSTRUCTION_AGENT_INFORMATION,
-    INSTRUCTION_AGENT_INSTRUCTIONS,
-    INSTRUCTION_AGENT_REQUIREMENTS,
-    INSTRUCTION_DISPLAY_ONLY,
-    USER_INFO,
-)
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_PHASES
 
 if TYPE_CHECKING:
@@ -171,21 +161,6 @@ async def read_content_with_frontmatter(file_path: Path) -> Content:
         return Content(frontmatter=Frontmatter(), frontmatter_length=0, content="", content_length=0)
 
 
-def get_frontmatter_type(frontmatter: Optional[Dict[str, Any]]) -> Optional[str]:
-    """Extract type field from frontmatter metadata.
-
-    Args:
-        frontmatter: Parsed frontmatter dictionary
-
-    Returns:
-        Type string or None if not found
-    """
-    if not frontmatter:
-        return None
-    type_value = frontmatter.get("type")
-    return type_value if isinstance(type_value, str) else None
-
-
 def get_frontmatter_includes(frontmatter: Optional[Dict[str, Any]]) -> Optional[List[str]]:
     """Extract includes field from frontmatter metadata.
 
@@ -201,26 +176,11 @@ def get_frontmatter_includes(frontmatter: Optional[Dict[str, Any]]) -> Optional[
     return includes if isinstance(includes, list) and all(isinstance(x, str) for x in includes) else None
 
 
-def get_type_based_default_instruction(content_type: Optional[str]) -> str:
-    """Get default instruction based on content type.
-
-    Args:
-        content_type: Content type from frontmatter
-
-    Returns:
-        Default instruction string
-    """
-    return get_default_instruction_for_type(content_type)
-
-
-def resolve_instruction(
-    frontmatter: Optional[Dict[str, Any]], content_type: Optional[str] = None
-) -> tuple[Optional[str], bool]:
+def resolve_instruction(frontmatter: Optional[Dict[str, Any]]) -> tuple[Optional[str], bool]:
     """Resolve instruction from frontmatter with support for important override.
 
     Args:
         frontmatter: Parsed frontmatter dictionary
-        content_type: Content type for fallback default instruction
 
     Returns:
         Tuple of (instruction, is_important) where:
@@ -229,19 +189,15 @@ def resolve_instruction(
     """
     from mcp_guide.render.content import FM_INSTRUCTION
 
-    # Get explicit instruction from frontmatter
     if frontmatter:
         instruction = frontmatter.get(FM_INSTRUCTION)
         if isinstance(instruction, str) and instruction.strip():
-            # Check for important prefix
             if IMPORTANT_PREFIX_PATTERN.match(instruction):
                 clean_instruction = IMPORTANT_PREFIX_PATTERN.sub("", instruction).strip()
                 return (clean_instruction if clean_instruction else None, True)
             return (instruction, False)
 
-    # Fallback to type-based default
-    default_instruction = get_type_based_default_instruction(content_type)
-    return (default_instruction, False)
+    return (None, False)
 
 
 async def get_frontmatter_description_from_file(file_path: Path) -> Optional[str]:
@@ -258,26 +214,6 @@ async def get_frontmatter_description_from_file(file_path: Path) -> Optional[str
         return None
     description = content.frontmatter.get("description")
     return description if isinstance(description, str) else None
-
-
-def get_default_instruction_for_type(content_type: Optional[str]) -> str:
-    """Get default instruction based on content type.
-
-    Args:
-        content_type: Content type from frontmatter
-
-    Returns:
-        Default instruction string or None for agent/instruction type
-    """
-
-    type_instructions = {
-        USER_INFO: INSTRUCTION_DISPLAY_ONLY,
-        AGENT_INFO: INSTRUCTION_AGENT_INFORMATION,
-        AGENT_INSTRUCTION: INSTRUCTION_AGENT_INSTRUCTIONS,
-        AGENT_REQUIREMENTS: INSTRUCTION_AGENT_REQUIREMENTS,
-    }
-
-    return type_instructions.get(content_type or "", INSTRUCTION_DISPLAY_ONLY)
 
 
 async def process_frontmatter(

@@ -1,6 +1,5 @@
 """Command discovery reads real files, metadata, requirements and session-local caches."""
 
-import asyncio
 from pathlib import Path
 
 import pytest
@@ -119,16 +118,14 @@ async def test_development_stat_failure_still_discovers_commands(command_session
     commands.mkdir()
     (commands / "test.md").write_text("Test")
     await runtime.feature_flags().set("guide-development", True)
-    to_thread = asyncio.to_thread
     stat_attempts = []
 
-    async def fail_directory_stat(function, *args, **kwargs):
-        if function.__name__ == "_max_file_mtime":
-            stat_attempts.append(True)
-            raise OSError("stat failed")
-        return await to_thread(function, *args, **kwargs)
+    def fail_directory_scan(self, *args, **kwargs):
+        stat_attempts.append(True)
+        raise OSError("stat failed")
 
-    # Deterministic OS stat failure; file discovery and parsing still use the real filesystem.
-    monkeypatch.setattr("mcp_guide.discovery.commands.asyncio.to_thread", fail_directory_stat)
+    # Deterministic OS stat failure during the dev-mode mtime scan; file
+    # discovery and parsing still use the real filesystem.
+    monkeypatch.setattr("mcp_guide.discovery.commands.AsyncPath.rglob", fail_directory_scan)
     assert [item["name"] for item in await discover_commands(commands, command_session)] == ["test"]
     assert stat_attempts == [True]
