@@ -140,7 +140,7 @@ def aggregate_event_results(results: list[EventResult]) -> Result[Any]:
 
             instructions_with_importance = []
             for rc in rendered_contents:
-                instruction, is_important = resolve_instruction(rc.frontmatter, rc.template_type)
+                instruction, is_important = resolve_instruction(rc.frontmatter)
                 if instruction:
                     instructions_with_importance.append((instruction, is_important))
 

@@ -68,8 +68,11 @@ async def format_project_data(
     return result
 
 
-async def resolve_all_flags(session: "Session") -> dict[str, Any]:
+async def resolve_all_flags(session: "Session | None") -> dict[str, Any]:
     """Resolve all flags by merging project and global flags.
+
+    With no session (no project bound), global flags still resolve; only
+    project-flag overrides are unavailable.
 
     Returns:
         Resolved flags dictionary, or empty dict if resolution fails
@@ -80,7 +83,7 @@ async def resolve_all_flags(session: "Session") -> dict[str, Any]:
         # Get all flags
         from mcp_guide.runtime import get_runtime
 
-        project_flags = await session.project_flags().list()
+        project_flags = await session.project_flags().list() if session is not None else {}
         global_flags = await get_runtime().feature_flags().list()
 
         # Get all unique flag names

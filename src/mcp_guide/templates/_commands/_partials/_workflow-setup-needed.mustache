@@ -1,0 +1,7 @@
+---
+type: agent/instruction
+requires-workflow: true
+---
+{{^workflow.phase}}
+Read `{{workflow.file}}` from the client workspace, then send its complete content using {{tool_prefix}}send_file_content with path `{{workflow.file}}`.
+{{/workflow.phase}}

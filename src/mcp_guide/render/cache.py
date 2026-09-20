@@ -15,15 +15,7 @@ from mcp_guide.discovery.files import FileInfo
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_CONSENT, FLAG_WORKFLOW_FILE
 from mcp_guide.feature_flags.types import FeatureValue, to_raw_feature_value
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.result_constants import (
-    INSTRUCTION_AGENT_INFORMATION,
-    INSTRUCTION_AGENT_INSTRUCTIONS,
-    INSTRUCTION_AGENT_REQUIREMENTS,
-    INSTRUCTION_DISPLAY_ERRORS,
-    INSTRUCTION_DISPLAY_ONLY,
-    INSTRUCTION_ERROR_MESSAGE,
-    INSTRUCTION_NO_DISPLAY,
-)
+from mcp_guide.result_constants import INSTRUCTION_NO_DISPLAY
 from mcp_guide.session_listener import SessionListener
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_CONSENT, DEFAULT_WORKFLOW_FILE
 from mcp_guide.workflow.flags import parse_workflow_phases, substitute_variables
@@ -90,13 +82,7 @@ class TemplateContextCache(SessionListener):
                 "python_version": platform.python_version(),
                 "version": __version__,
             },
-            "INSTRUCTION_DISPLAY_ONLY": INSTRUCTION_DISPLAY_ONLY,
-            "INSTRUCTION_ERROR_MESSAGE": INSTRUCTION_ERROR_MESSAGE,
             "INSTRUCTION_NO_DISPLAY": INSTRUCTION_NO_DISPLAY,
-            "INSTRUCTION_DISPLAY_ERRORS": INSTRUCTION_DISPLAY_ERRORS,
-            "INSTRUCTION_AGENT_INFORMATION": INSTRUCTION_AGENT_INFORMATION,
-            "INSTRUCTION_AGENT_INSTRUCTIONS": INSTRUCTION_AGENT_INSTRUCTIONS,
-            "INSTRUCTION_AGENT_REQUIREMENTS": INSTRUCTION_AGENT_REQUIREMENTS,
         }
 
         return TemplateContext(server_vars)
@@ -313,14 +299,13 @@ class TemplateContextCache(SessionListener):
         global_flags_dict = {}
         global_flags_list = []
         try:
-            if session:
-                from mcp_guide.runtime import get_runtime
+            from mcp_guide.runtime import get_runtime
 
-                global_flags_dict = await get_runtime().feature_flags().list()
-                global_flags_list = [
-                    {"key": k, "value": v.to_display() if isinstance(v, FeatureValue) else v}
-                    for k, v in global_flags_dict.items()
-                ]
+            global_flags_dict = await get_runtime().feature_flags().list()
+            global_flags_list = [
+                {"key": k, "value": v.to_display() if isinstance(v, FeatureValue) else v}
+                for k, v in global_flags_dict.items()
+            ]
         except Exception as e:
             logger.debug(f"Failed to get global flags: {e}")
 
@@ -328,14 +313,13 @@ class TemplateContextCache(SessionListener):
         resolved_flags_dict = {}
         resolved_flags_list = []
         try:
-            if session:
-                from mcp_guide.models import resolve_all_flags
+            from mcp_guide.models import resolve_all_flags
 
-                resolved_flags_dict = await resolve_all_flags(session)
-                resolved_flags_list = [
-                    {"key": k, "value": v.to_display() if isinstance(v, FeatureValue) else v}
-                    for k, v in resolved_flags_dict.items()
-                ]
+            resolved_flags_dict = await resolve_all_flags(session)
+            resolved_flags_list = [
+                {"key": k, "value": v.to_display() if isinstance(v, FeatureValue) else v}
+                for k, v in resolved_flags_dict.items()
+            ]
         except Exception as e:
             logger.debug(f"Failed to resolve flags: {e}")
 
@@ -719,17 +703,19 @@ async def get_template_context_if_needed(
     return None
 
 
-async def get_template_contexts(session: "Session", category_name: Optional[str] = None) -> TemplateContext:
+async def get_template_contexts(session: "Session | None", category_name: Optional[str] = None) -> TemplateContext:
     """Public API to get template contexts for rendering.
 
     Args:
+        session: Session to derive context from, or None to render without
+            any session, project, or client context (system/agent context only).
         category_name: Optional category name for category-specific context
 
     Returns:
         TemplateContext with layered contexts
     """
     if session is None:
-        raise RuntimeError("Template context requires an explicit Session")
+        return await TemplateContextCache().get_template_contexts(category_name)
     return await session.template_cache.get_template_contexts(category_name)
 
 

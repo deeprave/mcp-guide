@@ -16,8 +16,6 @@ FLAG_CONTENT_STYLE = "content-style"
 FLAG_RESOURCE = "format-resource"
 FLAG_COMMAND = "format-command"
 
-# Startup flags
-FLAG_STARTUP_INSTRUCTION = "startup-instruction"
 FLAG_MCP_SKILLS = "mcp-skills"
 
 # Path flags

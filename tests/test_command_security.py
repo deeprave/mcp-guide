@@ -83,4 +83,47 @@ async def test_command_permission_failure_returns_a_clear_error(runtime, tmp_pat
     ):
         result = await handle_command("restricted", request_context=await request_context_for(session), middleware=[])
     assert not result.success
+    assert result.disposition == "user/error"
     assert "permission" in result.error.lower()
+
+
+@pytest.mark.anyio
+async def test_command_template_syntax_error_is_agent_fixable(runtime, tmp_path):
+    import yaml
+
+    from mcp_guide.prompts.guide_prompt import handle_command
+
+    commands = tmp_path / "_commands"
+    commands.mkdir()
+    (commands / "broken.mustache").write_text("Broken content")
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
+    session = create_unbound_test_session(runtime)
+    with patch(
+        "mcp_guide.prompts.guide_prompt.render_template",
+        new=AsyncMock(side_effect=RuntimeError("Unclosed section tag")),
+    ):
+        result = await handle_command("broken", request_context=await request_context_for(session), middleware=[])
+    assert not result.success
+    assert result.disposition == "agent/error"
+    assert "unclosed section tag" in result.error.lower()
+
+
+@pytest.mark.anyio
+async def test_command_unclassified_render_failure_is_unknown_error(runtime, tmp_path):
+    import yaml
+
+    from mcp_guide.prompts.guide_prompt import handle_command
+
+    commands = tmp_path / "_commands"
+    commands.mkdir()
+    (commands / "flaky.mustache").write_text("Flaky content")
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
+    session = create_unbound_test_session(runtime)
+    with patch(
+        "mcp_guide.prompts.guide_prompt.render_template",
+        new=AsyncMock(side_effect=ValueError("Unexpected internal state")),
+    ):
+        result = await handle_command("flaky", request_context=await request_context_for(session), middleware=[])
+    assert not result.success
+    assert result.disposition == "unknown/error"
+    assert "unexpected internal state" in result.error.lower()

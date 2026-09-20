@@ -10,6 +10,7 @@ def test_invalid_session_result_includes_rebind_guidance() -> None:
 
     assert response.structured_content is not None
     assert response.structured_content["error_type"] == "invalid_session"
+    assert response.structured_content["disposition"] == "agent/error"
     instruction = response.structured_content["instruction"]
     assert "discard" in instruction.lower()
     assert "set_project" in instruction
@@ -24,5 +25,6 @@ def test_unmintable_session_result_is_a_project_error() -> None:
 
     assert response.structured_content is not None
     assert response.structured_content["error_type"] == "project_error"
+    assert response.structured_content["disposition"] == "user/error"
     assert "cannot carry a Guide session" in response.structured_content["error"]
     assert "2026-07-28" in response.structured_content["instruction"]

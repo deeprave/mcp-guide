@@ -2,7 +2,6 @@
 
 """Read resource tool for resolving guide:// URIs."""
 
-import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass
 from glob import has_magic
@@ -10,6 +9,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
+from anyio import Path as AsyncPath
 from fastmcp import Context
 from mcp_types import InputRequiredResult
 from pydantic import Field, ValidationError, model_validator
@@ -71,19 +71,19 @@ async def discover_guide_skills(request_context: RequestContext) -> list[GuideSk
     cache_key = str(skills_dir)
     cache_generation = task_manager.skill_cache_generation
 
-    def _max_file_mtime(base: Path, fallback: float) -> float:
+    async def _max_file_mtime(base: Path, fallback: float) -> float:
         result = fallback
-        for candidate in base.rglob("*"):
-            if candidate.is_file():
+        async for candidate in AsyncPath(base).rglob("*"):
+            if await candidate.is_file():
                 try:
-                    result = max(result, candidate.stat().st_mtime)
+                    result = max(result, (await candidate.stat()).st_mtime)
                 except OSError:
                     continue
         return result
 
     try:
-        root_mtime = (await asyncio.to_thread(skills_dir.stat)).st_mtime
-        effective_mtime = await asyncio.to_thread(_max_file_mtime, skills_dir, root_mtime)
+        root_mtime = (await AsyncPath(skills_dir).stat()).st_mtime
+        effective_mtime = await _max_file_mtime(skills_dir, root_mtime)
     except OSError:
         task_manager.cache_skills(cache_key, 0.0, [], cache_generation)
         return []

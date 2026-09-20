@@ -3,6 +3,7 @@
 import pytest
 from tests.helpers import create_bound_test_session, create_unbound_test_session, request_context_for
 
+import mcp_guide.tools.tool_feature_flags as feature_flag_tools
 from mcp_guide.tools.tool_feature_flags import (
     GetFlagArgs,
     ListFlagsArgs,
@@ -28,7 +29,29 @@ async def test_listing_flags_without_a_bound_project_returns_guidance(runtime):
     result = await internal_list_project_flags(ListFlagsArgs(), context)
     assert not result.success
     assert result.error_type == "no_project"
+    assert result.disposition == "agent/error"
     assert "No project available" in result.error
+
+
+@pytest.mark.anyio
+async def test_global_flag_lookup_unknown_error_uses_disposition_without_redundant_instruction(monkeypatch):
+    class BrokenFeatureFlags:
+        async def list(self):
+            raise RuntimeError("configuration service unavailable")
+
+    class BrokenRuntime:
+        def feature_flags(self):
+            return BrokenFeatureFlags()
+
+    monkeypatch.setattr(feature_flag_tools, "get_runtime", lambda: BrokenRuntime())
+
+    result = await feature_flag_tools.internal_get_feature_flag(GetFlagArgs(feature_name="example"), None)
+
+    assert not result.success
+    assert result.error_type == "unexpected_error"
+    assert result.disposition == "unknown/error"
+    assert result.error == "Failed to get global flag: configuration service unavailable"
+    assert result.instruction is None
 
 
 @pytest.mark.anyio
@@ -69,5 +92,6 @@ async def test_setting_default_explicit_and_removed_flags_changes_configuration(
     invalid = await internal_set_project_flag(SetFlagArgs(feature_name="invalid.flag"), flag_context)
     assert not invalid.success
     assert invalid.error_type == "validation_error"
+    assert invalid.disposition == "agent/error"
     assert "periods" in invalid.error
     assert await flag_context.session.project_flags().list() == {}

@@ -1,0 +1,20 @@
+---
+type: agent/instruction
+---
+## Shared filesystem once per session check
+
+- Tests whether Guide shares your filesystem directly.
+- If shared:
+  - Guide can read files directly instead of asking you to send them
+  - Supports your use of relative paths and environment variables
+- If not shared:
+  - no change, Guide must ask you to send files
+
+The file:
+- Just created contains a purely random value
+- Deleted by Guide after you respond or after 60 seconds
+
+Action:
+- Read '{{path}}' and send its contents using {{tool_prefix}}send_file_content with that same absolute path.
+- If you can't read it, send content='unreadable' for that path instead.
+- Do not create or modify the file.

@@ -1,15 +1,9 @@
 """Workflow task behaviour through real rendering, state and instructions."""
 
-from datetime import datetime
-from pathlib import Path
-
 import pytest
 import yaml
 from tests.helpers import create_bound_test_session
 
-from mcp_guide.discovery.files import FileInfo
-from mcp_guide.render.context import TemplateContext
-from mcp_guide.render.template import render_template
 from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.manager import aggregate_event_results
@@ -101,34 +95,3 @@ async def test_semantic_changes_use_matching_template_or_filtered_fallback(workf
         assert event.rendered_content is None
     assert manager.get_cached_data("workflow_state").phase == "planning"
     assert manager.get_cached_data("workflow_change_content") is None
-
-
-@pytest.mark.anyio
-async def test_state_format_template_provides_strict_yaml_file_guidance(workflow_task):
-    session, _, _, _ = workflow_task
-    path = Path("src/mcp_guide/templates/_workflow/state-format.mustache")
-    stat = path.stat()
-    file_info = FileInfo(
-        path=path,
-        size=stat.st_size,
-        content_size=stat.st_size,
-        mtime=datetime.fromtimestamp(stat.st_mtime),
-        name=path.name,
-    )
-    rendered = await render_template(
-        session,
-        file_info=file_info,
-        base_dir=path.parent,
-        project_flags={"workflow": True},
-        context=TemplateContext({"workflow": {"file": ".guide.yaml"}}),
-    )
-    assert rendered is not None
-    for text in (
-        "# Workflow State File Format",
-        "strictly valid YAML",
-        "lowercase keys",
-        "Optional lines may be omitted",
-        "description: <optional-description>",
-        "`send_file_content` MCP tool",
-    ):
-        assert text in rendered.content

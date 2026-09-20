@@ -222,13 +222,3 @@ class TestWorkflowConsentValidation:
         # Must be string or list, not other types
         consent: object = {"implementation": 123}
         assert _validate_workflow_consent_flag(consent, False) is False  # ty: ignore[invalid-argument-type]
-
-
-class TestStartupInstructionValidation:
-    """Test startup-instruction flag validation."""
-
-    def test_startup_instruction_invalid_type_returns_false(self):
-        """Test startup-instruction validator returns False for invalid shapes."""
-        from mcp_guide.workflow.flags import _validate_startup_instruction_flag
-
-        assert _validate_startup_instruction_flag({"instruction": "run"}, False) is False  # type: ignore[arg-type]

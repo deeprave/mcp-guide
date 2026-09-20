@@ -27,7 +27,7 @@ class StartupInstructionListener(SessionListener):
         """Render startup templates and queue instructions if content is non-blank.
 
         Renders two templates in order:
-        - _startup: startup instruction (requires-startup-instruction: true gates it)
+        - _startup: unconditional briefing sent once per bound project
         - _onboard_prompt: onboarding notification (requires-onboarded: false gates it)
 
         Args:

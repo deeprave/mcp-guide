@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Union
 
 from mcp_guide.feature_flags.constants import (
-    FLAG_STARTUP_INSTRUCTION,
     FLAG_WORKFLOW,
     FLAG_WORKFLOW_CONSENT,
     FLAG_WORKFLOW_FILE,
@@ -234,37 +233,9 @@ def _normalise_workflow_consent_flag(value: FeatureValueLike | None):
     return _normalise_boolean_like_or_raw(value)
 
 
-def _validate_startup_instruction_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
-    """Validate startup-instruction flag value.
-
-    Args:
-        value: Flag value to validate
-        is_project: Whether this is a project-level flag
-
-    Returns:
-        True if valid, False otherwise
-    """
-    # None or empty string is valid (flag not set)
-    if value is None:
-        return True
-    try:
-        raw = to_raw_feature_value(value)
-    except TypeError:
-        return False
-    if raw == "":
-        return True
-    if not isinstance(raw, str):
-        return False
-
-    # Basic syntax check - will be validated against project when set
-    # Just ensure it's not obviously malformed
-    return bool(raw.strip())
-
-
 # Register validators at module import
 register_flag_validator(FLAG_WORKFLOW, _validate_workflow_flag, normaliser=_normalise_workflow_flag)
 register_flag_validator(FLAG_WORKFLOW_FILE, _validate_workflow_file_flag)
 register_flag_validator(
     FLAG_WORKFLOW_CONSENT, _validate_workflow_consent_flag, normaliser=_normalise_workflow_consent_flag
 )
-register_flag_validator(FLAG_STARTUP_INSTRUCTION, _validate_startup_instruction_flag)

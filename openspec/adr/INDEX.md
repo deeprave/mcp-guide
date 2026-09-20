@@ -14,6 +14,7 @@ This index tracks all ADRs including historical decisions that have been superse
 **Date:** 2025-11-25
 **File:** [003-result-pattern-response.md](003-result-pattern-response.md)
 **Note:** Renamed from "Result Pattern for Error Handling" on 2025-11-27 to reflect broader scope
+**Note:** Amended 2026-09-19 — disposition supersedes the original imperative instruction-pattern catalog for new code; see the `result-disposition` OpenSpec capability
 
 ### ADR-004: Logging Architecture
 **Status:** Accepted

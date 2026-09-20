@@ -21,7 +21,7 @@ logger = get_logger(__name__)
 
 
 async def render_template(
-    session: "Session",
+    session: "Session | None",
     file_info: FileInfo,
     base_dir: Path,
     project_flags: Dict[str, Any],

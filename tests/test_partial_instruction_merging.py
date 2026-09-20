@@ -8,7 +8,6 @@ import yaml
 from mcp_guide.core.path_security import resolve_safe_path
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.template import render_template
-from mcp_guide.result_constants import INSTRUCTION_DISPLAY_ONLY
 from tests.helpers import create_unbound_test_session
 
 
@@ -29,12 +28,12 @@ from tests.helpers import create_unbound_test_session
         (
             {"instruction": "Parent instruction"},
             [{"type": "user/information"}],
-            "Parent instruction\n" + INSTRUCTION_DISPLAY_ONLY.replace(". ", ".\n"),
+            "Parent instruction",
         ),
         (
             {"type": "user/information"},
             [{"instruction": "Child instruction"}],
-            INSTRUCTION_DISPLAY_ONLY.replace(". ", ".\n") + "\nChild instruction",
+            "Child instruction",
         ),
         (
             {"instruction": "Follow this policy."},
@@ -42,7 +41,13 @@ from tests.helpers import create_unbound_test_session
             "Follow this policy.",
         ),
     ],
-    ids=["regular-combined", "important-overrides-all", "child-default", "parent-default", "fuzzy-deduplication"],
+    ids=[
+        "regular-combined",
+        "important-overrides-all",
+        "child-without-instruction-contributes-nothing",
+        "parent-without-instruction-contributes-nothing",
+        "fuzzy-deduplication",
+    ],
 )
 async def test_partial_instruction_merging(runtime, tmp_path, parent, children, expected):
     runtime.configuration_service().config_file.write_text("projects: {}\n")
