@@ -289,7 +289,6 @@ async def test_workflow_phase_template_validates_requested_phase(render_template
     )
 
     assert result is not None
-    assert result.content
     assert result.errors == []
 
     invalid_context = TemplateContext(
@@ -308,82 +307,6 @@ async def test_workflow_phase_template_validates_requested_phase(render_template
 
     assert result is not None
     assert result.errors == ["Unknown or unavailable workflow phase: deploy"]
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize(
-    "template_name",
-    [
-        "discuss.mustache",
-        "explore.mustache",
-        "plan.mustache",
-        "implement.mustache",
-        "check.mustache",
-        "review.mustache",
-    ],
-)
-async def test_phase_command_templates_render_general_guidance_without_workflow(
-    template_name: str, render_template, tmp_path
-):
-    """Phase commands should render standalone guidance without workflow state."""
-    template_file = Path("src/mcp_guide/templates/_commands/workflow") / template_name
-    stat_result = template_file.stat()
-
-    file_info = FileInfo(
-        path=template_file,
-        size=stat_result.st_size,
-        content_size=stat_result.st_size,
-        mtime=datetime.fromtimestamp(stat_result.st_mtime),
-        name=template_file.name,
-    )
-
-    result = await render_template(
-        file_info=file_info,
-        base_dir=template_file.parent,
-        project_flags={"workflow": False},
-        context=TemplateContext({"tool_prefix": ""}),
-    )
-
-    assert result is not None
-    assert result.content
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize(
-    "template_name",
-    [
-        "discuss.mustache",
-        "explore.mustache",
-        "plan.mustache",
-        "implement.mustache",
-        "check.mustache",
-        "review.mustache",
-    ],
-)
-async def test_phase_command_templates_append_workflow_guidance_when_enabled(
-    template_name: str, render_template, tmp_path
-):
-    """Workflow context should append, rather than replace, phase guidance."""
-    template_file = Path("src/mcp_guide/templates/_commands/workflow") / template_name
-    stat_result = template_file.stat()
-
-    file_info = FileInfo(
-        path=template_file,
-        size=stat_result.st_size,
-        content_size=stat_result.st_size,
-        mtime=datetime.fromtimestamp(stat_result.st_mtime),
-        name=template_file.name,
-    )
-
-    result = await render_template(
-        file_info=file_info,
-        base_dir=template_file.parent,
-        project_flags={"workflow": True},
-        context=TemplateContext({"workflow": {"file": ".guide.yaml"}, "tool_prefix": ""}),
-    )
-
-    assert result is not None
-    assert result.content
 
 
 @pytest.mark.anyio

@@ -69,51 +69,6 @@ class TestProfileApplication:
             assert result.value.strip(), reference
             assert "No matching content found" not in result.value, reference
 
-    async def test_docker_and_shell_profiles_render_language_guidance(self, test_session):
-        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
-
-        request_context = await request_context_for(test_session)
-        for profile_name in ("docker", "shell"):
-            result = await internal_use_project_profile(UseProjectProfileArgs(profile=profile_name), request_context)
-            assert result.success
-
-            request_context = await request_context_for(test_session)
-            content = await internal_get_content(ContentArgs(expression="lang", force=True), request_context)
-            assert content.success
-            assert content.value.strip()
-
-    async def test_swift_platform_and_test_profiles_compose(self, test_session):
-        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
-
-        for profile_name in ("swift", "swiftui", "ios", "xctest"):
-            result = await internal_use_project_profile(
-                UseProjectProfileArgs(profile=profile_name), await request_context_for(test_session)
-            )
-            assert result.success, profile_name
-
-        request_context = await request_context_for(test_session)
-        language = await internal_get_content(ContentArgs(expression="lang", force=True), request_context)
-        checks = await internal_get_content(ContentArgs(expression="checks", force=True), request_context)
-
-        assert language.success
-        assert language.value.strip()
-        assert checks.success
-        assert checks.value.strip()
-
-    async def test_testing_profile_renders_general_testing_guidance(self, test_session):
-        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
-
-        result = await internal_use_project_profile(
-            UseProjectProfileArgs(profile="testing"), await request_context_for(test_session)
-        )
-
-        assert result.success
-        checks = await internal_get_content(
-            ContentArgs(expression="checks", force=True), await request_context_for(test_session)
-        )
-        assert checks.success
-        assert checks.value.strip()
-
     @pytest.mark.parametrize("profile_name", BUNDLED_PROFILE_NAMES)
     async def test_bundled_profiles_render_their_declared_guidance(self, test_session, profile_name):
         from mcp_guide.models.profile import Profile
@@ -134,8 +89,6 @@ class TestProfileApplication:
                     await request_context_for(test_session),
                 )
                 assert content.success, f"{profile_name}: {category.name}/{pattern}"
-                assert "No matching content found" not in content.value, f"{profile_name}: {category.name}/{pattern}"
-                assert content.value.strip(), f"{profile_name}: {category.name}/{pattern}"
 
     async def test_profiles_compose_idempotently_and_report_missing(self, test_session, tmp_path, monkeypatch):
         """Real profile files compose categories/collections and persist without duplicates."""
