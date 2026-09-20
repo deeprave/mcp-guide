@@ -21,8 +21,7 @@ async def openspec_session(runtime, tmp_path):
     templates = docs / "_openspec"
     templates.mkdir(parents=True)
     for name, body in {
-        "openspec-cli-check": "Locate CLI",
-        "openspec-version-check": "Read version",
+        "openspec-check": "Detect OpenSpec",
         "openspec-project-check": "Check project",
         "_status-format": "{{changeName}} {{#isComplete}}complete{{/isComplete}}{{^isComplete}}pending{{/isComplete}}",
         "_show-format": "{{changeName}}: {{description}}",
@@ -56,7 +55,7 @@ async def test_initialisation_reuses_only_recent_global_state(openspec_session, 
     assert task.get_changes() is None
     assert (await task.handle_event(EventType.TIMER_ONCE, {})).result
     instruction = (await manager.process_result(Result.ok())).additional_agent_instructions
-    assert instruction == ("Check project" if age == 100 else "Locate CLI")
+    assert instruction == ("Check project" if age == 100 else "Detect OpenSpec")
     if age == 100:
         assert task.is_available() is True
         assert task.get_version() == "1.10.0"
@@ -66,16 +65,23 @@ async def test_initialisation_reuses_only_recent_global_state(openspec_session, 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "content,version", [("openspec version 1.10.2", "1.10.2"), ("v2.0.1", "2.0.1"), ("invalid", None)]
+    "report,version",
+    [
+        ({"location": "/usr/bin/openspec", "version": "openspec version 1.10.2"}, "1.10.2"),
+        ({"location": "/usr/bin/openspec", "version": "v2.0.1"}, "2.0.1"),
+        ({"location": "/usr/bin/openspec", "version": "invalid"}, None),
+    ],
 )
-async def test_version_response_persists_and_controls_project_check(
-    openspec_session, runtime, monkeypatch, content, version
+async def test_combined_detection_response_persists_and_controls_project_check(
+    openspec_session, runtime, monkeypatch, report, version
 ):
     monkeypatch.setattr("time.time", lambda: 1000.0)
     manager = openspec_session.task_manager
     task = manager.get_task_by_type(OpenSpecTask)
     assert not task.meets_minimum_version("1.0.0")
-    result = await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".openspec-version.txt", "content": content})
+    result = await task.handle_event(
+        EventType.FS_FILE_CONTENT, {"path": ".openspec-info.json", "content": json.dumps(report)}
+    )
     assert result.result
     # Persisting global state schedules a fresh project-task activation.  The
     # replacement is the authority for subsequent cache and instruction state.
@@ -102,7 +108,10 @@ async def test_version_response_persists_and_controls_project_check(
 async def test_missing_cli_persists_unavailability_without_followup(openspec_session, runtime):
     manager = openspec_session.task_manager
     task = manager.get_task_by_type(OpenSpecTask)
-    result = await task.handle_event(EventType.FS_COMMAND, {"command": "openspec", "found": False})
+    result = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-info.json", "content": json.dumps({"location": None, "version": None})},
+    )
     assert result.result
     assert task.is_available() is False
     assert manager.is_queue_empty()

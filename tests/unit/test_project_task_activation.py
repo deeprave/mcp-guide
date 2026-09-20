@@ -15,7 +15,7 @@ from mcp_guide.workflow.tasks import WorkflowMonitorTask
 async def test_task_activation_and_initialisation_use_the_supplied_project(runtime, tmp_path):
     templates = tmp_path / "docs" / "_openspec"
     templates.mkdir(parents=True)
-    (templates / "openspec-cli-check.mustache").write_text("Check CLI for {{project.name}}")
+    (templates / "openspec-check.mustache").write_text("Check CLI for {{project.name}}")
     context_templates = templates.parent / "_context"
     context_templates.mkdir()
     (context_templates / "client-context-setup.mustache").write_text("Client information for {{project.name}}")

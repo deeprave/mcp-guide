@@ -1,5 +1,6 @@
 """OpenSpec CLI detection task."""
 
+import json
 import re
 import time
 from typing import TYPE_CHECKING, Any, Optional, cast
@@ -40,11 +41,10 @@ class OpenSpecTask(InitialisableMixin):
         """Create an inactive OpenSpec task."""
         self.activation: TaskActivation | None = None
         self._session: Any = None
-        self._cli_requested = False
+        self._detection_requested = False
         self._flag_checked = False
         self._available: Optional[bool] = None
         self._project_requested = False
-        self._version_requested = False
         self._version: Optional[str] = None
         self._version_this_session: Optional[str] = None  # Session-level cache
         self._changes_cache: Optional[list[dict[str, Any]]] = None
@@ -56,9 +56,8 @@ class OpenSpecTask(InitialisableMixin):
         self._changes_directory_refresh_id: Optional[str] = None
 
         # Instruction tracking IDs
-        self._cli_instruction_id: Optional[str] = None
+        self._detection_instruction_id: Optional[str] = None
         self._project_instruction_id: Optional[str] = None
-        self._version_instruction_id: Optional[str] = None
 
     async def start(self, activation: "TaskActivation") -> bool:
         """Start OpenSpec detection if enabled for the current project."""
@@ -70,7 +69,7 @@ class OpenSpecTask(InitialisableMixin):
             return False
 
         activation.subscribe(
-            EventType.FS_COMMAND | EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY,
+            EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY,
             once_interval=DEFAULT_ONCE_INTERVAL,
         )
         return True
@@ -112,9 +111,9 @@ class OpenSpecTask(InitialisableMixin):
             if state.validated and not self._project_requested:
                 self._project_requested = True
                 await self.request_project_check()
-        elif not self._cli_requested:
-            await self.request_cli_check()
-            self._cli_requested = True
+        elif not self._detection_requested:
+            await self.request_detection()
+            self._detection_requested = True
         self._flag_checked = True
         return EventResult(result=True)
 
@@ -309,11 +308,11 @@ class OpenSpecTask(InitialisableMixin):
         """Return whether a filesystem reply belongs to the active refresh."""
         return isinstance(request_id, str) and request_id == self._pending_changes_refresh_id
 
-    async def request_cli_check(self) -> None:
-        """Request OpenSpec CLI availability check from client."""
-        rendered = await render_openspec_template(self._session, "openspec-cli-check")
+    async def request_detection(self) -> None:
+        """Request combined OpenSpec CLI detection from the client."""
+        rendered = await render_openspec_template(self._session, "openspec-check")
         if rendered:
-            self._cli_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
+            self._detection_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
 
     async def request_project_check(self) -> None:
         """Request OpenSpec project structure check from client."""
@@ -321,42 +320,12 @@ class OpenSpecTask(InitialisableMixin):
         if rendered:
             self._project_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
 
-    async def request_version_check(self) -> None:
-        """Request OpenSpec CLI version from client."""
-        rendered = await render_openspec_template(self._session, "openspec-version-check")
-        if rendered:
-            self._version_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
-
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
         from mcp_guide.task_manager.manager import EventResult
 
         if result := await self._handle_timer_once(event_type):
             return result
-
-        # Handle command location events
-        if event_type & EventType.FS_COMMAND:
-            command = data.get("command")
-            if command == "openspec":
-                path = data.get("path", "")
-                found = data.get("found", False)
-                self._available = found and bool(path)
-                self._activation.set_cached_data("openspec_available", self._available)
-                logger.info(f"OpenSpec CLI {'available' if self._available else 'not available'}")
-
-                # Acknowledge CLI check instruction
-                if self._cli_instruction_id:
-                    await self._activation.acknowledge_instruction(self._cli_instruction_id)
-                    self._cli_instruction_id = None
-
-                # If CLI available, request version check first
-                if self._available and not self._version_requested:
-                    self._version_requested = True
-                    await self.request_version_check()
-                elif not self._available:
-                    await self._persist_global_state(validated=False)
-
-                return EventResult(result=True)
 
         # Handle directory listing events
         if event_type & EventType.FS_DIRECTORY:
@@ -393,7 +362,6 @@ class OpenSpecTask(InitialisableMixin):
 
         # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:
-            import json
             from pathlib import Path
 
             path = data.get("path", "")
@@ -405,16 +373,15 @@ class OpenSpecTask(InitialisableMixin):
                     logger.debug("Ignoring OpenSpec changes response for a superseded or incomplete refresh")
                     return EventResult(result=True)
 
-            # Handle version detection
-            if path_name == ".openspec-version.txt":
+            if path_name == ".openspec-info.json":
                 content = data.get("content", "")
-                await self._parse_version(content)
-
-                # Acknowledge version check instruction
-                if self._version_instruction_id:
-                    await self._activation.acknowledge_instruction(self._version_instruction_id)
-                    self._version_instruction_id = None
-
+                try:
+                    report = json.loads(content)
+                except json.JSONDecodeError:
+                    logger.warning("Invalid JSON in OpenSpec detection response")
+                    report = {}
+                version = report.get("version") if isinstance(report, dict) else None
+                await self._parse_detection(version if isinstance(version, str) else None)
                 return EventResult(result=True)
 
             # Handle OpenSpec command responses
@@ -496,15 +463,17 @@ class OpenSpecTask(InitialisableMixin):
 
         return None
 
-    async def _parse_version(self, content: str) -> None:
-        """Parse OpenSpec version from command output and store global state.
+    async def _parse_detection(self, version_output: str | None) -> None:
+        """Parse a combined OpenSpec detection response and store global state.
 
         Args:
-            content: Output from openspec --version command
+            version_output: Output from ``openspec --version``, if it ran.
         """
         try:
+            self._available = version_output is not None
+            self._activation.set_cached_data("openspec_available", self._available)
             # Extract semantic version (e.g., "1.2.3" or "v1.2.3")
-            match = re.search(r"v?(\d+\.\d+\.\d+)", content)
+            match = re.search(r"v?(\d+\.\d+\.\d+)", version_output or "")
             if match:
                 self._version = match.group(1)
                 self._version_this_session = self._version
@@ -518,16 +487,16 @@ class OpenSpecTask(InitialisableMixin):
                     self._project_requested = True
                     await self.request_project_check()
             else:
-                logger.warning(f"Failed to parse OpenSpec version from: {content}")
+                logger.warning(f"Failed to parse OpenSpec version from: {version_output}")
                 self._version = None
                 self._version_this_session = None
                 self._activation.set_cached_data("openspec_version", None)
                 await self._persist_global_state(validated=False)
         finally:
-            # Always acknowledge to prevent re-queuing
-            if self._version_instruction_id:
-                await self._activation.acknowledge_instruction(self._version_instruction_id)
-                self._version_instruction_id = None
+            # Always acknowledge to prevent re-queuing.
+            if self._detection_instruction_id:
+                await self._activation.acknowledge_instruction(self._detection_instruction_id)
+                self._detection_instruction_id = None
 
     async def _format_error_response(self, data: dict[str, Any]) -> RenderedContent | None:
         """Format OpenSpec CLI error using template.

@@ -25,13 +25,13 @@ See proposal.md - Why. Relevant current-code facts:
 
 ## Decisions
 
-### Combined shell check: `openspec --version` alone, with a location fallback only on failure
+### Combined shell check: location and version in one agent command invocation
 
-**Decision:** The combined instruction asks the agent to run `openspec --version`. If it succeeds (nonzero-length output, zero exit status), that output alone provides both "found" (implicitly — the command ran) and "version" (parsed from the output). Only if that fails does the instruction ask the agent to additionally check `which`/`where openspec` to distinguish "not on PATH" from "on PATH but erroring" for diagnostic purposes — reported as `location: null` either way from the caller's perspective, since both are equally "not usable."
+**Decision:** The combined instruction asks the agent, in one command invocation, to obtain the CLI location with `which openspec` (or `where openspec` on Windows) and run `openspec --version`. It reports both values together; either is `null` only when it genuinely cannot be obtained.
 
-**Why:** `openspec --version` is the single command that answers the question this whole flow exists to answer ("what version is available, if any") in the common case, avoiding a separate existence probe for the majority of successful runs. The fallback to `which`/`where` is diagnostic-only (useful in logs/troubleshooting, not required for the `openspec-state` flag itself, which only needs `validated`/`version`).
+**Why:** The combined report contract carries both fields. Collecting both values on every path keeps the instruction and payload consistent while retaining one agent/server round trip.
 
-**Alternatives considered:** `which openspec && openspec --version` unconditionally (two commands, still one round trip) — rejected as strictly more work than needed in the common case where the CLI is present and working; `openspec --version` alone already tells you it's on PATH by virtue of running successfully.
+**Alternatives considered:** `openspec --version` with a location fallback only on failure — rejected because it requires a `location` field without normally collecting one, which makes the response contract misleading.
 
 ### Combined report format: JSON content on `.openspec-info.json`
 
