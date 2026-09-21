@@ -12,7 +12,7 @@ cache: short, private
 - Use the workflow file's required `issue` field as the review key. If it is empty, report that there is no active workflow issue and do not begin triage.
 - If following up review findings, read the canonical combined inventory from `{{path.documents}}Reviews/<issue>.json`. Do not load or update the independent source reports in `{{path.documents}}Reviews/<issue>/` during triage.
   If an external inventory has not yet been recorded, create the combined JSON inventory at that path before presenting the first finding.
-- Preserve the combined inventory's source references, reviewer versions, scope, evidence, and recommendation. Record triage only in the relevant combined finding's `triage` object: decision, variation, rationale, concrete action, and completion state.
+- Preserve each combined finding's source references, reviewer versions, target, scope, evidence, and recommendation. Record triage only in the relevant combined finding's `triage` object: decision, variation, rationale, concrete action, and completion state.
 - Present exactly one finding at a time. Do not preview, summarise, or implement findings while a current finding awaits a decision.
 - Use this form for every finding:
 

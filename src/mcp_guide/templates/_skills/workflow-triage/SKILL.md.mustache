@@ -11,7 +11,7 @@ cache: short, private
 - Read `{{workflow-file}}` to identify the current issue. If its required `issue` field is empty, report that there is no active workflow issue and do not begin triage
 - Read every valid source record in `{{path.documents}}Reviews/<issue>/`. Do not omit a report because it was not produced by the current agent or review run
 - If no source records exist, report that there is nothing to triage and stop
-- Build one complete, stable canonical inventory at `{{path.documents}}Reviews/<issue>.json`: preserve every source report reference and version, deduplicate only findings that describe the same underlying defect, and retain the strongest evidence for each unique finding
+- Build one complete, stable canonical inventory at `{{path.documents}}Reviews/<issue>.json`: preserve every source report reference, version, target, and scope; deduplicate only findings that describe the same underlying defect, and retain the strongest evidence for each unique finding
 - Use the combined inventory format below. New findings begin with a pending triage object. If a canonical inventory already has recorded triage decisions, preserve its decision, variation, rationale, action, and completion state for matching findings
 - When the reviewed work is a pull request, inspect existing pull-request comments only after collation. Mark matching combined findings as already flagged or add useful context in the combined inventory; do not modify source reports
 - Report the created or updated canonical inventory path, then use `Guide skill "just-one"` to walk through every unique finding. Do not implement, format, commit, push, or discard changes during triage unless the user later explicitly confirms the collected accepted actions
@@ -29,8 +29,10 @@ cache: short, private
   "findings": [
     {
       "id": "<combined-#>",
-      "sources": [{"reviewer": "<agent-name>", "id": "<agent-#>", "version": 1}],
+      "sources": [{"reviewer": "<agent-name>", "id": "<agent-#>", "version": 1, "target": "<source target>", "scope": "<source scope>"}],
       "priority": "P#",
+      "target": "<finding target>",
+      "scope": "<finding scope>",
       "location": {"file": "<path>", "start": 1, "end": 1},
       "description": "<short description>",
       "analysis": "<evidence and consequence>",
@@ -50,4 +52,5 @@ cache: short, private
 ## Guardrails
 
 - Source reports are immutable independent evidence. Record user decisions only in the canonical inventory
+- Set a combined finding's `target` and `scope` from its source report when they agree. When its sources differ, retain their individual target and scope values in `sources` and omit those combined-finding fields
 - Do not start `just-one` until the canonical inventory is complete and stable

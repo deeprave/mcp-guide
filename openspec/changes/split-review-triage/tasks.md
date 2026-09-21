@@ -7,3 +7,4 @@
 
 - [x] 2.1 Add delta requirements for the review/triage boundary and canonical inventory ownership.
 - [x] 2.2 Validate the change and run focused package-rendering coverage (43 focused tests passed).
+- [x] 2.3 Preserve target and scope on each combined finding or source reference, without making either a triage gate.
