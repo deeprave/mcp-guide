@@ -1,6 +1,6 @@
 ---
 name: workflow-review
-description: Run two independent reviews and coordinate the review phase.
+description: Run two independent reviews and report their source records.
 usage: Use when the user asks to enter, apply, or follow workflow review, or requests a review target.
 cache: short, private
 elicitation:
@@ -33,10 +33,8 @@ elicitation:
 - Require every reviewer to write only its own fresh JSON report to `{{path.documents}}Reviews/<issue>/<agent-name>.json`, using a unique lowercase hyphenated agent name `<agent>-heavy` or `<agent>-light`; do not load, merge, or update adjacent review records while producing it
 - Before dispatch, determine the next positive review version for each reviewer without exposing its earlier findings. Pass that version to the reviewer, which overwrites its own report and assigns the same `version` to every finding in that report
 - Each source report must identify its reviewer, version, target, scope, and creation time, and contain a `findings` array whose entries have a stable identifier, version, P1-to-P6 priority, location, description, analysis, and recommendation
-- After both fresh reviews are complete, collate only the two reports produced for this review: deduplicate the same underlying defect, retain the strongest evidence, and write the canonical combined inventory to `{{path.documents}}Reviews/<issue>.json`
-- For a pull-request target, inspect existing pull-request comments only after the fresh reviews are complete. Mark a matching combined finding as already flagged or add useful context there; do not expose those comments to reviewers or alter their source reports
-- Preserve source reports as independent evidence. Record all user decisions, variations, actions, and completion state only in the corresponding finding of the combined inventory
-- Use `guide://$just-one` when the user explicitly elects it, or when their established preference is to triage findings sequentially; otherwise use the user's requested presentation or ordinary review presentation
+- After both fresh reviews are complete, report the exact paths of the two source records produced, state that they remain independent evidence, and ask the user what they want to do next
+- Do not collate reports, inspect pull-request comments, create or update `{{path.documents}}Reviews/<issue>.json`, or invoke `just-one`; `Guide skill "workflow-triage"` performs those actions when the user elects triage
 - Keep handoff context `{{path.documents}}context.json` updated at meaningful milestones when present
 
 ## Source review record format
@@ -57,37 +55,6 @@ elicitation:
       "description": "<short description>",
       "analysis": "<evidence and consequence>",
       "recommendation": "<specific action>"
-    }
-  ]
-}
-```
-
-## Combined inventory format
-
-```json
-{
-  "issue": "<workflow issue>",
-  "target": "<selected review target>",
-  "created_at": "<ISO 8601 timestamp>",
-  "source_reports": [
-    {"reviewer": "<agent-name>", "version": 1, "path": "Reviews/<issue>/<agent-name>.json"}
-  ],
-  "findings": [
-    {
-      "id": "<combined-#>",
-      "sources": [{"reviewer": "<agent-name>", "id": "<agent-#>", "version": 1}],
-      "priority": "P#",
-      "location": {"file": "<path>", "start": 1, "end": 1},
-      "description": "<short description>",
-      "analysis": "<evidence and consequence>",
-      "recommendation": "<specific action>",
-      "triage": {
-        "decision": "pending",
-        "variation": null,
-        "rationale": null,
-        "action": null,
-        "completion": "not started"
-      }
     }
   ]
 }
