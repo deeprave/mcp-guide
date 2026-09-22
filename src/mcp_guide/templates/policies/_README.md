@@ -2,10 +2,14 @@
 cache: long
 ---
 
-# Policies Index
+# Policy Reference
 
-This directory contains optional policy documents expressing development preferences.
-Policies are plain markdown files organised by topic and sub-topic.
+This README is a repository reference for people maintaining policy documents.
+It is not policy content and is not delivered to users or agents. Policies are
+plain Markdown files organised by topic and sub-topic.
+
+Files prefixed with `_` are excluded from pattern matching and content delivery,
+so they may be used for shared partials and authoring references.
 
 Select policies by adding patterns to the `policies` category in project configuration:
 
@@ -25,8 +29,6 @@ categories:
       - review/focused
 ```
 
-Files prefixed with `_` (like this one) are excluded from pattern matching and content delivery.
-
 **Note:** Workflow phase configuration is controlled by the `workflow` and `workflow-consent`
 project flags, not by policies.
 
@@ -44,7 +46,7 @@ project flags, not by policies.
 | `agent-assisted` | Agent may stage and commit with explicit per-request consent |
 | `agent-autonomous` | Agent manages git fully including push |
 
-*Affects: `guide/general.mustache`*
+*Used by: `guide/general.mustache`; Git commit, Git push, Git sync, and Git PR skills*
 
 ---
 
@@ -57,7 +59,35 @@ project flags, not by policies.
 | `conventional` | Conventional Commits: `feat:`, `fix:`, `chore:`, etc. |
 | `minimal` | Subject line only; no format rules |
 
-*Affects: `review/commit.mustache`*
+*Used by: `review/commit.mustache`; Git commit skill*
+
+---
+
+### `git/delivery/` — Delivery Strategy
+**Mutually exclusive.**
+
+| File | Summary |
+|---|---|
+| `direct` | Commit to the agreed target branch without a pull request |
+| `branch` | Use an issue-aware branch and the configured pull-request practice |
+| `multi-branch` | Keep concurrent changes isolated for later integration |
+
+*Used by: Git commit, Git push, and Git PR skills*
+
+### `issue-tracking/` — Issue Tracker
+**Mutually exclusive.**
+
+| File | Summary |
+|---|---|
+| `none` | No issue tracker is selected |
+| `jira`, `linear`, `redmine`, `asana`, `youtrack` | Use the selected hosted issue tracker |
+| `github-issues`, `gitlab`, `bugzilla`, `mantis`, `monday-com` | Use the selected issue platform |
+| `trello`, `wrike`, `shortcut`, `trac`, `basecamp`, `phabricator` | Use the selected project or issue tracker |
+
+A selected tracker makes issue handling available; the user still chooses
+whether a particular change creates, links, or omits an issue.
+
+*Used by: Git commit skill*
 
 ---
 
@@ -199,10 +229,31 @@ project flags, not by policies.
 
 ---
 
+## Authoring Policy-Aware Templates
+
+Templates declare the policy topics they consume in frontmatter and render each
+one as a Mustache partial. For example:
+
+```yaml
+policies: [git/delivery, issue-tracking]
+```
+
+```mustache
+{{> git/delivery}}
+{{> issue-tracking}}
+```
+
+Guide gathers only the project's selected documents for each declared topic
+when it renders the template, including public Guide skill resources. Tests
+should exercise rendered selected-versus-unselected behaviour using controlled
+fixture documents rather than matching shipped policy prose.
+
+---
+
 ## Mutual Exclusivity Notes
 
 Within each of these topics, only one file should be active at a time:
-`git/ops`, `git/commit`, `testing`, `quality`, `toolchain/<language>`, `pr`, `review`
+`git/ops`, `git/commit`, `git/delivery`, `issue-tracking`, `testing`, `quality`, `toolchain/<language>`, `pr`, `review`
 
 These topics are fully composable (select any combination):
 `methodology`, `style/<language>`, `tooling/general`

@@ -9,6 +9,7 @@ from mcp_guide.discovery.files import FileInfo, discover_document_files
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.document_properties import DocumentContribution
 from mcp_guide.render.template import render_template
 
 if TYPE_CHECKING:
@@ -50,6 +51,12 @@ async def render_content(
     category_name: Optional[str] = None,
     discover_files: Optional[Callable[[Callable[[str | Path], Path], str, str, str], Awaitable[list[FileInfo]]]] = None,
     process_context: Optional[Callable[[TemplateContext, FileInfo], Awaitable[TemplateContext]]] = None,
+    prepare_partials: Optional[
+        Callable[
+            [FileInfo, TemplateContext | None, dict[str, object]],
+            Awaitable[tuple[dict[str, str], dict[str, list[DocumentContribution]]]],
+        ]
+    ] = None,
     *,
     resolver: Callable[[str | Path], Path] | None = None,
 ) -> RenderedContent | None:
@@ -94,14 +101,19 @@ async def render_content(
     if process_context is not None:
         context = await process_context(extra_context or TemplateContext({}), files[0])
 
-    # noinspection PyBroadException
+    pre_partials: dict[str, str] | None = None
+    pre_partial_contributions: dict[str, list[DocumentContribution]] | None = None
     try:
+        if prepare_partials is not None:
+            pre_partials, pre_partial_contributions = await prepare_partials(files[0], context, requirements_context)
         rendered = await render_template(
             session,
             file_info=files[0],
             base_dir=files[0].path.parent,
             project_flags=requirements_context,
             context=context,
+            pre_partials=pre_partials or None,
+            pre_partial_contributions=pre_partial_contributions or None,
             resolver=resolver,
         )
     except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:

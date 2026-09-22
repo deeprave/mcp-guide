@@ -8,14 +8,16 @@ import pytest
 import yaml
 from tests.helpers import create_bound_test_session, request_context_for
 
+import mcp_guide
 from mcp_guide.content.gathering import gather_category_fileinfos, gather_content
-from mcp_guide.content.utils import _gather_policy_partials, render_missing_policy
+from mcp_guide.content.utils import gather_policy_partials, render_missing_policy
 from mcp_guide.content_limits import ContentLimitExceeded, ContentLimits
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.models.exceptions import NoProjectError
 from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 from mcp_guide.result_constants import INSTRUCTION_MISSING_POLICY
 from mcp_guide.runtime import RequestContext
 from mcp_guide.store.document_store import add_document
@@ -40,6 +42,22 @@ class _MockSession:
         if self._project is None:
             raise NoProjectError("no project")
         return self._project
+
+
+@pytest.mark.parametrize(
+    "policy_file",
+    sorted(
+        path
+        for path in (Path(mcp_guide.__file__).parent / "templates/policies/issue-tracking").glob("*.md.mustache")
+        if not path.name.startswith("_")
+    ),
+)
+def test_issue_tracking_policy_frontmatter_is_available(policy_file):
+    """Selected provider policies retain their declared delivery metadata."""
+    frontmatter = parse_content_with_frontmatter(policy_file.read_text(encoding="utf-8")).frontmatter
+
+    assert frontmatter["cache"] == "long"
+    assert frontmatter["type"] == "agent/instruction"
 
 
 async def _request_context(tmp_path, session=None):
@@ -238,7 +256,7 @@ async def test_missing_policy_fallback_identifies_each_topic(tmp_path):
         assert await render_missing_policy(context, topic) == f"{INSTRUCTION_MISSING_POLICY}\n\nTopic: `{topic}`"
 
 
-# --- Tests for _gather_policy_partials ---
+# --- Tests for gather_policy_partials ---
 
 
 @pytest.mark.anyio
@@ -254,7 +272,7 @@ async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
         mtime=datetime(2024, 1, 1),
         name="doc.md",
     )
-    result = await _gather_policy_partials(
+    result = await gather_policy_partials(
         await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
     )
     assert result == ({}, {})
@@ -274,7 +292,7 @@ async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
         name="doc.md",
     )
 
-    result = await _gather_policy_partials(
+    result = await gather_policy_partials(
         await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
     )
     assert result == ({}, {})
@@ -301,9 +319,7 @@ async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, mon
     (tmp_path / "policies" / "testing").mkdir(parents=True)
     (tmp_path / "policies" / "testing" / "strict.md").write_text("# Strict")
     session = _MockSession(str(tmp_path), project=project)
-    result = await _gather_policy_partials(
-        await _request_context(tmp_path, session), file_info, TemplateContext({}), {}
-    )
+    result = await gather_policy_partials(await _request_context(tmp_path, session), file_info, TemplateContext({}), {})
 
     partials, contributions = result
     assert "git/ops" in partials
@@ -348,7 +364,7 @@ async def test_gather_policy_partials_matching_topic_renders_content(runtime, tm
     config.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
     session = await create_bound_test_session(runtime, "policies")
     await session.update_config(lambda current: replace(current, categories=project.categories))
-    result = await _gather_policy_partials(await request_context_for(session), file_info, TemplateContext({}), {})
+    result = await gather_policy_partials(await request_context_for(session), file_info, TemplateContext({}), {})
 
     partials, contributions = result
     assert partials == {"git/ops": "Use conservative git ops."}
@@ -375,6 +391,6 @@ async def test_policy_partials_use_the_active_content_limit(runtime, tmp_path):
     await session.update_config(lambda current: replace(current, categories=project.categories))
 
     with pytest.raises(ContentLimitExceeded, match="max-content-limit"):
-        await _gather_policy_partials(
+        await gather_policy_partials(
             await request_context_for(session), file_info, TemplateContext({}), {}, ContentLimits(max_content_limit=50)
         )

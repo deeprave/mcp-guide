@@ -41,7 +41,9 @@ categories:
     dir: policies/
     patterns:
       - git/commit/conventional
+      - git/delivery/branch
       - git/ops/conservative
+      - issue-tracking/none
       - methodology/yagni
       - quality/standard
       - review/focused

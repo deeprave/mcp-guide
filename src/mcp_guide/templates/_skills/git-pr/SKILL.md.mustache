@@ -1,0 +1,23 @@
+---
+name: git-pr
+description: Deliver a change through the configured pull-request workflow.
+usage: Use when preparing or creating a pull request.
+cache: short, private
+policies: [git/ops, git/delivery, pr]
+---
+# Git Pull Request
+
+## Directives
+
+- Use Guide skill `git-commit`, then Guide skill `git-push`.
+- For branch delivery, reuse an existing pull request or create one using the
+  selected pull-request policy and any repository template.
+- Direct and multi-branch delivery do not require a pull request.
+
+## Selected Policies
+
+{{> git/ops}}
+
+{{> git/delivery}}
+
+{{> pr}}

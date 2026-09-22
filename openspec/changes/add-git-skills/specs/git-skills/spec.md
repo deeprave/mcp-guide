@@ -1,89 +1,54 @@
 ## Purpose
 
-Provide bundled Git skills that guide agents through safe, consistent delivery
-and cleanup practice without coupling ordinary Git work to optional workflows.
+Provide policy-aware Git workflow skills without reducing them to command wrappers.
 
 ## ADDED Requirements
 
 ### Requirement: Git skills are independently available
-The system SHALL provide `git-commit`, `git-push`, `git-pr`, and
-`git-worktree-reset` as bundled Guide skill packages. Their discovery and
-rendering SHALL NOT require workflow or OpenSpec features to be enabled.
-Instructions that refer to an enabled workflow, workflow file, or OpenSpec
-change SHALL be conditional on the corresponding feature.
+The system SHALL provide `git-commit`, `git-push`, `git-pr`, and `git-sync` as bundled Guide skill packages. Their discovery and rendering SHALL NOT require workflow or OpenSpec features. Instructions that refer to optional features SHALL be conditional on those features.
 
-#### Scenario: Project has no workflow configuration
-- **WHEN** an agent retrieves a bundled Git skill for a project without an
-  enabled workflow or OpenSpec feature
-- **THEN** the skill SHALL remain available
-- **AND** it SHALL NOT require a workflow or OpenSpec action to perform its
-  Git hygiene guidance
+#### Scenario: Features are disabled
+- **WHEN** workflow and OpenSpec features are disabled
+- **THEN** each Git skill remains available without feature-specific instructions
 
-### Requirement: Commit skill protects the main branch
-The `git-commit` skill SHALL direct an agent not to commit project changes to
-`main`. When the current branch is `main`, it SHALL direct the agent to create
-and select a branch named `<commit-type>/[<issue-id>-]<slug>` before committing.
-The commit type SHALL be a suitable conventional category, including
-`feature`, `chore`, `bugfix`, or `release`; the optional issue identifier SHALL
-be included when an applicable identifier is already available.
+### Requirement: Onboarding selects Git delivery and issue policies
+Onboarding SHALL select `issue-tracking/<provider>` and `git/delivery/<mode>` policies. Providers SHALL include `none`, Jira, Linear, Redmine, Asana, YouTrack, GitHub Issues, GitLab, Bugzilla, Mantis, Monday.com, Trello, Wrike, Shortcut, Trac, Basecamp, and Phabricator. Modes SHALL be `direct`, `branch`, and `multi-branch`.
 
-#### Scenario: Commit begins from main
-- **WHEN** an agent uses `git-commit` while the project checkout is on `main`
-- **THEN** it SHALL create and select an appropriately named branch before
-  creating a commit
-- **AND** it SHALL NOT create the commit directly on `main`
+#### Scenario: User configures Git policies
+- **WHEN** onboarding configures Git workflow practice
+- **THEN** it offers a tracker provider and a delivery mode
 
-#### Scenario: Applicable issue identifier exists
-- **WHEN** an agent uses `git-commit` and the current work has an applicable
-  issue identifier
-- **THEN** the branch and concise commit message SHALL include that identifier
-- **AND** the agent SHALL NOT invent an identifier or create a new issue unless
-  the user has requested that action
+### Requirement: Commit skill applies issue and delivery policy
+`git-commit` SHALL use the selected delivery and issue-tracking policies. For a non-`none` tracker with no issue, it SHALL ask whether to create or link an issue or proceed without one; when creation or linking is chosen, it SHALL use an available integration or ask the user how to proceed if none is available. A branch, where used, SHALL be named `<commit-type>/[<issue-id>-]<commit-slug>`. Commit formatting SHALL follow the selected commit policy.
 
-### Requirement: Push skill publishes only branch work
-The `git-push` skill SHALL direct an agent to push from a branch, not `main`.
-It SHALL establish an upstream branch matching the local branch when one is
-required for the push.
+#### Scenario: Tracked change has no issue
+- **WHEN** `git-commit` runs under a non-`none` tracker policy without an issue
+- **THEN** it asks the user to create, link, or omit an issue
 
-#### Scenario: Branch has no upstream
-- **WHEN** an agent uses `git-push` from an eligible branch without an upstream
-- **THEN** it SHALL push the branch and establish its matching upstream
+### Requirement: Push skill protects unrelated work
+`git-push` SHALL commit current-change work by default. When it detects other changed files that it did not create, it SHALL ask whether to include or omit them, using `git-commit` for approved inclusion, before pushing all selected work.
 
-### Requirement: Pull-request skill composes delivery steps
-The `git-pr` skill SHALL direct an agent through the `git-commit` and
-`git-push` practices before pull-request creation when the project uses a
-branch-and-pull-request delivery model. It SHALL create a pull request only
-when the current branch has no existing pull request and SHALL use the
-repository's agreed pull-request format.
+#### Scenario: Unrelated edits are present
+- **WHEN** `git-push` detects edits outside the current change that the agent did not create
+- **THEN** it asks whether to include or leave them untouched before pushing
 
-#### Scenario: Project does not use pull requests
-- **WHEN** an agent uses `git-pr` for a project that does not use a
-  branch-and-pull-request delivery model
-- **THEN** the skill SHALL NOT require pull-request creation
-- **AND** it SHALL still apply the relevant commit and push hygiene
+### Requirement: Pull-request skill composes delivery work
+`git-pr` SHALL compose `git-commit` and `git-push`. For `branch` delivery it SHALL create or reuse a pull request according to the selected PR policy and any repository template. For other delivery modes it SHALL not require a PR.
 
-#### Scenario: Pull request already exists
-- **WHEN** an agent uses `git-pr` for a branch that already has a pull request
-- **THEN** it SHALL NOT create a duplicate pull request
-- **AND** it SHALL report or use the existing pull request as appropriate
+#### Scenario: Branch delivery requires a pull request
+- **WHEN** `git-pr` is used with `branch` delivery
+- **THEN** it applies commit and push guidance before creating or reusing a PR
 
-### Requirement: Worktree reset preserves outstanding work
-The `git-worktree-reset` skill SHALL verify that the worktree has no
-uncommitted changes and no commits awaiting push before changing branches. If
-either condition is not met, it SHALL ask the user for direction rather than
-discarding, resetting, or hiding work. Once clean, it SHALL switch to `main`,
-fetch all remotes, tags, and pruning updates, and fast-forward local `main` to
-its configured upstream. If workflow support is enabled, it SHALL then direct
-the agent to the workflow discussion phase.
+### Requirement: Sync returns to the default branch safely
+`git-sync` SHALL synchronise a completed worktree with its remote default branch. On the default branch it SHALL fetch and fast-forward. On another branch it SHALL switch to the default branch, fetch, and fast-forward. If the worktree is dirty, it SHALL treat that as an abnormal handover condition and ask the user whether to preserve the work while switching, handle it as existing branch work, or stop. It SHALL not delete branches.
 
-#### Scenario: Reset finds outstanding work
-- **WHEN** an agent uses `git-worktree-reset` and finds uncommitted or unpushed
-  work
-- **THEN** it SHALL ask the user for direction
-- **AND** it SHALL NOT discard, reset, stash, or otherwise hide that work
+#### Scenario: Sync finds deferred work
+- **WHEN** `git-sync` finds uncommitted changes
+- **THEN** it asks the user how to handle them and does not delete a branch
 
-#### Scenario: Reset begins clean
-- **WHEN** an agent uses `git-worktree-reset` and the worktree is clean with no
-  commits awaiting push
-- **THEN** it SHALL switch to `main`, fetch remotes, tags, and pruning updates,
-  and fast-forward to the configured upstream main branch
+### Requirement: Git skill tests verify behaviour
+Tests SHALL verify discovery, policy-dependent rendering, and delivered behaviour without asserting specific shipped template prose or inventories.
+
+#### Scenario: A policy changes delivered guidance
+- **WHEN** a controlled rendering fixture selects a Git policy
+- **THEN** the test observes the resulting behaviour without asserting template prose

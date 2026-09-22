@@ -175,7 +175,7 @@ def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -
     return combined or None
 
 
-async def _gather_policy_partials(
+async def gather_policy_partials(
     request_context: "RequestContext",
     file_info: FileInfo,
     template_context: TemplateContext,
@@ -466,7 +466,7 @@ async def read_and_render_file_contents(
 
                 try:
                     # Pre-render any policy partials declared in the template's frontmatter
-                    pre_partials, pre_partial_contributions = await _gather_policy_partials(
+                    pre_partials, pre_partial_contributions = await gather_policy_partials(
                         request_context,
                         file_info,
                         template_context,

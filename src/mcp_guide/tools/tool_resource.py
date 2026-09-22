@@ -15,6 +15,7 @@ from mcp_types import InputRequiredResult
 from pydantic import Field, ValidationError, model_validator
 
 from mcp_guide.config_constants import COMMANDS_DIR, SKILLS_DIR
+from mcp_guide.content.utils import gather_policy_partials
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
@@ -279,19 +280,27 @@ async def _read_guide_skill(
             return resolved_kwargs
         rendered_kwargs = resolved_kwargs
 
+    template_context = _skill_template_context(skill, rendered_kwargs)
+
+    async def prepare_policy_partials(file_info, context, project_flags):
+        return await gather_policy_partials(request_context, file_info, context or TemplateContext({}), project_flags)
+
     try:
         rendered = await render_content(
             request_context.session,
             f"{skill.identifier}/{member_path}",
             SKILLS_DIR,
-            extra_context=_skill_template_context(skill, rendered_kwargs),
-            category_name="Guide skills",
+            template_context,
+            "Guide skills",
+            prepare_partials=prepare_policy_partials,
             resolver=request_context.resolve_document_path,
         )
     except FileNotFoundError:
         return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
     if rendered is None:
         return Result.failure(f"Guide skill '{skill_path}' is unavailable for this project", error_type=ERROR_NOT_FOUND)
+    if rendered.errors:
+        rendered.log_discarded_errors(f"Template {rendered.template_path}")
     return Result.ok(
         rendered.content,
         message=f"Rendered skill file: {_public_skill_member_path(rendered.template_path, SKILLS_DIR, request_context)}",

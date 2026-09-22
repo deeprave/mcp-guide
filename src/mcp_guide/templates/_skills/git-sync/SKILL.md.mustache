@@ -1,0 +1,20 @@
+---
+name: git-sync
+description: Synchronise a completed worktree with the remote default branch.
+usage: Use after completed work has merged and the worktree should return to the default branch.
+cache: short, private
+policies: [git/ops]
+---
+# Git Sync
+
+## Directives
+
+- Treat uncommitted work as an abnormal handover condition. Ask the user whether
+  to preserve it while switching, handle it as existing branch work, or stop.
+- Otherwise, switch to the default branch, fetch remote updates, and
+  fast-forward only.
+- Do not delete branches.
+
+## Selected Policies
+
+{{> git/ops}}

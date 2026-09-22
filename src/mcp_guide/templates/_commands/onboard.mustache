@@ -183,7 +183,20 @@ Pick one:
 
 Maps to `pr/*` policy pattern.
 
-**9. Review posture**
+**9. Issue tracking**
+Pick one: None, Jira, Linear, Redmine, Asana, YouTrack, GitHub Issues, GitLab,
+Bugzilla, Mantis, Monday.com, Trello, Wrike, Shortcut, Trac, Basecamp, or
+Phabricator. Maps to `issue-tracking/*`.
+
+**10. Delivery strategy**
+Pick one:
+- Direct — commit to the delivery branch without a pull request
+- Branch — create a branch and use the configured pull-request practice
+- Multi-branch — keep concurrent changes isolated for later integration
+
+Maps to `git/delivery/*` policy pattern.
+
+**11. Review posture**
 Pick one:
 - Thorough — full review covering correctness, security, and all methodology principles
 - Focused — correctness and security only; skip methodology and style *(default)*
@@ -191,16 +204,16 @@ Pick one:
 
 Maps to `review/*` policy pattern.
 
-**10. Style and toolchain** *(language-specific; skip if not applicable)*
+**12. Style and toolchain** *(language-specific; skip if not applicable)*
 For each detected language, ask about style preferences and toolchain.
 Common examples: `uv + ruff + pytest` for Python, `pnpm + biome + vitest` for TypeScript.
 Maps to `style/<lang>/*` and `toolchain/<lang>/*` policy patterns.
 
-**11. Tooling prohibitions** *(optional)*
+**13. Tooling prohibitions** *(optional)*
 Ask whether there are specific tools the agent should avoid using (e.g. `sed`,
 `awk`, `perl`). Maps to `tooling/general/*` policy patterns.
 
-**12. OpenSpec**
+**14. OpenSpec**
 Ask whether the user wants to enable OpenSpec support for spec-driven development.
 Maps to the `openspec` project flag.
 
