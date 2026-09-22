@@ -19,12 +19,19 @@ cache: short, private
 ```markdown
 {{h3}}<current>/<total> [P<priority>] <short description>
 
+<when the combined finding has unambiguous `target` and `scope` fields>
+{{b}}Target:{{b}} <target>
+
+{{b}}Scope:{{b}} <scope>
+
 {{b}}Description:{{b}} <what is wrong and where>
 
 {{b}}Analysis:{{b}} <mechanism, consequence, and evidence>
 
 {{b}}Recommendation:{{b}} <specific action, or the reason not to decline>
 ```
+
+- Display the combined finding's `target` and `scope` using that form when both fields are present. When either field is absent because the sources are ambiguous, do not infer or display a substitute; the individual source values remain preserved in the inventory.
 
 - Treat the user's reply as a decision for the current finding: accept, decline, discuss, vary, skip or next.
   For discussion, answer the question and keep the same finding current until the user decides the outcome.

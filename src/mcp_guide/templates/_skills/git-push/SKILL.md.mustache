@@ -1,0 +1,22 @@
+---
+name: git-push
+description: Prepare and publish the current change safely.
+usage: Use when pushing the active change.
+cache: short, private
+policies: [git/ops, git/delivery]
+---
+# Git Push
+
+## Directives
+
+- Commit current-change work through Guide skill `git-commit` before pushing.
+- If other changed files may not belong to this change, consult the user before
+  proceeding. Ask whether to include them or leave them uncommitted.
+- For approved additions, use Guide skill `git-commit` again before pushing.
+- Push only the resulting selected commits using the selected delivery policy.
+
+## Selected Policies
+
+{{> git/ops}}
+
+{{> git/delivery}}

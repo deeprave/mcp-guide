@@ -1,0 +1,24 @@
+---
+name: git-commit
+description: Prepare a policy-aware commit for the current change.
+usage: Use when preparing or creating a commit for the active change.
+cache: short, private
+policies: [git/ops, git/commit, git/delivery, issue-tracking]
+---
+# Git Commit
+
+## Directives
+
+- Inspect the change and commit only work belonging to it.
+- Where a branch is required, use
+  `<commit-type>/[<issue-id>-]<commit-slug>`.
+
+## Selected Policies
+
+{{> git/ops}}
+
+{{> git/commit}}
+
+{{> git/delivery}}
+
+{{> issue-tracking}}

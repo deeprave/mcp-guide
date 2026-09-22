@@ -1,0 +1,16 @@
+{{provider}} issue handling is available. The user chooses whether this change
+creates, links, or proceeds without an issue.
+
+## Rules
+
+- First determine whether the active change already has an applicable issue.
+- Retain and use an applicable existing issue.
+- Only when no applicable issue exists, ask whether to create, link, or proceed
+  without one.
+- Use an available {{provider}} integration when the user chooses to create or
+  link an issue; otherwise ask the user how to proceed.
+
+## Rationale
+
+A selected tracker enables issue handling without requiring an issue for every
+change or creating duplicate records.

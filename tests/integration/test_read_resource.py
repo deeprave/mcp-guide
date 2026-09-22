@@ -2,6 +2,8 @@
 
 import pytest
 
+from mcp_guide.models import Category
+from mcp_guide.render import rendering
 from mcp_guide.result_constants import (
     AGENT_INFO,
     INSTRUCTION_AGENT_INFORMATION,
@@ -40,6 +42,71 @@ async def test_skill_entrypoint_reports_its_rendered_virtual_file(resource_proje
     assert result.success, result.error
     assert result.message == "Rendered skill file: workflow-status/SKILL.md"
     assert result.value == "Read the current Guide workflow and OpenSpec status."
+
+
+@pytest.mark.anyio
+async def test_git_skill_delivers_only_selected_policy_partials(resource_project):
+    """A public Git skill includes the configured policy documents, and no others."""
+    docroot = resource_project.resolve_document_path("")
+    skill = docroot / "_skills/git-commit/SKILL.md.mustache"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(
+        "---\n"
+        "name: git-commit\n"
+        "description: Exercise Git policy delivery.\n"
+        "usage: Use to exercise Git policy delivery.\n"
+        "policies: [git/delivery, issue-tracking]\n"
+        "---\n"
+        "{{> git/delivery}}\n{{> issue-tracking}}"
+    )
+    for path, content in {
+        "policies/git/delivery/branch.md": "selected-delivery",
+        "policies/git/delivery/direct.md": "unselected-delivery",
+        "policies/issue-tracking/linear.md": "selected-tracker",
+        "policies/issue-tracking/jira.md": "unselected-tracker",
+    }.items():
+        document = docroot / path
+        document.parent.mkdir(parents=True, exist_ok=True)
+        document.write_text(content)
+
+    await resource_project.session.update_config(
+        lambda current: current.with_category(
+            "policies",
+            Category(
+                dir="policies",
+                patterns=["git/delivery/branch*", "issue-tracking/linear*"],
+            ),
+        )
+    )
+
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$git-commit"), resource_project)
+
+    assert result.success, result.error
+    assert "selected-delivery" in result.value
+    assert "selected-tracker" in result.value
+    assert "unselected-delivery" not in result.value
+    assert "unselected-tracker" not in result.value
+
+
+@pytest.mark.anyio
+async def test_skill_render_failure_returns_a_structured_result(resource_project, monkeypatch):
+    """A broken skill stays within the public resource failure contract."""
+    docroot = resource_project.resolve_document_path("")
+    skill = docroot / "_skills/broken/SKILL.md.mustache"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(
+        "---\nname: broken\ndescription: Broken fixture.\nusage: Use for a rendering failure.\n---\nBroken."
+    )
+
+    async def raise_render_error(*args, **kwargs):
+        raise RuntimeError("fixture rendering failure")
+
+    monkeypatch.setattr(rendering, "render_template", raise_render_error)
+
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$broken"), resource_project)
+
+    assert result.success is False
+    assert result.error_type == "not_found"
 
 
 @pytest.mark.anyio
