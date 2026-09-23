@@ -12,6 +12,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_decorator import get_tool_prefix, get_tool_registration
 from mcp_guide.discovery.commands import discover_commands
 from mcp_guide.discovery.files import FileInfo
+from mcp_guide.models import CategoryNotFoundError, ExpressionParseError
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.content import FM_INCLUDES, FM_REQUIRES_PREFIX, RenderedContent
 from mcp_guide.render.context import TemplateContext
@@ -34,7 +35,7 @@ async def _recommendation_footnotes(
 
     descriptions: dict[str, str] = {}
     commands: set[str] = set()
-    content_names: set[str] = set()
+    project = None
     if session is not None and resolver is not None:
         # This local import keeps rendering independent of the tool registration module.
         from mcp_guide.tools.tool_resource import discover_guide_skills_for_rendering
@@ -42,7 +43,6 @@ async def _recommendation_footnotes(
         descriptions = await discover_guide_skills_for_rendering(session, resolver)
         commands = {command["name"] for command in await discover_commands(resolver(COMMANDS_DIR), session)}
         project = await session.get_project()
-        content_names = set(project.categories) | set(project.collections)
 
     footnotes: list[str] = []
     for recommendation in recommendations:
@@ -58,7 +58,8 @@ async def _recommendation_footnotes(
                 "tool": f'{get_tool_prefix()}use_skill("{value}")',
             }
         elif kind == "command":
-            if session is not None and value not in commands:
+            command_name = value.partition("?")[0]
+            if session is not None and command_name not in commands:
                 raise ValueError(f"Unknown recommended command: {value}")
             item = {"type": kind, "name": value, "uri": f"guide://_{value}"}
         elif kind == "tool":
@@ -66,9 +67,13 @@ async def _recommendation_footnotes(
                 raise ValueError(f"Unknown recommended tool: {value}")
             item = {"type": kind, "name": value, "tool": f"{get_tool_prefix()}{value}"}
         else:
-            content_name = value.split("/", 1)[0].split(",", 1)[0]
-            if session is not None and content_name not in content_names:
-                raise ValueError(f"Unknown recommended content: {value}")
+            if project is not None:
+                from mcp_guide.content.gathering import validate_content_expression
+
+                try:
+                    validate_content_expression(project, value)
+                except (CategoryNotFoundError, ExpressionParseError, ValueError) as error:
+                    raise ValueError(f"Unknown recommended content: {value}") from error
             item = {
                 "type": "content",
                 "name": value,
@@ -145,7 +150,9 @@ async def render_template(
             requirements_context=project_flags,
             base_dir=base_dir,
             resolver=resolver,
-            recommendation_footnotes=lambda items: _recommendation_footnotes(items, session, resolver),
+            recommendation_footnotes=(
+                (lambda items: _recommendation_footnotes(items, session, resolver)) if session is not None else None
+            ),
             partials=pre_partials,
             pre_rendered_partial_contributions=pre_partial_contributions,
             max_content_limit=max_content_limit,

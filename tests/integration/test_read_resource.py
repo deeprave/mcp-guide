@@ -144,10 +144,26 @@ async def test_skill_recommendation_delivers_a_fluent_reference_and_structured_d
 
 
 @pytest.mark.anyio
+async def test_command_recommendation_preserves_its_force_option(resource_project):
+    """A command recommendation remains directly actionable with its option."""
+    docroot = resource_project.resolve_document_path("")
+    archive = docroot / "_commands/openspec/archive.mustache"
+    listing = docroot / "_commands/openspec/list.mustache"
+    archive.write_text("After archive, use {{#recommend}}command:openspec/list?force{{/recommend}}.")
+    listing.write_text("List changes")
+
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://_openspec/archive"), resource_project)
+
+    assert result.success, result.error
+    assert '"uri":"guide://_openspec/list?force"' in result.value
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("recommendation", "error"),
     [
         ("skill:does-not-exist", "Unknown recommended skill"),
+        ("content:docs,missing", "Unknown recommended content"),
         ("skill:", "must name a target"),
         ("unknown:target", "Unknown recommendation type"),
     ],

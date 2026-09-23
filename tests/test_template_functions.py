@@ -356,9 +356,13 @@ class TestRecommendLambda:
 
     @pytest.mark.anyio
     async def test_recommend_preserves_rendered_names_in_author_order(self):
+        async def footnotes(_):
+            return ""
+
         result = await render_template_content(
             "{{#recommend}}{{first}}{{/recommend}} {{#recommend}}{{second}}{{/recommend}}",
             TemplateContext({"first": "skill:workflow-status", "second": "content:docs"}),
+            recommendation_footnotes=footnotes,
         )
 
         assert result.success
@@ -372,9 +376,13 @@ class TestRecommendLambda:
 
     @pytest.mark.anyio
     async def test_recommend_preserves_repeated_rendered_names(self):
+        async def footnotes(_):
+            return ""
+
         result = await render_template_content(
             "{{#recommend}}workflow-review{{/recommend}} {{#recommend}}workflow-review{{/recommend}}",
             TemplateContext({}),
+            recommendation_footnotes=footnotes,
         )
 
         assert result.success

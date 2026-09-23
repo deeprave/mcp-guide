@@ -32,12 +32,13 @@ class SyntaxHighlighter:
 class TemplateFunctions:
     """Template lambda functions with ChainMap context integration."""
 
-    def __init__(self, context: ChainMap[str, Any]) -> None:
+    def __init__(self, context: ChainMap[str, Any], *, recommendations_enabled: bool = True) -> None:
         """Initialize with ChainMap context."""
         self.context = context
         self.highlighter = SyntaxHighlighter()
         self.errors: list[str] = []
         self.recommendations: list[Recommendation] = []
+        self.recommendations_enabled = recommendations_enabled
 
     def _error(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Signal an application-level error: {{#_error}}message{{/_error}}"""
@@ -52,6 +53,8 @@ class TemplateFunctions:
 
     def recommend(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Render a typed Guide recommendation and retain its source for a footnote."""
+        if not self.recommendations_enabled:
+            raise RuntimeError("Recommendation rendering requires an active session")
         recommendation = parse_recommendation(render(text) if render else text)
         if recommendation not in self.recommendations:
             self.recommendations.append(recommendation)

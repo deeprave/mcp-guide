@@ -24,6 +24,29 @@ def render_template(runtime):
 
 
 @pytest.mark.anyio
+async def test_render_template_rejects_recommendations_without_a_session(tmp_path):
+    """An unbound render cannot emit a session-dependent recommendation."""
+    template = tmp_path / "unbound-recommendation.mustache"
+    template.write_text("{{#recommend}}content:docs{{/recommend}}")
+    file_info = FileInfo(
+        path=template,
+        size=template.stat().st_size,
+        content_size=template.stat().st_size,
+        mtime=datetime.fromtimestamp(template.stat().st_mtime),
+        name=template.name,
+    )
+
+    with pytest.raises(RuntimeError, match="requires an active session"):
+        await _render_template(
+            session=None,
+            file_info=file_info,
+            base_dir=tmp_path,
+            project_flags={},
+            resolver=lambda path: tmp_path / path,
+        )
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "scenario,project_flags,expected_result",
     [

@@ -190,7 +190,7 @@ async def render_template_content(
         final_context = transient_fn(render_context) if transient_fn else render_context
 
         # Create template functions and inject into context with error handling
-        functions = TemplateFunctions(final_context)
+        functions = TemplateFunctions(final_context, recommendations_enabled=recommendation_footnotes is not None)
         workflow_context = final_context.get("workflow")
         workflow_vars = {}
         if isinstance(workflow_context, dict):
