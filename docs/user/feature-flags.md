@@ -62,6 +62,7 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 |------|-------------|------|---------|
 | `workflow` | Enables workflow phase tracking (discussion, planning, implementation, check, review). Can be `true` (all phases), `false` (disabled), or list of phase names. | `boolean` or `list[string]` | `false` |
 | `workflow-file` | Path to workflow tracking file. Supports variables: `{project-name}`, `{project-key}`, `{project-hash}`. | `string` | `.guide.yaml` |
+| `handoff-context` | Startup handoff guidance target: `true` uses `context.json` under resolved `path-documents` (`.todo/` by default); a filename uses the document path; a relative path uses that project path. | `boolean` or `string` | Disabled |
 | `workflow-consent` | Controls phase transition consent requirements. Can be `true` (default consent rules), `false` (no consent required), or custom rules specifying which phases require consent to enter or exit. | `boolean` or `dict` | `true` |
 | `openspec` | Enables OpenSpec integration for this project. Project only; global state cannot enable it. Adds OpenSpec-specific commands and workflow instructions. | `boolean` | `false` |
 | `content-style` | Controls markdown formatting in template output. `plain` = strips all formatting, `headings` = renders heading markers only, `full` = renders all markdown. | `string` | `plain` |

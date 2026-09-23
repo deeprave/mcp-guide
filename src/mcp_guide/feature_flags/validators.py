@@ -3,6 +3,7 @@
 from collections.abc import Collection
 from enum import Enum
 from math import isfinite
+from pathlib import Path
 from typing import Callable, Dict
 
 from mcp_guide.feature_flags.constants import (
@@ -12,6 +13,7 @@ from mcp_guide.feature_flags.constants import (
     FLAG_CONTENT_FORMAT,
     FLAG_CONTENT_STYLE,
     FLAG_GUIDE_DEVELOPMENT,
+    FLAG_HANDOFF_CONTEXT,
     FLAG_MCP_SKILLS,
     FLAG_ONBOARDED,
     FLAG_OPENSPEC,
@@ -272,6 +274,45 @@ def normalise_boolean_or_string_flag(value: FeatureValueLike | None) -> FeatureV
     return FeatureValue.from_raw(value)
 
 
+def validate_handoff_context_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
+    """Validate boolean enablement or a project-relative handoff target."""
+    del is_project
+    if value is None:
+        return True
+    if coerce_boolean_like(value) is not None:
+        return True
+    try:
+        raw = FeatureValue.from_raw(value).to_raw()
+    except TypeError:
+        return False
+    if not isinstance(raw, str):
+        return False
+    return normalise_handoff_context_target(raw) is not None
+
+
+def normalise_handoff_context_target(value: str) -> str | None:
+    """Return a safe relative handoff file target, or None for invalid input."""
+    target = value.strip().replace("\\", "/")
+    path = Path(target)
+    if not target or target.startswith("~") or path.is_absolute() or ".." in path.parts:
+        return None
+    if target.endswith("/") or path.name in {"", "."}:
+        return None
+    return target
+
+
+def normalise_handoff_context_flag(value: FeatureValueLike | None) -> FeatureValue | None:
+    """Normalise boolean-like values and project-relative target separators."""
+    if value is None:
+        return None
+    if (coerced := coerce_boolean_like(value)) is not None:
+        return FeatureValue(coerced)
+    raw = FeatureValue.from_raw(value).to_raw()
+    if isinstance(raw, str):
+        return FeatureValue(raw.strip().replace("\\", "/"))
+    return FeatureValue(raw)
+
+
 def validate_path_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
     """Validate path flag value.
 
@@ -436,6 +477,11 @@ register_flag_validator(
 register_flag_validator(FLAG_GUIDE_DEVELOPMENT, validate_boolean_flag, normaliser=normalise_boolean_flag)
 register_flag_validator(FLAG_RESOURCE, validate_boolean_flag, normaliser=normalise_boolean_flag)
 register_flag_validator(FLAG_COMMAND, validate_boolean_flag, normaliser=normalise_boolean_flag)
+register_flag_validator(
+    FLAG_HANDOFF_CONTEXT,
+    validate_handoff_context_flag,
+    normaliser=normalise_handoff_context_flag,
+)
 register_flag_validator(FLAG_PATH_DOCUMENTS, validate_path_flag, normaliser=normalise_path_flag)
 register_flag_validator(FLAG_PATH_EXPORT, validate_path_flag, normaliser=normalise_path_flag)
 register_flag_validator(

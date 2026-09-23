@@ -956,10 +956,17 @@ class TaskManager(SessionListener):
                 self._pending_instructions.append(queued)
 
     async def queue_instruction_with_ack(
-        self, content: str, max_retries: int = 3, *, on_dispatch: Callable[[], Awaitable[None]] | None = None
+        self,
+        content: str,
+        max_retries: int = 3,
+        *,
+        on_dispatch: Callable[[], Awaitable[None]] | None = None,
+        priority: bool = False,
     ) -> str:
         """Queue an unowned Session-level acknowledgement-tracked instruction."""
-        return await self._queue_instruction_with_ack(content, max_retries=max_retries, on_dispatch=on_dispatch)
+        return await self._queue_instruction_with_ack(
+            content, max_retries=max_retries, on_dispatch=on_dispatch, priority=priority
+        )
 
     async def _queue_instruction_with_ack(
         self,
@@ -967,6 +974,7 @@ class TaskManager(SessionListener):
         max_retries: int = 3,
         *,
         on_dispatch: Callable[[], Awaitable[None]] | None = None,
+        priority: bool = False,
         activation: TaskActivation | None = None,
     ) -> str:
         """Queue instruction with acknowledgement tracking.
@@ -1011,7 +1019,11 @@ class TaskManager(SessionListener):
         )
 
         self._tracked_instructions[instruction_id] = tracked
-        self._pending_instructions.append(QueuedInstruction(content, activation=activation, tracking_id=instruction_id))
+        queued = QueuedInstruction(content, activation=activation, tracking_id=instruction_id)
+        if priority:
+            self._pending_instructions.insert(0, queued)
+        else:
+            self._pending_instructions.append(queued)
 
         return instruction_id
 

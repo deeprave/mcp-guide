@@ -1,10 +1,14 @@
-"""McpUpdateTask - prompts for documentation updates at startup."""
+"""StartupTask - queues applicable startup instructions."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.feature_flags.constants import FLAG_AUTOUPDATE, FLAG_GUIDE_DEVELOPMENT
+from mcp_guide.feature_flags.constants import (
+    FLAG_AUTOUPDATE,
+    FLAG_GUIDE_DEVELOPMENT,
+    FLAG_HANDOFF_CONTEXT,
+)
 from mcp_guide.feature_flags.validators import coerce_boolean_like, is_value_true
 from mcp_guide.installer.core import (
     DocrootValidationError,
@@ -22,11 +26,11 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class McpUpdateTask:
+class StartupTask:
     """Check for documentation updates at startup and prompt if needed."""
 
     def __init__(self, task_manager: "TaskManager", session: "Session") -> None:
-        """Initialize McpUpdateTask.
+        """Initialize StartupTask.
 
         Args:
             task_manager: TaskManager owned by the Session that creates this task.
@@ -44,7 +48,7 @@ class McpUpdateTask:
         Returns:
             Task name
         """
-        return "McpUpdateTask"
+        return "StartupTask"
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
         """Handle timer event to check for updates.
@@ -63,17 +67,17 @@ class McpUpdateTask:
             return None
 
         try:
-            # Autoupdate is opt-out: only explicit false disables startup prompting.
             session = self.session
+            await self._prompt_handoff_context(session)
             from mcp_guide.runtime import get_runtime
 
             if is_value_true(await get_runtime().feature_flags().get(FLAG_GUIDE_DEVELOPMENT)):
-                logger.debug("McpUpdateTask disabled while guide-development is enabled")
+                logger.debug("StartupTask document-update check disabled while guide-development is enabled")
                 return EventResult(result=True)
 
             autoupdate = (await self.task_manager.resolved_flags(session)).get(FLAG_AUTOUPDATE)
             if coerce_boolean_like(autoupdate) is False:
-                logger.debug("McpUpdateTask disabled - autoupdate explicitly set to false")
+                logger.debug("StartupTask document-update check disabled - autoupdate explicitly set to false")
                 return EventResult(result=True)
 
             raw_docroot = await get_runtime().get_docroot()
@@ -140,5 +144,36 @@ class McpUpdateTask:
         rendered = await render_content(self.session, "_update", "_system", context)
 
         if rendered:
-            self._instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content)
+            self._instruction_id = await self.task_manager.queue_instruction_with_ack(rendered.content, priority=True)
             logger.info("Queued documentation update prompt")
+
+    async def _prompt_handoff_context(self, session: "Session") -> None:
+        """Queue rendered handoff guidance for the active project."""
+        from mcp_guide.feature_flags.utils import get_resolved_flag_value, resolve_documents_path
+        from mcp_guide.handoff_context import resolve_handoff_context
+        from mcp_guide.render.context import TemplateContext
+        from mcp_guide.render.rendering import render_content
+
+        if session.project is None:
+            return
+        project = await session.get_project()
+        value = await get_resolved_flag_value(session, FLAG_HANDOFF_CONTEXT)
+        documents_path = await resolve_documents_path(session)
+        resolved = resolve_handoff_context(
+            value,
+            documents_path=documents_path,
+            allowed_write_paths=project.allowed_write_paths,
+        )
+        if resolved.target is not None and not resolved.eligible:
+            return
+        try:
+            rendered = await render_content(
+                session,
+                "_handoff-context",
+                "_system",
+                TemplateContext({"handoff_context": {"target": resolved.target, "format": resolved.format}}),
+            )
+        except FileNotFoundError:
+            return
+        if rendered and rendered.content.strip():
+            await self.task_manager.queue_instruction(rendered.content)

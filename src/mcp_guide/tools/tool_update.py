@@ -68,9 +68,9 @@ async def internal_update_documents(
         return Result.failure(f"Failed to update documentation: {e}", error_type=ERROR_FILE_ERROR)
 
     # Acknowledge update prompt to stop retry loop
-    from mcp_guide.tasks.update_task import McpUpdateTask
+    from mcp_guide.tasks.update_task import StartupTask
 
-    update_task = session.task_manager.get_task_by_type(McpUpdateTask)
+    update_task = session.task_manager.get_task_by_type(StartupTask)
     if update_task:
         await update_task.acknowledge_update()
 

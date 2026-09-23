@@ -16,3 +16,4 @@
 
 - [x] 3.1 Document global and project `handoff-context` configuration values, target resolution, and the disabled default; verify examples match the implemented contract.
 - [x] 3.2 Run focused pytest coverage, Ruff and type checks, strict OpenSpec validation for `add-handover-context`, and `git diff --check`; record any full-suite result or environmental blocker.
+- [x] 3.3 Add the optional handoff-context selection to guided onboarding, including disabled, default, and validated custom project targets.

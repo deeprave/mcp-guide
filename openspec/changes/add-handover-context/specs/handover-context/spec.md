@@ -27,6 +27,12 @@ context while the flag is disabled.
 - **THEN** the system SHALL use the project value for that project
 - **AND** other projects without an override SHALL continue to use the global value
 
+#### Scenario: Onboarding configures a project handoff preference
+- **WHEN** guided onboarding reaches the optional handoff-context selection
+- **THEN** it SHALL offer disabled, default, and custom project-target choices
+- **AND** it SHALL map them respectively to `false`, `true`, and a validated
+  project-relative target through the project feature-flag configuration path
+
 ### Requirement: Enabled values select a handoff target
 When the effective `handoff-context` value is `true`, the system SHALL request
 updates to `context.json` under `{{paths.documents}}`. When it is a filename,

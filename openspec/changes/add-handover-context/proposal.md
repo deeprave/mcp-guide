@@ -18,6 +18,8 @@ handoff unchanged.
 - Support `true` as the default `context.json` target under
   `{{paths.documents}}`, a filename as a document-directory target, and a
   project-relative path as an explicit target; reject absolute paths.
+- Offer an optional onboarding choice for disabled, default, or custom
+  project-level handoff-context configuration.
 - Derive the requested handoff format from the target extension, including
   JSON, Markdown, and plain text.
 - Require the resolved target to pass the project's existing

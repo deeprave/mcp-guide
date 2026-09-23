@@ -379,17 +379,12 @@ class TemplateContextCache(SessionListener):
         }
         try:
             if session:
-                from mcp_guide.feature_flags.constants import FLAG_PATH_DOCUMENTS, FLAG_PATH_EXPORT
-                from mcp_guide.feature_flags.utils import get_resolved_flag_value
+                from mcp_guide.feature_flags.constants import FLAG_PATH_EXPORT
+                from mcp_guide.feature_flags.utils import get_resolved_flag_value, resolve_documents_path
                 from mcp_guide.feature_flags.validators import validate_path_flag
 
-                documents_path = await get_resolved_flag_value(session, FLAG_PATH_DOCUMENTS)
+                path_config["documents"] = await resolve_documents_path(session)
                 export_path = await get_resolved_flag_value(session, FLAG_PATH_EXPORT)
-
-                if documents_path is not None:
-                    raw_documents_path = to_raw_feature_value(documents_path)
-                    if isinstance(raw_documents_path, str) and validate_path_flag(raw_documents_path, True):
-                        path_config["documents"] = raw_documents_path
                 if export_path is not None:
                     raw_export_path = to_raw_feature_value(export_path)
                     if isinstance(raw_export_path, str) and validate_path_flag(raw_export_path, True):

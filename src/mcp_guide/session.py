@@ -122,11 +122,11 @@ class Session:
         try:
             from mcp_guide.tasks.document_task import DocumentTask
             from mcp_guide.tasks.retry_task import RetryTask
-            from mcp_guide.tasks.update_task import McpUpdateTask
+            from mcp_guide.tasks.update_task import StartupTask
 
             RetryTask(self.task_manager)
             DocumentTask(self.task_manager, self)
-            McpUpdateTask(self.task_manager, self)
+            StartupTask(self.task_manager, self)
         except Exception as error:
             logger.warning("Unable to initialise Session task subscriptions: %s", error, exc_info=True)
 

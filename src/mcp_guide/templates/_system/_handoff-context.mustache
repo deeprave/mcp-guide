@@ -1,0 +1,9 @@
+---
+type: agent/instruction
+---
+{{#handoff_context.target}}
+Keep the current handoff context updated at milestones in `{{handoff_context.target}}` as {{handoff_context.format}}.
+{{/handoff_context.target}}
+{{^handoff_context.target}}
+No handoff context is configured for the current project.
+{{/handoff_context.target}}
