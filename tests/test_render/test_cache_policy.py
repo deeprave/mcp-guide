@@ -175,7 +175,8 @@ async def test_pre_rendered_policy_partial_contributes_to_cache_policy(tmp_path)
 
     assert result.success
     assert result.value is not None
-    content, partial_contributions, _ = result.value
+    content = result.value.content
+    partial_contributions = result.value.partial_contributions
     rendered = RenderedContent(
         frontmatter=Frontmatter({"cache": "long"}),
         frontmatter_length=0,
@@ -201,7 +202,8 @@ async def test_pre_rendered_policy_partial_contributes_to_disposition(tmp_path) 
 
     assert result.success
     assert result.value is not None
-    content, partial_contributions, _ = result.value
+    content = result.value.content
+    partial_contributions = result.value.partial_contributions
     rendered = RenderedContent(
         frontmatter=Frontmatter({"type": "user/information"}),
         frontmatter_length=0,
@@ -226,7 +228,8 @@ async def test_undeclared_pre_rendered_partial_disables_parent_caching(tmp_path)
 
     assert result.success
     assert result.value is not None
-    content, partial_contributions, _ = result.value
+    content = result.value.content
+    partial_contributions = result.value.partial_contributions
     rendered = RenderedContent(
         frontmatter=Frontmatter({"cache": "long"}),
         frontmatter_length=0,
@@ -260,7 +263,8 @@ async def test_pre_rendered_policy_uses_its_resolved_nested_policy(tmp_path) -> 
 
     assert result.success
     assert result.value is not None
-    content, partial_contributions, _ = result.value
+    content = result.value.content
+    partial_contributions = result.value.partial_contributions
     rendered = RenderedContent(
         frontmatter=Frontmatter({"cache": "long"}),
         frontmatter_length=0,

@@ -81,10 +81,11 @@ async def resolve_all_flags(session: "Session | None") -> dict[str, Any]:
 
     try:
         # Get all flags
+        project_flags = await session.project_flags().list() if session is not None else {}
         from mcp_guide.runtime import get_runtime
 
-        project_flags = await session.project_flags().list() if session is not None else {}
-        global_flags = await get_runtime().feature_flags().list()
+        runtime = get_runtime()
+        global_flags = await runtime.feature_flags().list()
 
         # Get all unique flag names
         all_flag_names = set(project_flags.keys()) | set(global_flags.keys())

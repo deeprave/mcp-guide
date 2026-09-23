@@ -1,109 +1,47 @@
 ## Context
 
-Templates currently use `TemplateFunctions` to collect `_error` signals, then
-carry those through `RenderedContent`. Startup delivery queues plain instruction
-strings, and MCP adapters already place modern side-band values under the
-`mcp-guide` metadata namespace. See proposal.md and the delta specifications.
-
-## Goals / Non-Goals
-
-**Goals:**
-
-- Let a template recommend the next Guide item without adding recommendation
-  prose to its rendered content.
-- Preserve recommendations through normal rendering and every public response
-  surface.
-- Advertise effective Guide skills at startup only for the existing opt-in
-  `mcp-skills` experiment.
-
-**Non-Goals:**
-
-- Infer user intent or automatically invoke a recommended item. The client
-  chooses whether to retrieve a recommended Guide skill.
-- Validate, execute, or install a recommended skill, tool, document, or
-  expression.
-- Replace the existing skill catalogue, its `usage` metadata, or the negotiated
-  `skills/list` extension.
+Guide needs a compact way for rendered instructions to point agents towards a
+relevant Guide capability. The recommendation belongs to the rendered document,
+not to result transport or task-management state.
 
 ## Decisions
 
-### Collect explicit rendered recommendation forms with a template lambda
+### Render recommendations as part of the document
 
-`recommend` follows the `_error` pattern: it renders the enclosed Mustache
-text, records its non-blank value on `TemplateFunctions`, and returns an empty
-string. Its content is an explicit recommendation form, rather than arbitrary
-prose to infer from. A Guide skill uses the form `Guide skill "<name>"`; its
-structured item carries the skill name and a `guide://$<name>` resource
-fallback. Other forms remain available for a tool, document, or expression.
+`recommend` records only values explicitly authored by a template. After the
+template body renders, the document renderer classifies each value and appends
+its compact JSON footnote before returning the document. No later layer knows
+that the document contains recommendations.
 
-This does not require the renderer to validate that a named skill currently
-exists. It gives clients a stable, intention-rich name while retaining the URI
-for clients, agents, and scripts that consume skill resources directly.
+The supported explicit forms are `skill:<name>`, `command:<name>`,
+`content:<name>`, and `tool:<name>`. An unprefixed value means `content:<name>`.
+The visible text uses the relevant Guide noun, while the footnote contains the
+URI and, where applicable, the configured tool call. Skill footnotes include
+the effective catalogue description.
 
-### Make Guide-skill references client-driven during transition
+### Keep all template surfaces on the normal pipeline
 
-When a template directs an agent to a Guide skill, it records `Guide skill
-"<name>"` through `recommend`. The resulting structured item makes the skill
-name the primary client action. A future MCP `use_skill` tool receives that
-name without a `$` prefix; until then, a client may resolve the item's
-`guide://$<name>` resource fallback. The server neither recursively renders nor
-invokes the selected skill. This provides the interim path for Git workflow
-templates before they are refactored around recommendation items.
+The helper is registered in the common template context. The renderer uses the
+same full context when it evaluates partial requirements, merging resolved
+project flags with the template context instead of replacing it. This means
+skills, commands, content, workflow documents, and instruction templates all
+receive the same rendering behaviour.
 
-The template may retain a fluent visible instruction such as “Use the Guide
-skill `git-commit`”. Where a visible resource reference is useful, it uses a
-footnote-style reference rather than embedding the URI in the sentence. The
-footnote contains the same fallback URI as the structured item. Recommendation
-capture remains explicit: response rendering does not parse arbitrary prose
-for skill names.
+### Provide a narrow `use_skill` tool
 
-### Carry recommendations beside errors and instructions
+`{{tool_prefix}}use_skill` is a project-dependent `@toolfunc` for clients that
+cannot yet invoke Guide skills natively. It accepts one exact catalogue skill
+identifier, optionally with `$`, and an `args` list. The shared command parser
+receives `[skill_name, *args]`, so bare tokens become truthy keyword flags,
+`no-*` tokens become false flags, and `key=value` values become keyword values.
+It resolves only `SKILL.md`; skill package members remain resource-only.
 
-Add an ordered `recommendations` collection to `RenderedContent`, sourced from
-the `TemplateFunctions` instance. Rendering aggregation preserves each
-contributor's recommendation order. A Guide-skill item is structured as a
-named skill and its resource fallback, rather than a bare URI.
+## Trade-offs
 
-Result construction and MCP adapters promote a non-empty list to
-`_meta["mcp-guide"]["recommendations"]`. This is independent of the existing
-scalar instruction channel: an instruction explains state, while a
-recommendation identifies a potential next item. Empty values do not create an
-empty metadata namespace or key.
-
-### Use a feature-gated startup partial for structured suggestions
-
-`_startup` includes a dedicated partial with `requires-mcp-skills: true` in
-its frontmatter. That partial owns the small, contextual selection of Guide
-skills and declares them through the named Guide-skill recommendation form.
-Normal partial requirement filtering omits it when the global experiment is
-disabled, so the startup listener continues to queue only the rendered startup
-result and does not grow a feature-flag branch.
-
-Startup delivery maps the partial's recommendation items to the structured
-`suggested_guide_skills` value. The partial makes suggestions discoverable; it
-does not imply that the receiving client negotiated or implements `skills/list`.
-
-### Keep recommendation authoring explicit and contextual
-
-Templates add `{{#recommend}}…{{/recommend}}` only at a real action boundary.
-The helper does not add generic recommendation boilerplate or make unrelated
-features visible. This preserves the focused behaviour of status and other
-read-only responses.
-
-## Risks / Trade-offs
-
-- [Clients ignore unknown metadata] → Text responses and existing catalogue
-  access remain unchanged; capable clients can progressively adopt the field.
-- [A recommendation is stale after a project change] → Startup derives its
-  suggestions from the bound session's effective catalogue, and normal
-  recommendation authors remain responsible for contextual placement.
-- [Named item may not be available to a client] → Clients can use their
-  available skill mechanism, including the resource fallback; the renderer
-  does not falsely claim the skill was invoked.
-
-## Migration Plan
-
-The metadata is additive. Existing clients continue to receive their current
-text and instruction fields, while clients that understand recommendations can
-begin consuming the new keys. Removing the helper or ignoring the metadata is
-safe rollback behaviour.
+- A footnote is deliberately part of the rendered text, so old clients can use
+  the URI fallback without metadata support.
+- Recommendation values are explicit template authoring input; the renderer
+  does not scan prose for capability names.
+- The compact option-token interface supports flags and key/value settings,
+  rather than arbitrary positional arguments. Skills that need named values
+  use `key=value`.

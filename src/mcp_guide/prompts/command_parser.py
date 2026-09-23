@@ -16,6 +16,7 @@ def parse_command_arguments(
     argv: list[str],
     short_flag_map: dict[str, str] | None = None,
     argrequired: list[str] | None = None,
+    bare_tokens_are_flags: bool = False,
 ) -> tuple[dict[str, str | bool | int], list[str], list[str]]:
     """Parse command arguments into kwargs, args, and parse_errors.
 
@@ -25,9 +26,11 @@ def parse_command_arguments(
                        When provided, allows commands to support short flags like -v for --verbose.
                        Example: {"v": "verbose", "d": "dry_run"} would map -v to --verbose
         argrequired: Optional list of flag names that require values.
-                    When a flag in this list is encountered without '=', the next argument
-                    is consumed as its value. Example: ["tracking", "issue"] allows
-                    "--tracking GUIDE-177" in addition to "--tracking=GUIDE-177"
+            When a flag in this list is encountered without '=', the next argument
+            is consumed as its value. Example: ["tracking", "issue"] allows
+            "--tracking GUIDE-177" in addition to "--tracking=GUIDE-177"
+        bare_tokens_are_flags: Whether non-dashed, non-assignment tokens become
+            truthy keyword flags instead of positional arguments.
 
     Returns:
         Tuple of (kwargs, args, parse_errors)
@@ -158,6 +161,10 @@ def parse_command_arguments(
             # Positional argument
             if arg.startswith("="):
                 parse_errors.append("Invalid argument: starts with '=' but no key")
+                continue
+            if bare_tokens_are_flags:
+                key, value = process_flag(arg)
+                kwargs[key] = value
                 continue
             args.append(arg)
 

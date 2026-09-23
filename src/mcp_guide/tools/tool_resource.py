@@ -23,6 +23,7 @@ from mcp_guide.core.validation import validate_content_name
 from mcp_guide.discovery.commands import discover_commands, normalise_alias_metadata
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, discover_document_files
 from mcp_guide.models import resolve_all_flags
+from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render.context import TemplateContext, keyword_context
 from mcp_guide.render.frontmatter import check_frontmatter_requirements, parse_content_with_frontmatter
 from mcp_guide.render.rendering import render_content
@@ -65,10 +66,9 @@ class GuideSkill:
         return f"{self.identifier}/SKILL.md"
 
 
-async def discover_guide_skills(request_context: RequestContext) -> list[GuideSkill]:
-    """Discover skills from their frontmatter, excluding unmet requirements."""
-    skills_dir = request_context.resolve_document_path(SKILLS_DIR)
-    task_manager = request_context.session.task_manager
+async def _discover_guide_skills(session: Any, resolver: Any, task_manager: Any) -> list[GuideSkill]:
+    """Discover effective skills from one session and document resolver."""
+    skills_dir = resolver(SKILLS_DIR)
     cache_key = str(skills_dir)
     cache_generation = task_manager.skill_cache_generation
 
@@ -101,11 +101,11 @@ async def discover_guide_skills(request_context: RequestContext) -> list[GuideSk
     if files.truncation_reasons:
         logger.warning("Guide skill discovery truncated by %s", ", ".join(sorted(files.truncation_reasons)))
 
-    flags = await resolve_all_flags(request_context.session)
+    flags = await resolve_all_flags(session)
     skills: list[GuideSkill] = []
     for file_info in files:
         try:
-            file_info.resolve(request_context.resolve_document_path, SKILLS_DIR)
+            file_info.resolve(resolver, SKILLS_DIR)
             frontmatter = parse_content_with_frontmatter(await file_info.read_raw()).frontmatter
         except (OSError, UnicodeError) as error:
             logger.warning("Ignoring unreadable Guide skill package %s: %s", file_info.path, error)
@@ -142,6 +142,19 @@ async def discover_guide_skills(request_context: RequestContext) -> list[GuideSk
     skills = sorted(skills, key=lambda skill: skill.identifier)
     task_manager.cache_skills(cache_key, effective_mtime, skills, cache_generation)
     return skills
+
+
+async def discover_guide_skills(request_context: RequestContext) -> list[GuideSkill]:
+    """Discover skills from their frontmatter, excluding unmet requirements."""
+    return await _discover_guide_skills(
+        request_context.session, request_context.resolve_document_path, request_context.session.task_manager
+    )
+
+
+async def discover_guide_skills_for_rendering(session: Any, resolver: Any) -> dict[str, str]:
+    """Return catalogue descriptions for skill footnotes during rendering."""
+    skills = await _discover_guide_skills(session, resolver, session.task_manager)
+    return {skill.identifier: skill.description for skill in skills}
 
 
 def _catalogue_table_cell(value: str) -> str:
@@ -297,6 +310,8 @@ async def _read_guide_skill(
         )
     except FileNotFoundError:
         return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
+    except RuntimeError as error:
+        return Result.failure(str(error), error_type=ERROR_VALIDATION)
     if rendered is None:
         return Result.failure(f"Guide skill '{skill_path}' is unavailable for this project", error_type=ERROR_NOT_FOUND)
     if rendered.errors:
@@ -308,6 +323,62 @@ async def _read_guide_skill(
         disposition=rendered.disposition,
         cache_policy=rendered.cache_policy,
     )
+
+
+async def internal_use_skill(
+    skill_name: str,
+    request_context: RequestContext,
+    *,
+    kwargs: Mapping[str, Any] | None = None,
+    mcp_context: Context | None = None,
+) -> Result[Any] | InputRequiredResult:
+    """Resolve one catalogued Guide skill through its SKILL.md entrypoint."""
+    identifier = skill_name.removeprefix("$")
+    selected = next(
+        (skill for skill in await discover_guide_skills(request_context) if skill.identifier == identifier), None
+    )
+    if selected is None:
+        return Result.failure(f"Guide skill '{identifier}' was not found", error_type=ERROR_NOT_FOUND)
+    return await _read_guide_skill(selected.identifier, request_context, kwargs=kwargs, mcp_context=mcp_context)
+
+
+class UseSkillArgs(ToolArguments):
+    """Arguments for the client-facing Guide skill tool."""
+
+    skill: str = Field(
+        ...,
+        description="Guide skill name, optionally beginning with $. Do not pass a guide:// URI.",
+    )
+    args: list[str] = Field(
+        default_factory=list,
+        description="Skill option tokens parsed with Guide's shared option parser, such as ['mode=unrelenting', 'verbose'].",
+    )
+
+
+@toolfunc(UseSkillArgs)
+async def use_skill(
+    args: UseSkillArgs,
+    request_context: RequestContext,
+    mcp_context: Context | None = None,
+) -> ToolResult | InputRequiredResult:
+    """Use a selected Guide skill by name, parsing options through the shared Guide parser."""
+    kwargs, _, parse_errors = parse_command_arguments([args.skill, *args.args], bare_tokens_are_flags=True)
+    if parse_errors:
+        return await tool_result(
+            "use_skill",
+            Result.failure(f"Skill argument parsing failed: {'; '.join(parse_errors)}", error_type=ERROR_VALIDATION),
+            session=request_context.session,
+            session_id=args.session_id,
+        )
+    result = await internal_use_skill(
+        args.skill,
+        request_context,
+        kwargs=kwargs,
+        mcp_context=mcp_context,
+    )
+    if isinstance(result, InputRequiredResult):
+        return result
+    return await tool_result("use_skill", result, session=request_context.session, session_id=args.session_id)
 
 
 def session_id_from_guide_uri(uri: str) -> str | None:

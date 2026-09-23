@@ -16,7 +16,7 @@ cache: short, private
 - Build or update one complete, stable canonical inventory at `{{path.documents}}Reviews/<issue>.json`: preserve existing source report references, versions, targets, and scopes, then add the eligible new source material; deduplicate only findings that describe the same underlying defect, and retain the strongest evidence for each unique finding
 - Use the combined inventory format below. New findings begin with a pending triage object. If a canonical inventory already has recorded triage decisions, preserve its decision, variation, rationale, action, and completion state for matching findings
 - When the reviewed work is a pull request, inspect existing pull-request comments only after collation. Mark matching combined findings as already flagged or add useful context in the combined inventory; do not modify source reports
-- Report the created or updated canonical inventory path, then use Guide skill `just-one` to walk through every unique finding. Do not implement, format, commit, push, or discard changes during triage unless the user later explicitly confirms the collected accepted actions
+- Report the created or updated canonical inventory path, then use {{#recommend}}skill:just-one{{/recommend}} to walk through every unique finding. Do not implement, format, commit, push, or discard changes during triage unless the user later explicitly confirms the collected accepted actions
 - Keep handoff context `{{path.documents}}context.json` updated at meaningful milestones when present
 
 ## Combined inventory format

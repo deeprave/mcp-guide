@@ -1,15 +1,14 @@
 ## 1. Recommendation rendering
 
-- [ ] 1.1 Add the common `recommend` template helper and carry its ordered non-empty rendered recommendation items through `RenderedContent`; verify focused rendering tests cover invisible helper output, context interpolation, explicit Guide-skill item fields, ordering, and an empty recommendation.
-- [ ] 1.2 Preserve recommendations when rendered content and partial contributions are assembled; verify a behaviour test observes recommendations from the complete rendered response without asserting shipped template prose.
+- [x] 1.1 Add the common `recommend` template helper for `skill:`, `command:`, `content:`, and `tool:` references, defaulting unprefixed values to content; append fluent references and compact JSON footnotes during document rendering.
+- [x] 1.2 Keep recommendation state inside rendering only. Do not add it to `RenderedContent`, Result, queues, listeners, or MCP responses. Preserve the complete render context when loading requirement-gated partials.
 
-## 2. Structured delivery
+## 2. Skills
 
-- [ ] 2.1 Extend Guide result and MCP response adaptation so recommendations are delivered as optional `mcp-guide.recommendations` metadata without changing existing instruction or cache metadata; verify tool, prompt, resource, and retained-client response behaviours.
-- [ ] 2.2 Add a `requires-mcp-skills` startup partial that authors suggested Guide-skill recommendations, and deliver them as optional `suggested_guide_skills` startup metadata; verify the partial contributes only when the global experiment is enabled.
-- [ ] 2.3 Add contextual `recommend` use to an appropriate action-boundary template. For a Guide skill, use the `Guide skill "<name>"` form, retain a fluent visible instruction, and use a footnote-style resource fallback where visible linking helps; verify client-driven recommendation behaviour rather than literal template text.
+- [x] 2.1 Add contextual `recommend` use to an action-boundary skill template using the explicit `skill:` form.
+- [x] 2.2 Add the project-dependent `{{tool_prefix}}use_skill` tool through `@toolfunc`. Accept an exact plain skill name with optional `$`, parse its `args` with the shared command parser (skill name at argv[0]), and render only its `SKILL.md` entrypoint.
 
 ## 3. Documentation and validation
 
-- [ ] 3.1 Document the `recommend` helper and structured recommendation metadata for template and client authors; verify the documentation examples match the declared metadata keys.
-- [ ] 3.2 Run focused pytest coverage, Ruff check and format, strict OpenSpec validation for `add-recommend-items`, and `git diff --check`; record any full-suite result or environmental blocker.
+- [x] 3.1 Update developer and skill-author guidance for typed recommendation forms.
+- [x] 3.2 Run focused pytest coverage, Ruff check and format, strict OpenSpec validation for `add-recommend-items`, and `git diff --check`; the full suite passed (1946 tests).

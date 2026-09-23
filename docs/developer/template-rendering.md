@@ -102,6 +102,22 @@ if result:
 3. Build context: base → frontmatter vars → caller context
 4. Render template with Chevron and partials
 
+## Recommendations
+
+Use the `recommend` lambda at an instruction boundary to point an agent to a
+related Guide capability:
+
+```mustache
+{{#recommend}}skill:workflow-review{{/recommend}}
+```
+
+Valid types are `skill`, `command`, `content`, and `tool`; an unprefixed value
+is content. The rendered document contains a fluent reference and one compact
+JSON footnote for each unique recommendation. The footnote supplies the URI
+and, where applicable, the configured tool invocation. Recommendation targets
+are validated while rendering: blank values, unknown type labels, and targets
+that do not exist make the template fail to render.
+
 ### process_frontmatter()
 
 Use `process_frontmatter()` for frontmatter processing without file I/O:

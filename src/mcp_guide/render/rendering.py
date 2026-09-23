@@ -119,6 +119,9 @@ async def render_content(
     except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
         logger.error(f"Failed to read {display_name} template {pattern}: {e}")
         return None
+    except RuntimeError:
+        # A template error is an invalid authored document, not an unavailable one.
+        raise
     except Exception:
         # Broad catch is intentional - gracefully handle any rendering errors
         # Full traceback is logged for debugging
