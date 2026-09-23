@@ -3,49 +3,57 @@
 ## Purpose
 
 Provide explicit, opt-in guidance for agents to maintain concise current
-handover context without imposing project workflow conventions by default.
+handoff context without imposing project workflow conventions by default.
 
 ## ADDED Requirements
 
 ### Requirement: Handoff-context feature flag controls proactive guidance
 The system SHALL resolve `handoff-context` through the normal project-then-global
 feature-flag hierarchy. An absent or false effective value SHALL disable
-proactive handover-context guidance. A user MAY still directly instruct an
-agent to prepare handover context while the flag is disabled.
+proactive handoff-context update requests. The flag SHALL use the established
+feature-flag registration, validation, and normalisation path, accept a
+boolean-like value or non-empty target string, and be available globally and
+per project. A user MAY still directly instruct an agent to prepare handoff
+context while the flag is disabled.
 
-#### Scenario: Default configuration does not request handover context
+#### Scenario: Default configuration does not request handoff context
 - **WHEN** no effective `handoff-context` value is enabled
-- **THEN** milestone responses SHALL omit any request to create or update handover context
-- **AND** the response SHALL not imply that a handover file is required
+- **THEN** the TaskManager SHALL queue rendered guidance that no handoff
+  context is configured for the current project
+- **AND** the guidance SHALL NOT request a handoff file update
 
 #### Scenario: Project flag overrides global configuration
 - **WHEN** a global `handoff-context` value is configured and a project configures its own value
 - **THEN** the system SHALL use the project value for that project
 - **AND** other projects without an override SHALL continue to use the global value
 
-### Requirement: Enabled values select a handover target
+### Requirement: Enabled values select a handoff target
 When the effective `handoff-context` value is `true`, the system SHALL request
 updates to `context.json` under `{{paths.documents}}`. When it is a filename,
 the system SHALL request updates to that filename under `{{paths.documents}}`.
 When it is a relative file path, the system SHALL request updates to that
-resolved project path.
+resolved project path. An absolute path SHALL be rejected.
 
 #### Scenario: Boolean enablement uses the default target
 - **WHEN** `handoff-context` is true
-- **THEN** milestone guidance SHALL identify `{{paths.documents}}/context.json` as the target
-- **AND** it SHALL request an updated and current handover context
+- **THEN** startup guidance SHALL identify `{{paths.documents}}/context.json` as the target
+- **AND** it SHALL request an updated and current handoff context
 
 #### Scenario: Filename selects a document-directory target
 - **WHEN** `handoff-context` contains a filename without directory components
-- **THEN** milestone guidance SHALL identify that filename beneath `{{paths.documents}}`
-- **AND** it SHALL request an updated and current handover context
+- **THEN** startup guidance SHALL identify that filename beneath `{{paths.documents}}`
+- **AND** it SHALL request an updated and current handoff context
 
 #### Scenario: Relative path selects an explicit target
 - **WHEN** `handoff-context` contains a relative path with directory components
-- **THEN** milestone guidance SHALL identify the resolved relative target
+- **THEN** startup guidance SHALL identify the resolved relative target
 - **AND** it SHALL not relocate that target beneath `{{paths.documents}}`
 
-### Requirement: Handover guidance matches the selected file format
+#### Scenario: Absolute path is rejected
+- **WHEN** a caller sets `handoff-context` to an absolute path
+- **THEN** feature-flag validation SHALL reject the value
+
+### Requirement: Handoff guidance matches the selected file format
 The system SHALL request a format appropriate to the selected target's filename
 extension. It SHALL request JSON for `.json`, Markdown for `.md`, plain text
 for `.txt`, and the correspondingly implied format for other recognised
@@ -53,27 +61,42 @@ extensions.
 
 #### Scenario: JSON target receives JSON guidance
 - **WHEN** the selected target has a `.json` extension
-- **THEN** milestone guidance SHALL request current handover context in valid JSON
+- **THEN** startup guidance SHALL request current handoff context in valid JSON
 
 #### Scenario: Markdown target receives Markdown guidance
 - **WHEN** the selected target has a `.md` extension
-- **THEN** milestone guidance SHALL request current handover context in Markdown
+- **THEN** startup guidance SHALL request current handoff context in Markdown
 
-### Requirement: Handover target must be writable within project policy
-Before requesting an update, the system SHALL resolve the selected target and
-confirm it is within the project root or covered by the project's existing
-`allowed_write_paths` policy. It SHALL not request an update for a path that
-fails that validation.
+### Requirement: Handoff target must pass project write policy
+Before requesting an update, the system SHALL resolve the selected relative
+target and validate it with the project's existing
+`ReadWriteSecurityPolicy.validate_write_path` against `allowed_write_paths`.
+It SHALL not request an update for a path that fails that validation.
 
-#### Scenario: Project-local target is eligible
-- **WHEN** the selected target resolves within the project root
-- **THEN** the system SHALL include the handover update request at a milestone
-
-#### Scenario: Configured write target is eligible
-- **WHEN** the selected target matches an `allowed_write_paths` entry
-- **THEN** the system SHALL include the handover update request at a milestone
+#### Scenario: Allowed project target is eligible
+- **WHEN** the selected target passes the project's existing write policy
+- **THEN** the system SHALL include the handoff update request in startup guidance
 
 #### Scenario: Disallowed target is omitted
-- **WHEN** the selected target is outside the project root and is not covered by `allowed_write_paths`
-- **THEN** the system SHALL omit the handover update request
+- **WHEN** the selected target does not pass the project's existing write policy
+- **THEN** the system SHALL omit the handoff update request
 - **AND** it SHALL not direct the agent to create or modify that path
+
+### Requirement: StartupTask queues rendered handoff guidance
+The TaskManager-owned `StartupTask` SHALL evaluate handoff-context delivery
+alongside its existing documentation-update checks. It SHALL resolve the
+effective handoff-context value, render a dedicated system template, and
+queue the resulting agent instruction. It SHALL NOT duplicate the handoff
+delivery in a separate task or hard-code its agent-facing wording.
+
+#### Scenario: Disabled guidance is rendered and queued
+- **WHEN** `StartupTask` evaluates a project with `handoff-context` absent,
+  null, or false
+- **THEN** it SHALL render and queue the disabled handoff-context template
+
+#### Scenario: Enabled guidance is rendered and queued
+- **WHEN** `StartupTask` evaluates a project with an eligible resolved handoff
+  target
+- **THEN** it SHALL render and queue the enabled handoff-context template
+- **AND** the rendered guidance SHALL identify the resolved target and its
+  requested format

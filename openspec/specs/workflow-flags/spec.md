@@ -186,7 +186,9 @@ available exploratory mode rather than a normal ordered delivery phase.
 - **WHEN** onboarding explains workflow variants containing `exploration`
 - **THEN** it distinguishes `exploration` from `discussion`
 - **AND** it describes `discussion` as alignment-oriented
-- **AND** it describes `exploration` as approach-oriented### Requirement: Autoupdate Feature Flag
+- **AND** it describes `exploration` as approach-oriented
+
+### Requirement: Autoupdate Feature Flag
 The system SHALL provide a global feature flag `autoupdate` that controls
 automatic update prompting at startup.
 
