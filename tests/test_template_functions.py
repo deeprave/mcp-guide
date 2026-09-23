@@ -10,6 +10,7 @@ import pytest
 from mcp_guide.core.tool_decorator import get_tool_prefix
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.functions import TemplateFunctions
+from mcp_guide.render.recommendations import parse_recommendation
 from mcp_guide.render.renderer import render_template_content
 
 
@@ -166,7 +167,7 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("Date: {{#format_date}}%Y-{{invalid_date}}{{/format_date}}", context)
 
         assert result.is_ok()
-        rendered_content, _, _ = result.value
+        rendered_content = result.value.content
         assert "[Template Error (" in rendered_content
         assert "not a datetime object" in rendered_content
 
@@ -179,7 +180,7 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("{{#truncate}}-5{{text}}{{/truncate}}", context)
 
         assert result.is_ok()
-        rendered_content, _, _ = result.value
+        rendered_content = result.value.content
         assert "[Template Error (" in rendered_content
 
     @pytest.mark.anyio
@@ -191,7 +192,7 @@ class TestSafeLambdaWrapper:
         result = await render_template_content("{{#highlight_code}}py@thon{{code}}{{/highlight_code}}", context)
 
         assert result.is_ok()
-        rendered_content, _, _ = result.value
+        rendered_content = result.value.content
         assert "[Template Error (" in rendered_content
 
     def test_full_template_rendering_with_lambdas(self):
@@ -312,7 +313,8 @@ class TestErrorLambda:
         result = await render_template_content(template, ctx)
         assert result.success
         assert result.value is not None
-        rendered_text, _, errors = result.value
+        rendered_text = result.value.content
+        errors = result.value.errors
         assert rendered_text == ""
         assert errors == ["missing arg"]
 
@@ -326,7 +328,7 @@ class TestErrorLambda:
         result = await render_template_content(template, ctx, file_path="path/to/_my-command.mustache")
         assert result.success
         assert result.value is not None
-        rendered_text, _, _ = result.value
+        rendered_text = result.value.content
         assert rendered_text == "my-command"
 
     @pytest.mark.anyio
@@ -337,8 +339,74 @@ class TestErrorLambda:
         result = await render_template_content("hello", TemplateContext({}))
         assert result.success
         assert result.value is not None
-        _, _, errors = result.value
-        assert errors == []
+        assert result.value.errors == []
+
+
+class TestRecommendLambda:
+    """Tests for embedded typed recommendations."""
+
+    def test_recommend_renders_a_skill_reference_and_records_its_name(self):
+        functions = TemplateFunctions(ChainMap())
+
+        rendered = functions.recommend("skill:workflow-review", render=lambda text: text)
+
+        recommendation = parse_recommendation("skill:workflow-review")
+        assert rendered == f'Guide skill "workflow-review"[^{recommendation.label}]'
+        assert functions.recommendations == [recommendation]
+
+    @pytest.mark.anyio
+    async def test_recommend_preserves_rendered_names_in_author_order(self):
+        async def footnotes(_):
+            return ""
+
+        result = await render_template_content(
+            "{{#recommend}}{{first}}{{/recommend}} {{#recommend}}{{second}}{{/recommend}}",
+            TemplateContext({"first": "skill:workflow-status", "second": "content:docs"}),
+            recommendation_footnotes=footnotes,
+        )
+
+        assert result.success
+        assert result.value is not None
+        skill = parse_recommendation("skill:workflow-status")
+        content = parse_recommendation("content:docs")
+        assert (
+            result.value.content
+            == f'Guide skill "workflow-status"[^{skill.label}] Guide content "docs"[^{content.label}]'
+        )
+
+    @pytest.mark.anyio
+    async def test_recommend_preserves_repeated_rendered_names(self):
+        async def footnotes(_):
+            return ""
+
+        result = await render_template_content(
+            "{{#recommend}}workflow-review{{/recommend}} {{#recommend}}workflow-review{{/recommend}}",
+            TemplateContext({}),
+            recommendation_footnotes=footnotes,
+        )
+
+        assert result.success
+        assert result.value is not None
+        content = parse_recommendation("workflow-review")
+        assert (
+            result.value.content
+            == f'Guide content "workflow-review"[^{content.label}] Guide content "workflow-review"[^{content.label}]'
+        )
+        assert result.value.content.count(content.label) == 2
+
+    def test_empty_recommendation_is_an_error(self):
+        functions = TemplateFunctions(ChainMap())
+
+        with pytest.raises(ValueError, match="must name"):
+            functions.recommend("   ")
+        assert functions.recommendations == []
+
+    @pytest.mark.parametrize("value", ["unknown:target", ":target", "skill:"])
+    def test_recommend_rejects_invalid_type_or_target(self, value):
+        functions = TemplateFunctions(ChainMap())
+
+        with pytest.raises(ValueError):
+            functions.recommend(value)
 
 
 class TestResourceLambda:
@@ -410,7 +478,7 @@ class TestCommandLambda:
             result = await render_template_content("{{prompt}}", context)
 
         assert result.is_ok()
-        rendered_content, _, _ = result.value
+        rendered_content = result.value.content
         assert rendered_content == "g"
 
     def test_command_defaults_to_uri(self):
@@ -516,7 +584,8 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
-        rendered_content, _, errors = result.value
+        rendered_content = result.value.content
+        errors = result.value.errors
         assert rendered_content == "OK: planning"
         assert errors == []
 
@@ -537,7 +606,8 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
-        rendered_content, _, errors = result.value
+        rendered_content = result.value.content
+        errors = result.value.errors
         assert rendered_content == ""
         assert errors == []
 
@@ -558,7 +628,8 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
-        rendered_content, _, errors = result.value
+        rendered_content = result.value.content
+        errors = result.value.errors
         assert rendered_content == ""
         assert errors == ["Unknown or unavailable workflow phase: planning"]
 
@@ -579,6 +650,7 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
-        rendered_content, _, errors = result.value
+        rendered_content = result.value.content
+        errors = result.value.errors
         assert rendered_content == ""
         assert errors == []

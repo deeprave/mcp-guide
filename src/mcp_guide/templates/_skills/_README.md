@@ -63,4 +63,6 @@ ineffective.
 Use a concise title and clear sections such as `## Directives` and
 `## Selected Policies` for operational guidance. Refer to another bundled
 skill as Guide skill `<skill-name>` so the intended skill boundary is
-discoverable to MCP-capable agents.
+discoverable to MCP-capable agents. At an action boundary, use a recommendation
+for the next relevant capability. See `docs/developer/template-rendering.md`
+for the supported forms and rendering contract.

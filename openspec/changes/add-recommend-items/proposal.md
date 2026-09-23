@@ -7,40 +7,33 @@ Guide skill, tool, document, or expression without relying on prose parsing.
 
 ## What Changes
 
-- Add a `recommend` template helper that records a rendered recommendation
-  while omitting its marker from ordinary rendered content.
-- Establish an explicit `Guide skill "<name>"` recommendation form, so
-  templates can direct an agent to the correct skill before the Git workflow
-  templates are refactored. Its metadata includes a `guide://$<name>` resource
-  fallback, without making that URI the primary instruction.
-- Deliver recorded recommendations as structured response metadata, preserving
-  the existing text and instruction contracts when no recommendation is made.
+- Add a `recommend` template helper that renders fluent typed Guide references
+and compact JSON footnotes directly into the returned document.
+- Let templates explicitly recommend skills, commands, content, and tools;
+unprefixed references default to content.
 - Support rendered recommendation items for Guide skills, tools, documents, and
   content expressions without coupling the helper to a particular item type. A
   visible Guide-skill reference may use a footnote-style URI reference to keep
   the surrounding instruction fluent.
-- Add a feature-gated startup partial that contributes Guide-skill suggestions
-  when the global `mcp-skills` experiment is enabled.
+- Add a `{{tool_prefix}}use_skill` tool for MCP clients that cannot yet use
+  Guide skills directly. It accepts a plain skill name (optionally prefixed by
+  `$`) and forwards its tool arguments through shared skill resolution rather
+  than duplicating skill rendering.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `recommend-items`: Template-authored, structured recommendations for Guide
-  actions and content.
+- `recommend-items`: Template-authored rendered recommendations for Guide
+actions and content.
 
 ### Modified Capabilities
 
-- `guide-url-skills`: Startup delivery can advertise template-authored Guide
-  skill suggestions when the optional MCP skills extension is enabled.
-- `response-metadata`: Responses carry structured recommendations without
-  changing existing instruction delivery.
 - `template-support`: Templates can declare recommendations through the common
   `recommend` helper.
 
 ## Impact
 
-- Template functions, rendered-content models, and MCP response adapters.
-- Startup templates and the optional Guide skills extension path.
-- Focused behaviour tests for recommendation capture, structured delivery, and
-  feature-gated startup suggestions.
+- Template functions and document rendering.
+- Tool registration and the shared skill-resource resolution path.
+- Focused behaviour tests for rendered recommendations.

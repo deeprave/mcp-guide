@@ -18,7 +18,7 @@ logger = get_logger(__name__)
 T = TypeVar("T")
 
 
-def parse_options(options: list[str]) -> dict[str, str | bool]:
+def parse_options(options: list[str]) -> dict[str, str | bool | int]:
     """Convert a list of display options into a template context dict.
 
     Supports truthy flags and key=value pairs for flexible template rendering.
@@ -29,13 +29,11 @@ def parse_options(options: list[str]) -> dict[str, str | bool]:
     Returns:
         Dict mapping option names to True (flags) or string values (key=value pairs)
     """
-    parsed: dict[str, str | bool] = {}
-    for opt in options:
-        if "=" in opt:
-            key, value = opt.split("=", 1)
-            parsed[key] = value
-        else:
-            parsed[opt] = True
+    from mcp_guide.prompts.command_parser import parse_command_arguments
+
+    parsed, _, errors = parse_command_arguments(["options", *options], bare_tokens_are_flags=True)
+    if errors:
+        raise ValueError("; ".join(errors))
     return parsed
 
 

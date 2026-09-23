@@ -9,6 +9,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import get_prompt_name
 from mcp_guide.core.tool_decorator import get_tool_prefix
 from mcp_guide.feature_flags.constants import FLAG_COMMAND, FLAG_RESOURCE
+from mcp_guide.render.recommendations import Recommendation, parse_recommendation
 
 logger = get_logger(__name__)
 _MISSING = object()
@@ -31,11 +32,13 @@ class SyntaxHighlighter:
 class TemplateFunctions:
     """Template lambda functions with ChainMap context integration."""
 
-    def __init__(self, context: ChainMap[str, Any]) -> None:
+    def __init__(self, context: ChainMap[str, Any], *, recommendations_enabled: bool = True) -> None:
         """Initialize with ChainMap context."""
         self.context = context
         self.highlighter = SyntaxHighlighter()
         self.errors: list[str] = []
+        self.recommendations: list[Recommendation] = []
+        self.recommendations_enabled = recommendations_enabled
 
     def _error(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Signal an application-level error: {{#_error}}message{{/_error}}"""
@@ -47,6 +50,15 @@ class TemplateFunctions:
         if message:
             self.errors.append(message)
         return ""
+
+    def recommend(self, text: str, render: Callable[[str], str] | None = None) -> str:
+        """Render a typed Guide recommendation and retain its source for a footnote."""
+        if not self.recommendations_enabled:
+            raise RuntimeError("Recommendation rendering requires an active session")
+        recommendation = parse_recommendation(render(text) if render else text)
+        if recommendation not in self.recommendations:
+            self.recommendations.append(recommendation)
+        return f'Guide {recommendation.kind} "{recommendation.name}"[^{recommendation.label}]'
 
     def _parse_template_args(self, text: str) -> tuple[str, str]:
         """Parse mustache-style lambda body into (arg, variable_name).

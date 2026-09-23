@@ -34,7 +34,7 @@ elicitation:
 - Before dispatch, determine the next positive review version for each reviewer without exposing its earlier findings. Pass that version to the reviewer, which overwrites its own report and assigns the same `version` to every finding in that report
 - Each source report must identify its reviewer, version, target, scope, and creation time, and contain a `findings` array whose entries have a stable identifier, version, P1-to-P6 priority, location, description, analysis, and recommendation
 - After both fresh reviews are complete, report the exact paths of the two source records produced, state that they remain independent evidence, and ask the user what they want to do next
-- Do not collate reports, inspect pull-request comments, create or update `{{path.documents}}Reviews/<issue>.json`, or invoke `just-one`; Guide skill `workflow-triage` performs those actions when the user elects triage
+- Do not collate reports, inspect pull-request comments, create or update `{{path.documents}}Reviews/<issue>.json`, or invoke `just-one`; {{#recommend}}skill:workflow-triage{{/recommend}} performs those actions when the user elects triage.
 - Keep handoff context `{{path.documents}}context.json` updated at meaningful milestones when present
 
 ## Source review record format

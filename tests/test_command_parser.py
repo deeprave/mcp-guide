@@ -60,6 +60,23 @@ class TestCommandArgumentParser:
         assert args == []
         assert errors == []
 
+    def test_parse_bare_tokens_as_flags_when_requested(self):
+        kwargs, args, errors = parse_command_arguments(
+            ["workflow-review", "mode=unrelenting", "verbose", "pretty-print"],
+            bare_tokens_are_flags=True,
+        )
+
+        assert kwargs == {"mode": "unrelenting", "verbose": True, "pretty_print": True}
+        assert args == []
+        assert errors == []
+
+    def test_parse_bare_negative_tokens_as_flags_when_requested(self):
+        kwargs, args, errors = parse_command_arguments(["workflow-review", "no-colour"], bare_tokens_are_flags=True)
+
+        assert kwargs == {"colour": False}
+        assert args == []
+        assert errors == []
+
     def test_parse_short_flags(self):
         """Test parsing single-letter flags like -v, -f."""
         argv = [":command", "-v", "-f"]

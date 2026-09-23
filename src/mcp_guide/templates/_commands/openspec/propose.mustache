@@ -42,7 +42,7 @@ Encourage questions and reasoning. Capturing architectural aspects, constraints,
 5. Draft spec deltas in `changes/{{args.0.value}}/specs/<capability>/spec.md` (one folder per capability) using `## ADDED|MODIFIED|REMOVED Requirements` with at least one `#### Scenario:` per requirement and cross-reference related capabilities when relevant.
 6. Ask the user whether to create `tasks.md` now or leave the proposal in draft form. If creating tasks, draft them as an ordered list of small, verifiable work items that deliver user-visible progress, include validation (tests, tooling), and highlight dependencies or parallelisable work.
 7. Validate with `openspec validate {{args.0.value}} --strict` and resolve every issue before sharing the proposal.
-8. After successfully creating the proposal artefacts, use `guide://_openspec/list?force` to refresh the cached changes list.
+8. After successfully creating the proposal artefacts, use {{#recommend}}command:openspec/list?force{{/recommend}} to refresh the cached changes list.
 
 {{b}}Reference{{b}}
 - Use `openspec show <id> --json --deltas-only` or `openspec show <spec> --type spec` to inspect details when validation fails.

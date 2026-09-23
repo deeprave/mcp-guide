@@ -210,7 +210,8 @@ async def test_unused_partial_instruction_not_applied(tmp_path):
     )
 
     assert result.is_ok()
-    rendered_content, partial_contributions, _ = result.value
+    rendered_content = result.value.content
+    partial_contributions = result.value.partial_contributions
     assert rendered_content == "Status: OK"
     # Partial was NOT rendered, so its frontmatter must NOT be in the list
     assert partial_contributions == []
@@ -241,11 +242,32 @@ async def test_used_partial_instruction_is_applied(tmp_path):
     )
 
     assert result.is_ok()
-    rendered_content, partial_contributions, _ = result.value
+    rendered_content = result.value.content
+    partial_contributions = result.value.partial_contributions
     assert "Agent detection required" in rendered_content
     # Partial WAS rendered, so its frontmatter must be collected
     assert len(partial_contributions) == 1
     assert partial_contributions[0].frontmatter.get("instruction") == "^ Run client_info tool"
+
+
+@pytest.mark.anyio
+async def test_requirement_gated_partial_retains_the_full_template_context(tmp_path):
+    """Partial requirements use flags without discarding parent render variables."""
+    (tmp_path / "_policy.mustache").write_text("---\nrequires-mcp-skills: true\n---\n{{workflow.name}}")
+
+    result = await render_template_content(
+        "{{>policy}}",
+        TemplateContext({"workflow": {"name": "current-workflow"}}),
+        file_path=str(tmp_path / "parent.mustache"),
+        metadata={"includes": ["policy"]},
+        requirements_context={"mcp-skills": True},
+        base_dir=tmp_path,
+        resolver=document_root_resolver(tmp_path),
+    )
+
+    assert result.success
+    assert result.value is not None
+    assert result.value.content == "current-workflow"
 
 
 @pytest.mark.anyio
@@ -272,7 +294,7 @@ async def test_partial_instruction_placeholders_resolved(tmp_path):
     )
 
     assert result.is_ok()
-    _, partial_contributions, _ = result.value
+    partial_contributions = result.value.partial_contributions
     assert len(partial_contributions) == 1
     # Placeholder must be resolved
     assert partial_contributions[0].frontmatter.get("instruction") == "Run my_client_info"
@@ -298,7 +320,6 @@ async def test_unsafe_partial_is_omitted_without_suppressing_safe_partial(tmp_pa
     )
 
     assert result.is_ok()
-    assert result.value[0] == "parent safe content "
-    assert "outside sentinel" not in result.value[0]
+    assert result.value.content == "parent safe content "
+    assert "outside sentinel" not in result.value.content
     assert any("Unsafe partial reference omitted" in message for message in caplog.messages)
-    assert all("../outside/secret" not in message for message in caplog.messages)

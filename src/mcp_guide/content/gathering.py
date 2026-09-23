@@ -81,6 +81,35 @@ def parse_expression(expression: str) -> list[DocumentExpression]:
     return expressions
 
 
+def validate_content_expression(
+    project: Project, expression: str, visited_collections: Optional[set[str]] = None
+) -> list[DocumentExpression]:
+    """Validate an expression against the project's categories and collections.
+
+    Content retrieval and recommendation rendering share this validation so
+    they accept the same expression grammar and configured references.
+    """
+    if visited_collections is None:
+        visited_collections = set()
+
+    expressions = parse_expression(expression)
+    for expr in expressions:
+        if expr.name in project.collections:
+            if expr.name in visited_collections:
+                continue
+            visited_collections.add(expr.name)
+            for category_expr in project.collections[expr.name].categories:
+                if category_expr in project.collections and category_expr not in project.categories:
+                    validate_content_expression(project, category_expr, visited_collections)
+                    continue
+                for category in parse_expression(category_expr):
+                    if category.name not in project.categories:
+                        raise CategoryNotFoundError(f"{category.name} (referenced by collection '{expr.name}')")
+        elif expr.name not in project.categories:
+            raise CategoryNotFoundError(expr.name)
+    return expressions
+
+
 async def gather_content(
     request_context: RequestContext,
     project: Project,
@@ -114,7 +143,7 @@ async def gather_content(
     if visited_collections is None:
         visited_collections = set()
 
-    expressions = parse_expression(expression)
+    expressions = validate_content_expression(project, expression)
     all_files = []
     truncation_reasons: set[str] = set()
     # Track processed (category_name, patterns) combinations to allow multiple pattern sets per category

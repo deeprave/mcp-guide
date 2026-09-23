@@ -1,7 +1,8 @@
 """Template rendering utilities for Mustache templates."""
 
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional, TypeVar
 
 import chevron
 from chevron import ChevronError
@@ -18,9 +19,21 @@ from mcp_guide.render.partials import PartialNotFoundError, UnsafePartialPathErr
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_TEMPLATE, INSTRUCTION_VALIDATION_ERROR
 
+if TYPE_CHECKING:
+    from mcp_guide.render.recommendations import Recommendation
+
 logger = get_logger(__name__)
 
 _VT = TypeVar("_VT")
+
+
+@dataclass
+class TemplateRenderResult:
+    """Rendered template output before document-level footnotes are appended."""
+
+    content: str
+    partial_contributions: list[DocumentContribution]
+    errors: list[str]
 
 
 class _TrackingDict(Dict[str, _VT]):
@@ -84,10 +97,12 @@ async def render_template_content(
     partials: Optional[Dict[str, str]] = None,
     pre_rendered_partial_contributions: Optional[Dict[str, list[DocumentContribution]]] = None,
     metadata: Optional[Dict[str, Any]] = None,
+    requirements_context: Optional[Dict[str, Any]] = None,
     base_dir: Optional[Path] = None,
     resolver: Callable[[str | Path], Path] | None = None,
+    recommendation_footnotes: Callable[[list["Recommendation"]], Awaitable[str]] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
-) -> Result[tuple[str, list[DocumentContribution], list[str]]]:
+) -> Result[TemplateRenderResult]:
     """Render template content with context.
 
     Args:
@@ -134,7 +149,7 @@ async def render_template_content(
                         # Load partial content using base directory
                         try:
                             # Build context for frontmatter requirements checking
-                            context_dict = dict(render_context) if render_context else {}
+                            context_dict = {**dict(render_context), **(requirements_context or {})}
 
                             if base_dir and resolver:
                                 partial_content, partial_frontmatter = await load_partial_content(
@@ -175,7 +190,7 @@ async def render_template_content(
         final_context = transient_fn(render_context) if transient_fn else render_context
 
         # Create template functions and inject into context with error handling
-        functions = TemplateFunctions(final_context)
+        functions = TemplateFunctions(final_context, recommendations_enabled=recommendation_footnotes is not None)
         workflow_context = final_context.get("workflow")
         workflow_vars = {}
         if isinstance(workflow_context, dict):
@@ -192,6 +207,7 @@ async def render_template_content(
                 "template_name": stem.lstrip("_"),
                 "prompt": get_prompt_name(),
                 "_error": functions._error,
+                "recommend": functions.recommend,
                 "format_date": _safe_lambda(functions.format_date),
                 "truncate": _safe_lambda(functions.truncate),
                 "highlight_code": _safe_lambda(functions.highlight_code),
@@ -215,6 +231,8 @@ async def render_template_content(
         # Render template with Chevron (TemplateContext works as ChainMap)
         logger.trace(f"Rendering template {file_path} with partials: {list(processed_partials.keys())}")
         rendered = chevron.render(content, template_context, partials_dict=tracking_partials)
+        if recommendation_footnotes:
+            rendered += await recommendation_footnotes(functions.recommendations)
         ensure_within_limit(len(rendered.encode("utf-8")), limit_name="max-content-limit", limit=max_content_limit)
         logger.trace(f"Template {file_path} rendered content ({len(rendered)} chars): {rendered[:1024]}")
 
@@ -229,7 +247,7 @@ async def render_template_content(
                     DocumentContribution(processed_partials[name], {}, DocumentProperties.from_frontmatter(None))
                 )
 
-        return Result.ok((rendered, partial_contributions, functions.errors))
+        return Result.ok(TemplateRenderResult(rendered, partial_contributions, functions.errors))
 
     except ChevronError as e:
         # Enhanced Chevron-specific error handling with line context

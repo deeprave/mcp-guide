@@ -1,16 +1,27 @@
 """Resource URI routing through real project content and command templates."""
 
+from types import SimpleNamespace
+
 import pytest
 
+from mcp_guide.core.tool_decorator import get_tool_registration
 from mcp_guide.models import Category
 from mcp_guide.render import rendering
+from mcp_guide.render.recommendations import parse_recommendation
 from mcp_guide.result_constants import (
     AGENT_INFO,
     INSTRUCTION_AGENT_INFORMATION,
     INSTRUCTION_DISPLAY_ONLY,
     USER_INFO,
 )
-from mcp_guide.tools.tool_resource import ListSkillsArgs, ReadResourceArgs, internal_read_resource, list_skills
+from mcp_guide.tools.tool_resource import (
+    ListSkillsArgs,
+    ReadResourceArgs,
+    UseSkillArgs,
+    internal_read_resource,
+    internal_use_skill,
+    list_skills,
+)
 
 
 @pytest.mark.anyio
@@ -42,6 +53,134 @@ async def test_skill_entrypoint_reports_its_rendered_virtual_file(resource_proje
     assert result.success, result.error
     assert result.message == "Rendered skill file: workflow-status/SKILL.md"
     assert result.value == "Read the current Guide workflow and OpenSpec status."
+
+
+@pytest.mark.anyio
+async def test_use_skill_shares_the_resource_skill_resolution(resource_project):
+    result = await internal_use_skill("$workflow-status", resource_project, kwargs={})
+
+    assert result.success, result.error
+    assert result.value == "Read the current Guide workflow and OpenSpec status."
+
+
+@pytest.mark.anyio
+async def test_use_skill_rejects_member_paths(resource_project):
+    result = await internal_use_skill("workflow-status/README.md", resource_project, kwargs={})
+
+    assert not result.success
+    assert result.error_type == "not_found"
+
+
+@pytest.mark.anyio
+async def test_use_skill_without_a_project_returns_standard_guidance(runtime):
+    context = SimpleNamespace(
+        request_context=SimpleNamespace(
+            protocol_version="legacy", request_id="unbound-use-skill", meta=None, lifespan_context=runtime
+        ),
+        session=SimpleNamespace(client_params=None),
+        transport="streamable-http",
+    )
+    wrapper = get_tool_registration("use_skill").metadata.wrapped_func
+
+    response = await wrapper(UseSkillArgs(skill="workflow-status"), ctx=context)
+
+    assert response.structured_content["error_type"] == "no_project"
+
+
+@pytest.mark.anyio
+async def test_use_skill_tool_forwards_a_plain_name_and_arguments(resource_project):
+    docroot = resource_project.resolve_document_path("")
+    skill = docroot / "_skills/parsed-options/SKILL.md.mustache"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(
+        "---\nname: parsed-options\ndescription: Render parsed skill options.\nusage: Use to inspect parsed options.\n---\n"
+        "Mode={{kwargs.mode}}; verbose={{kwargs.verbose}}; pretty={{kwargs.pretty_print}}"
+    )
+    tool = get_tool_registration("use_skill").metadata.func
+    result = await tool(
+        UseSkillArgs(skill="$parsed-options", args=["mode=unrelenting", "verbose", "pretty-print"]),
+        resource_project,
+    )
+
+    assert result.structured_content["success"] is True
+    assert result.structured_content["value"] == "Mode=unrelenting; verbose=True; pretty=True"
+
+
+@pytest.mark.anyio
+async def test_skill_recommendation_delivers_a_fluent_reference_and_structured_detail(resource_project):
+    docroot = resource_project.resolve_document_path("")
+    skill = docroot / "_skills/custom-review/SKILL.md.mustache"
+    skill.parent.mkdir(parents=True)
+    command = docroot / "_commands/workflow/status.mustache"
+    command.parent.mkdir(parents=True)
+    command.write_text("---\ndescription: Render status.\n---\nStatus")
+    skill.write_text(
+        "---\nname: custom-review\ndescription: Review custom work.\nusage: Use for a custom review.\n---\n"
+        "Next: {{#recommend}}skill:custom-review{{/recommend}}, then {{#recommend}}skill:custom-review{{/recommend}}. "
+        "Read {{#recommend}}docs{{/recommend}}. "
+        "Then {{#recommend}}command:workflow/status{{/recommend}}. "
+        "Finally {{#recommend}}tool:get_content{{/recommend}}."
+    )
+
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$custom-review"), resource_project)
+
+    assert result.success, result.error
+    skill = parse_recommendation("skill:custom-review")
+    content = parse_recommendation("docs")
+    command = parse_recommendation("command:workflow/status")
+    tool = parse_recommendation("tool:get_content")
+    assert f'Guide skill "custom-review"[^{skill.label}]' in result.value
+    assert result.value.count(f'Guide skill "custom-review"[^{skill.label}]') == 2
+    assert f'Guide content "docs"[^{content.label}]' in result.value
+    assert f'Guide command "workflow/status"[^{command.label}]' in result.value
+    assert f'Guide tool "get_content"[^{tool.label}]' in result.value
+    assert '"uri":"guide://$custom-review"' in result.value
+    assert '"tool":"use_skill(\\"custom-review\\")"' in result.value
+    assert '"uri":"guide://docs"' in result.value
+    assert '"uri":"guide://_workflow/status"' in result.value
+    assert '"tool":"get_content"' in result.value
+    assert result.value.count(f"[^{skill.label}]:") == 1
+    assert f"[^{skill.label}]:\n    ```json" in result.value
+
+
+@pytest.mark.anyio
+async def test_command_recommendation_preserves_its_force_option(resource_project):
+    """A command recommendation remains directly actionable with its option."""
+    docroot = resource_project.resolve_document_path("")
+    archive = docroot / "_commands/openspec/archive.mustache"
+    listing = docroot / "_commands/openspec/list.mustache"
+    archive.write_text("After archive, use {{#recommend}}command:openspec/list?force{{/recommend}}.")
+    listing.write_text("List changes")
+
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://_openspec/archive"), resource_project)
+
+    assert result.success, result.error
+    assert '"uri":"guide://_openspec/list?force"' in result.value
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("recommendation", "error"),
+    [
+        ("skill:does-not-exist", "Unknown recommended skill"),
+        ("content:docs,missing", "Unknown recommended content"),
+        ("skill:", "must name a target"),
+        ("unknown:target", "Unknown recommendation type"),
+    ],
+)
+async def test_recommendation_rejects_invalid_target_and_does_not_render(resource_project, recommendation, error):
+    docroot = resource_project.resolve_document_path("")
+    skill = docroot / "_skills/bad-recommendation/SKILL.md.mustache"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(
+        "---\nname: bad-recommendation\ndescription: Broken recommendation.\nusage: Test invalid recommendations.\n---\n"
+        f"{{{{#recommend}}}}{recommendation}{{{{/recommend}}}}"
+    )
+
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$bad-recommendation"), resource_project)
+
+    assert not result.success
+    assert error in result.error
 
 
 @pytest.mark.anyio
@@ -106,7 +245,7 @@ async def test_skill_render_failure_returns_a_structured_result(resource_project
     result = await internal_read_resource(ReadResourceArgs(uri="guide://$broken"), resource_project)
 
     assert result.success is False
-    assert result.error_type == "not_found"
+    assert result.error_type == "validation_error"
 
 
 @pytest.mark.anyio
