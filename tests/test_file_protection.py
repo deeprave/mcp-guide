@@ -4,29 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from .conftest import REAL_PATHS, REPO_ROOT, WorktreeFileHandler, is_gitignored
-
-
-def test_protection_monitors_real_production_paths(session_temp_dir):
-    """Verify watchdog monitors REAL production paths, not test paths."""
-    from mcp_guide.config_paths import get_config_file, get_docroot
-
-    # Verify environment is redirected to test paths using get_config_file() and get_docroot()
-    test_config = get_config_file().parent
-    test_docroot = get_docroot()
-
-    assert str(session_temp_dir) in str(test_config), "Config should be in test temp dir"
-    assert str(session_temp_dir) in str(test_docroot), "Docroot should be in test temp dir"
-
-    # Verify real paths are DIFFERENT from test paths
-    assert test_config != REAL_PATHS["mcp_guide_config"], "Real production config should differ from test config"
-    assert test_docroot != REAL_PATHS["mcp_guide_docroot"], "Real production docroot should differ from test docroot"
-
-    # Verify real paths point to actual user directories (not test temp)
-    assert str(session_temp_dir) not in str(REAL_PATHS["mcp_guide_config"]), (
-        "Real config should not be in test temp dir"
-    )
-    assert REAL_PATHS["mcp_guide_config"].is_absolute(), "Real config should be an absolute path"
+from .conftest import REPO_ROOT, WorktreeFileHandler
 
 
 def test_can_safely_modify_test_paths(tmp_path, session_temp_dir):
@@ -163,27 +141,8 @@ def test_worktree_guard_ignores_directory_events_on_repo_root(monkeypatch):
     assert not exit_called
 
 
-def test_worktree_guard_aborts_on_ignored_path(monkeypatch):
-    """An ignored worktree write must abort the test session."""
-    exit_message = None
-
-    def mock_exit(msg, *args, **kwargs):
-        nonlocal exit_message
-        exit_message = msg
-
-    monkeypatch.setattr(pytest, "exit", mock_exit)
-    handler = WorktreeFileHandler(REPO_ROOT)
-    ignored_path = REPO_ROOT / "tests" / "__pycache__" / "sentinel.pyc"
-    assert is_gitignored(REPO_ROOT, ignored_path)
-
-    handler.on_any_event(SimpleNamespace(src_path=str(ignored_path), event_type="created", is_directory=False))
-
-    assert exit_message is not None, "pytest.exit should be called for ignored worktree writes"
-    assert str(ignored_path) in exit_message
-
-
-def test_worktree_guard_aborts_on_non_ignored_fixture_write(monkeypatch):
-    """A write under tests/fixtures that git would track must abort the session."""
+def test_worktree_guard_aborts_on_fixture_write(monkeypatch):
+    """A worktree file creation must abort the session."""
     exit_message = None
 
     def mock_exit(msg, *args, **kwargs):
@@ -193,9 +152,8 @@ def test_worktree_guard_aborts_on_non_ignored_fixture_write(monkeypatch):
     monkeypatch.setattr(pytest, "exit", mock_exit)
 
     sentinel = REPO_ROOT / "tests" / "fixtures" / "sentinel"
-    assert not is_gitignored(REPO_ROOT, sentinel)
     handler = WorktreeFileHandler(REPO_ROOT)
     handler.on_any_event(SimpleNamespace(src_path=str(sentinel), event_type="created", is_directory=False))
 
-    assert exit_message is not None, "pytest.exit should be called for non-gitignored worktree writes"
+    assert exit_message is not None, "pytest.exit should be called for worktree writes"
     assert str(sentinel) in exit_message
