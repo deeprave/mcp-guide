@@ -29,6 +29,7 @@ Protected Paths (if they exist):
 import asyncio
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -87,6 +88,22 @@ if os.name == "nt":
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def is_gitignored(repo_root: Path, path: Path) -> bool:
+    """Return True when Git would ignore this worktree path."""
+    try:
+        relative = path.resolve().relative_to(repo_root.resolve())
+    except ValueError:
+        return True
+    if relative.parts and relative.parts[0] == ".git":
+        return True
+    result = subprocess.run(
+        ["git", "-C", str(repo_root), "check-ignore", "-q", "--", str(relative)],
+        check=False,
+        capture_output=True,
+    )
+    return result.returncode == 0
 
 
 class ProductionFileHandler(FileSystemEventHandler):
@@ -181,15 +198,17 @@ class ProductionFileHandler(FileSystemEventHandler):
 
 
 class WorktreeFileHandler(FileSystemEventHandler):
-    """Terminate tests that touch any worktree path."""
+    """Terminate tests that modify non-gitignored worktree paths."""
 
     def __init__(self, repo_root: Path) -> None:
         super().__init__()
         self._repo_root = repo_root.resolve()
 
     def on_any_event(self, event):
-        """Terminate the test session if a tracked worktree file is touched."""
+        """Terminate the test session if a tracked worktree file changes."""
         if getattr(event, "is_directory", False):
+            return
+        if event.event_type not in {"created", "modified", "deleted", "moved"}:
             return
         if event.src_path.endswith(".lock"):
             return
@@ -200,10 +219,12 @@ class WorktreeFileHandler(FileSystemEventHandler):
         for path in paths:
             if path.resolve() == self._repo_root:
                 continue
+            if is_gitignored(self._repo_root, path):
+                continue
             pytest.exit(
                 f"WORKTREE FILE MODIFIED: {path}\n"
                 f"Event type: {event.event_type}\n"
-                "Tests must not write files in the repository.",
+                "Tests must not write non-gitignored files in the repository.",
                 returncode=1,
             )
 

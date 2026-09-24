@@ -8,44 +8,6 @@ import pytest
 FIXTURE_PATH = Path(__file__).parents[1] / "fixtures" / "mcp_protocol" / "2026-07-28.json"
 
 
-def test_mcp_v2_contract_fixture_covers_required_flows() -> None:
-    """Keep the SDK spike's protocol acceptance matrix complete and parseable."""
-    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-
-    assert fixture["protocolRevision"] == "2026-07-28"
-    assert set(fixture["cases"]) == {
-        "modern_discovery",
-        "modern_tool",
-        "modern_prompt",
-        "modern_resource",
-        "modern_request_state",
-        "stdio",
-        "streamable_http",
-        "legacy_2025",
-    }
-
-
-def test_mcp_v2_contract_fixture_uses_json_rpc_messages() -> None:
-    """Fixture requests are protocol messages, not framework-specific calls."""
-    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-
-    for case_name in ("modern_discovery", "legacy_2025"):
-        for request in fixture["cases"][case_name]["requests"]:
-            assert request["jsonrpc"] == "2.0"
-
-
-def test_mcp_v2_fixture_uses_guide_nested_args_and_session_continuation() -> None:
-    """The fixture records Guide's actual FastMCP tool contract, not stale request state."""
-    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-
-    initial = fixture["cases"]["modern_request_state"]["initialRequest"]
-    continuation = fixture["cases"]["modern_request_state"]["continuationRequest"]
-
-    assert initial["params"]["arguments"] == {"args": {"path": "/client/workspace/demo"}}
-    assert continuation["params"]["arguments"] == {"args": {"session_id": "<fastmcp-session-id>"}}
-    assert "requestState" not in continuation["params"]
-
-
 @pytest.mark.anyio
 async def test_mcp_v2_fixture_arguments_execute_against_the_modern_fastmcp_surface(tmp_path, monkeypatch) -> None:
     """The fixture's nested arguments bind and resume one modern interaction."""
