@@ -1293,6 +1293,12 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 <td><code>.guide.yaml</code></td>
 </tr>
 <tr>
+<td><code>handoff-context</code></td>
+<td>Startup handoff guidance target: <code>true</code> uses <code>context.json</code> under resolved <code>path-documents</code> (<code>.todo/</code> by default); a filename uses the document path; a relative path uses that project path.</td>
+<td><code>boolean</code> or <code>string</code></td>
+<td>Disabled</td>
+</tr>
+<tr>
 <td><code>workflow-consent</code></td>
 <td>Controls phase transition consent requirements. Can be <code>true</code> (default consent rules), <code>false</code> (no consent required), or custom rules specifying which phases require consent to enter or exit.</td>
 <td><code>boolean</code> or <code>dict</code></td>
