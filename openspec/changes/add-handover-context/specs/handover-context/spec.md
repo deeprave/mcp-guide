@@ -32,6 +32,8 @@ context while the flag is disabled.
 - **THEN** it SHALL offer disabled, default, and custom project-target choices
 - **AND** it SHALL map them respectively to `false`, `true`, and a validated
   project-relative target through the project feature-flag configuration path
+- **AND** it SHALL recommend `.gitignore` coverage for enabled targets without
+  requiring it
 
 ### Requirement: Enabled values select a handoff target
 When the effective `handoff-context` value is `true`, the system SHALL request

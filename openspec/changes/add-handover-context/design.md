@@ -66,7 +66,10 @@ disabled (`false`), the default documents-directory target (`true`), or a
 valid custom project-relative target. A disabled selection uses an explicit
 project `false`, rather than removing the flag, so it overrides an enabled
 global default. The onboarding instruction stages the choice for the existing
-confirmation step and applies it through the normal project-flag tool.
+confirmation step and applies it through the normal project-flag tool. For an
+enabled target, onboarding recommends `.gitignore` coverage to avoid routine
+handoff updates becoming Git noise, without requiring it because projects may
+intentionally share a handoff file.
 
 ### Extend StartupTask for queued delivery
 

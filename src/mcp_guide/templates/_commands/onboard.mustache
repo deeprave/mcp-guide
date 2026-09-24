@@ -231,6 +231,10 @@ Explain that a project setting overrides a global default. If the user selects
 `disabled`, set the explicit project value so a global enabled value cannot
 re-enable guidance for this project.
 
+For `default` or `custom`, recommend that the selected target is covered by
+`.gitignore`, either explicitly or through a matching pattern, to avoid routine
+handoff updates becoming Git noise.
+
 **15. OpenSpec**
 Ask whether the user wants to enable OpenSpec support for spec-driven development.
 Maps to the `openspec` project flag.

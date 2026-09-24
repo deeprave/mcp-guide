@@ -27,7 +27,7 @@ logger = get_logger(__name__)
 
 
 class StartupTask:
-    """Check for documentation updates at startup and prompt if needed."""
+    """Queue handoff guidance, then check for documentation updates at startup."""
 
     def __init__(self, task_manager: "TaskManager", session: "Session") -> None:
         """Initialize StartupTask.
@@ -51,7 +51,7 @@ class StartupTask:
         return "StartupTask"
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
-        """Handle timer event to check for updates.
+        """Handle the startup timer by queuing handoff guidance before update checks.
 
         Args:
             event_type: Type of event
