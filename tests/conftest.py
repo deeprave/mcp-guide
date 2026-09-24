@@ -29,7 +29,6 @@ Protected Paths (if they exist):
 import asyncio
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -88,22 +87,6 @@ if os.name == "nt":
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-
-
-def is_gitignored(repo_root: Path, path: Path) -> bool:
-    """Return True when git would ignore this path in the worktree."""
-    try:
-        relative = path.resolve().relative_to(repo_root.resolve())
-    except ValueError:
-        return True
-    if relative.parts and relative.parts[0] == ".git":
-        return True
-    result = subprocess.run(
-        ["git", "-C", str(repo_root), "check-ignore", "-q", "--", str(relative)],
-        check=False,
-        capture_output=True,
-    )
-    return result.returncode == 0
 
 
 class ProductionFileHandler(FileSystemEventHandler):
