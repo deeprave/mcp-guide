@@ -198,7 +198,7 @@ class ProductionFileHandler(FileSystemEventHandler):
 
 
 class WorktreeFileHandler(FileSystemEventHandler):
-    """Terminate tests that modify non-gitignored worktree paths."""
+    """Terminate tests that touch any worktree path."""
 
     def __init__(self, repo_root: Path) -> None:
         super().__init__()
@@ -217,12 +217,10 @@ class WorktreeFileHandler(FileSystemEventHandler):
         for path in paths:
             if path.resolve() == self._repo_root:
                 continue
-            if is_gitignored(self._repo_root, path):
-                continue
             pytest.exit(
                 f"WORKTREE FILE MODIFIED: {path}\n"
                 f"Event type: {event.event_type}\n"
-                f"Tests must not write non-gitignored files in the repository.",
+                "Tests must not write files in the repository.",
                 returncode=1,
             )
 
