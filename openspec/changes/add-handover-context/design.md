@@ -59,6 +59,18 @@ path resolution. It rejects an absolute target. Target eligibility remains
 project-specific and is therefore validated after ordinary effective-value
 resolution, not while a global flag is set.
 
+### Offer explicit project configuration during onboarding
+
+Guided onboarding SHALL offer handoff context as an optional project setting:
+disabled (`false`), the default documents-directory target (`true`), or a
+valid custom project-relative target. A disabled selection uses an explicit
+project `false`, rather than removing the flag, so it overrides an enabled
+global default. The onboarding instruction stages the choice for the existing
+confirmation step and applies it through the normal project-flag tool. For an
+enabled target, onboarding recommends `.gitignore` coverage to avoid routine
+handoff updates becoming Git noise, without requiring it because projects may
+intentionally share a handoff file.
+
 ### Extend StartupTask for queued delivery
 
 Rename `McpUpdateTask` to `StartupTask` and use that existing

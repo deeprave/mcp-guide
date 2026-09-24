@@ -31,3 +31,16 @@ async def get_resolved_flag_value(session: "Session", flag_name: str, default: A
     except Exception as e:
         logger.trace(f"Flag resolution failed: {flag_name}, exception={e!r}, returning default={default!r}")
         return default
+
+
+async def resolve_documents_path(session: "Session") -> str:
+    """Resolve the validated documents path shared by rendering and startup tasks."""
+    from mcp_guide.feature_flags.constants import FLAG_PATH_DOCUMENTS
+    from mcp_guide.feature_flags.types import to_raw_feature_value
+    from mcp_guide.feature_flags.validators import validate_path_flag
+
+    value = await get_resolved_flag_value(session, FLAG_PATH_DOCUMENTS)
+    if value is None:
+        return ".todo/"
+    raw = to_raw_feature_value(value)
+    return raw if isinstance(raw, str) and validate_path_flag(raw, True) else ".todo/"

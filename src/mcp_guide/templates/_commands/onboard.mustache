@@ -37,8 +37,8 @@ Start by inspecting guide configuration:
 
 - Call `guide://_project?verbose` and use it as the primary source of current
   category and configuration state, including the `policies` category
-- Call `list_project_flags` and inspect at least `onboarded`, `workflow`, and
-  `openspec`
+- Call `list_project_flags` and inspect at least `onboarded`, `workflow`,
+  `handoff-context`, and `openspec`
 - Call `list_profiles` so you know which profiles are available before asking
   about language or framework profiles
 
@@ -213,7 +213,29 @@ Maps to `style/<lang>/*` and `toolchain/<lang>/*` policy patterns.
 Ask whether there are specific tools the agent should avoid using (e.g. `sed`,
 `awk`, `perl`). Maps to `tooling/general/*` policy patterns.
 
-**14. OpenSpec**
+**14. Handoff context** *(optional)*
+Ask whether the user wants Guide to request that agents keep a current handoff
+context at milestones. Present these options and map them exactly to the
+`handoff-context` project flag:
+
+- `disabled` — do not request handoff-context updates for this project. Maps
+  to `handoff-context: false`.
+- `default` — maintain `context.json` beneath the resolved `path-documents`
+  directory. Maps to `handoff-context: true`.
+- `custom` — maintain a named target. A filename is placed beneath
+  `path-documents`; a path with directories MUST be project-relative. Never
+  accept an absolute or home-relative path. Maps to
+  `handoff-context: <target>`.
+
+Explain that a project setting overrides a global default. If the user selects
+`disabled`, set the explicit project value so a global enabled value cannot
+re-enable guidance for this project.
+
+For `default` or `custom`, recommend that the selected target is covered by
+`.gitignore`, either explicitly or through a matching pattern, to avoid routine
+handoff updates becoming Git noise.
+
+**15. OpenSpec**
 Ask whether the user wants to enable OpenSpec support for spec-driven development.
 Maps to the `openspec` project flag.
 
@@ -232,6 +254,7 @@ Example format:
 > - Methodology: TDD + YAGNI → add `methodology/tdd`, `methodology/yagni` to policies
 > - Testing: Pragmatic → set `testing/pragmatic` in policies
 > - Git operations: Conservative → set `git/ops/conservative` in policies
+> - Handoff context: Default → set `handoff-context: true`
 > - ...
 >
 > Apply these changes? (yes / no / adjust)
@@ -248,7 +271,8 @@ Once the user confirms, apply all changes using existing tools:
 
 - Use `use_project_profile` for any profiles selected
 - Use `category_collection_update` to update `policies` category patterns
-- Use `set_project_flag` for `workflow`, `openspec`, and other project flags
+- Use `set_project_flag` for `workflow`, `handoff-context`, `openspec`, and
+  other project flags
 - Finally, use `set_project_flag` to set `onboarded` to `true`
 
 After applying, confirm to the user that configuration is complete and summarise

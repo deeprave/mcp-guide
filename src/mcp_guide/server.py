@@ -72,7 +72,7 @@ def _initialize_runtime_tasks() -> None:
     from mcp_guide.tasks.document_task import DocumentTask  # noqa: F401
     from mcp_guide.tasks.filesystem_probe import FilesystemProbeTask  # noqa: F401
     from mcp_guide.tasks.retry_task import RetryTask  # noqa: F401
-    from mcp_guide.tasks.update_task import McpUpdateTask  # noqa: F401
+    from mcp_guide.tasks.update_task import StartupTask  # noqa: F401
     from mcp_guide.workflow.tasks import WorkflowMonitorTask  # noqa: F401
 
 

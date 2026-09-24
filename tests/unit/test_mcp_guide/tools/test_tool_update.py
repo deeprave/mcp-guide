@@ -56,7 +56,7 @@ async def test_update_installs_documents_and_version_then_skips_current(runtime,
     import yaml
 
     from mcp_guide import __version__
-    from mcp_guide.tasks.update_task import McpUpdateTask
+    from mcp_guide.tasks.update_task import StartupTask
 
     docroot = tmp_path / "documents"
     runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
@@ -67,7 +67,7 @@ async def test_update_installs_documents_and_version_then_skips_current(runtime,
     if old_version is not None:
         (docroot / "_system").mkdir()
         (docroot / "_system" / "_update.mustache").write_text("Update documents now")
-        task = context.session.task_manager.get_task_by_type(McpUpdateTask)
+        task = context.session.task_manager.get_task_by_type(StartupTask)
         # Stage the real startup prompt while the task remains subscribed.
         await task._prompt_update()
         assert not context.session.task_manager.is_queue_empty()
