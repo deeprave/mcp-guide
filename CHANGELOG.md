@@ -2,18 +2,34 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [2.0.0]
+## [2.0.0b2] - 2026-09-24
 
 ### Added
 - Experimental Guide skill serving: discover the packaged skills with
   `list_skills` or `guide://$`, then retrieve a named skill through its
   `guide://$<skill-name>` resource URI.
-- The global-only `mcp-skills` feature flag enables the experimental
+- `use_skill` provides an MCP-tool alternative for clients that do not yet
+  support MCP Skills directly.
+- The new global-only `mcp-skills` flag enables the experimental
   `io.uniquode/mcp-guide-skills` MCP extension. It is advertised during
   initialisation; negotiated modern clients can query their session's skills
   and receive refresh notifications when the effective list changes.
+- Templates can recommend Guide skills, commands, tools, and content through
+  compact, self-contained references.
+- Git workflow skills and configurable commit, delivery, pull-request, and
+  issue-tracking policies, including guided onboarding selection.
+- Language and platform profiles for applying focused framework, build, and
+  operating-system guidance.
+- The new `handoff-context` flag provides optional guidance, configurable
+  globally or per project, for maintaining a current handoff file at milestones.
+- Project-root switching creates fresh project sessions, and MCP responses now
+  carry structured metadata for capable clients.
+- Separate workflow review and triage skills preserve individual review reports
+  before findings are collated and actioned.
 
 ### Changed
+- `openspec` is now a project-only flag; global configuration no longer enables
+  OpenSpec for every project.
 - Category and collection names beginning with reserved characters are now rejected.
 - MCP v2 (2026-07-28) is now fully supported including fallback to legacy mode as per the MCP spec.
 - Some project configuration hashes will have changed due to a bug in their calculation.
@@ -23,6 +39,10 @@ All notable changes to mcp-guide will be documented in this file.
 - `set_project` now reports caller-correctable failures such as an already-bound root as `project_error`.
   Unexpected bind failures remain `project_load_error`.
 - Inherited-`PWD` project binding is off by default. CLI stdio launches may opt in with `--use-pwd` or `MG_USE_PWD=1`.
+
+### Breaking
+- The `startup-instruction` feature flag has been removed; use ordinary
+  project content and startup guidance instead.
 
 ## [1.4.0] - 2026-08-16
 
