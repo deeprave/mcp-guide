@@ -39,6 +39,9 @@ from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 from watchdog.observers.polling import PollingObserver
 
+# Tests must not create bytecode caches in the worktree.
+sys.dont_write_bytecode = True
+
 # Export real path constants for test validation
 __all__ = [
     "REAL_PATHS",

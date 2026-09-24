@@ -1,10 +1,16 @@
 """Tests for production file protection mechanism."""
 
+import sys
 from types import SimpleNamespace
 
 import pytest
 
 from .conftest import REAL_PATHS, REPO_ROOT, WorktreeFileHandler, is_gitignored
+
+
+def test_test_suite_disables_bytecode_writes():
+    """Test startup must not create bytecode in the worktree."""
+    assert sys.dont_write_bytecode
 
 
 def test_protection_monitors_real_production_paths(session_temp_dir):
