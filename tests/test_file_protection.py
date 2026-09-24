@@ -149,29 +149,6 @@ def test_non_lock_file_events_trigger_exit(monkeypatch):
     assert "Path: /some/path/config.yaml" in exit_message
 
 
-def test_worktree_guard_ignores_gitignored_paths(monkeypatch):
-    """Gitignored worktree writes must not abort the test session."""
-    exit_called = False
-
-    def mock_exit(*args, **kwargs):
-        nonlocal exit_called
-        exit_called = True
-
-    monkeypatch.setattr(pytest, "exit", mock_exit)
-
-    ignored_dir = REPO_ROOT / "tests" / "__pycache__"
-    ignored_dir.mkdir(exist_ok=True)
-    ignored_file = ignored_dir / "watchdog_gitignore_sentinel.txt"
-    ignored_file.write_text("gitignored write must not abort", encoding="utf-8")
-    try:
-        assert is_gitignored(REPO_ROOT, ignored_file)
-        handler = WorktreeFileHandler(REPO_ROOT)
-        handler.on_any_event(SimpleNamespace(src_path=str(ignored_file), event_type="created", is_directory=False))
-        assert not exit_called, "pytest.exit should not be called for gitignored paths"
-    finally:
-        ignored_file.unlink(missing_ok=True)
-
-
 def test_worktree_guard_ignores_directory_events_on_repo_root(monkeypatch):
     """Polling observers emit directory-modified events on the watch root."""
     exit_called = False
@@ -184,6 +161,25 @@ def test_worktree_guard_ignores_directory_events_on_repo_root(monkeypatch):
     handler = WorktreeFileHandler(REPO_ROOT)
     handler.on_any_event(SimpleNamespace(src_path=str(REPO_ROOT), event_type="modified", is_directory=True))
     assert not exit_called
+
+
+def test_worktree_guard_aborts_on_ignored_path(monkeypatch):
+    """An ignored worktree write must abort the test session."""
+    exit_message = None
+
+    def mock_exit(msg, *args, **kwargs):
+        nonlocal exit_message
+        exit_message = msg
+
+    monkeypatch.setattr(pytest, "exit", mock_exit)
+    handler = WorktreeFileHandler(REPO_ROOT)
+    ignored_path = REPO_ROOT / "tests" / "__pycache__" / "sentinel.pyc"
+    assert is_gitignored(REPO_ROOT, ignored_path)
+
+    handler.on_any_event(SimpleNamespace(src_path=str(ignored_path), event_type="created", is_directory=False))
+
+    assert exit_message is not None, "pytest.exit should be called for ignored worktree writes"
+    assert str(ignored_path) in exit_message
 
 
 def test_worktree_guard_aborts_on_non_ignored_fixture_write(monkeypatch):
