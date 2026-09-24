@@ -85,9 +85,10 @@ The system SHALL manage project-scoped tasks after project context is available,
 - **THEN** the task manager SHALL serialize or coalesce the mutations without deadlock
 - **AND** the final active task set SHALL belong to the latest project context
 
-### Requirement: MCP Update Task
-The system SHALL provide `McpUpdateTask` that checks the `autoupdate` feature
-flag once at startup and queues an update instruction when enabled.
+### Requirement: Startup Task
+The system SHALL provide `StartupTask` that checks the `autoupdate` feature
+flag once at startup and queues an update instruction when enabled. It SHALL
+also queue any applicable rendered project-specific startup guidance.
 
 #### Scenario: Autoupdate enabled by default
 - **WHEN** task initializes via startup timer
@@ -114,7 +115,7 @@ flag once at startup and queues an update instruction when enabled.
 
 #### Scenario: Update acknowledgement stops reminders
 - **WHEN** the agent runs `update_documents`
-- **AND** `McpUpdateTask` has a tracked instruction id
+- **AND** `StartupTask` has a tracked instruction id
 - **THEN** that instruction is acknowledged
 - **AND** further reminders are not sent for the same queued prompt
 

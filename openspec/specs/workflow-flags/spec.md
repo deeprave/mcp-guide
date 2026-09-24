@@ -209,16 +209,16 @@ automatic update prompting at startup.
 - **AND** error message states "autoupdate must be global flag only"
 
 #### Scenario: Flag resolution defaults to enabled
-- **WHEN** `McpUpdateTask` checks `autoupdate`
+- **WHEN** `StartupTask` checks `autoupdate`
 - **AND** no global flag value is present
 - **THEN** startup update prompting is treated as enabled
 
 #### Scenario: Explicit false disables prompting
-- **WHEN** `McpUpdateTask` checks `autoupdate`
+- **WHEN** `StartupTask` checks `autoupdate`
 - **AND** the global flag value is `false`
 - **THEN** startup update prompting is disabled
 
 #### Scenario: Explicit true enables prompting
-- **WHEN** `McpUpdateTask` checks `autoupdate`
+- **WHEN** `StartupTask` checks `autoupdate`
 - **AND** the global flag value is `true`
 - **THEN** startup update prompting is enabled
