@@ -88,6 +88,7 @@ async def resource_project(runtime, tmp_path):
     """Real content and command fixtures shared by the two resource entry points."""
     import yaml
 
+    from mcp_guide.installer.core import get_templates_path
     from mcp_guide.models import Category
     from tests.helpers import create_bound_test_session, request_context_for
 
@@ -147,6 +148,12 @@ async def resource_project(runtime, tmp_path):
     (docroot / "_skills/grouped/nested/SKILL.md.mustache").write_text(
         "---\nname: grouped-nested\ndescription: This must not be discoverable.\n---\nIgnored."
     )
+    templates_path = await get_templates_path()
+    for skill_name in ("git-pr-triage", "just-one"):
+        production_skill = templates_path / f"_skills/{skill_name}/SKILL.md.mustache"
+        installed_skill = docroot / f"_skills/{skill_name}/SKILL.md.mustache"
+        installed_skill.parent.mkdir()
+        installed_skill.write_text(production_skill.read_text())
     runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
     session = await create_bound_test_session(runtime, "resource-project")
     for name, patterns in (("docs", ["*.md"]), ("policies", ["git/ops/*.md", "other.md"])):

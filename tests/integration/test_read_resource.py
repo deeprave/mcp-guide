@@ -56,6 +56,18 @@ async def test_skill_entrypoint_reports_its_rendered_virtual_file(resource_proje
 
 
 @pytest.mark.anyio
+async def test_git_pr_triage_skill_is_available_for_analysis_only_review_feedback(resource_project):
+    """A bundled triage skill delivers review analysis guidance without applying changes."""
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$git-pr-triage"), resource_project)
+
+    assert result.success, result.error
+    assert "analysis and recommendations only" in result.value
+    assert "Do not modify pull-request code" in result.value
+    recommendation = parse_recommendation("skill:just-one")
+    assert f'Guide skill "just-one"[^{recommendation.label}]' in result.value
+
+
+@pytest.mark.anyio
 async def test_use_skill_shares_the_resource_skill_resolution(resource_project):
     result = await internal_use_skill("$workflow-status", resource_project, kwargs={})
 

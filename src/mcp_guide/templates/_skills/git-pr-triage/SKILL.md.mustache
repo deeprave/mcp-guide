@@ -1,0 +1,40 @@
+---
+name: git-pr-triage
+description: Analyse new pull-request review feedback, retain a durable comment inventory, and recommend next actions without applying changes.
+usage: Use when triaging review comments on a pull request, especially after new feedback arrives.
+cache: short, private
+---
+# Git Pull Request Triage
+
+## Directives
+
+- Use a pull request supplied by the user first. Otherwise use a pull request
+  already established in the active context, then the current branch's pull
+  request. If none can be identified for the current repository, ask the user
+  to provide one and do not create review state. Verify that contextual pull
+  requests belong to the current repository; if one does not, ask the user to
+  provide the intended pull request and do not create review state.
+- Retrieve and collate inline review threads, review summaries, and
+  review-related issue comments. Prefer GitHub MCP thread-aware data; if it is
+  unavailable or insufficient, use `gh` and disclose the fallback and missing
+  MCP data in the report.
+- Inspect the current pull-request diff and source before deciding whether a
+  comment still applies.
+- Read and update the durable seen-comment state at
+  `{{path.documents}}review-comments/<owner>-<repo>-pr-<number>.json`. Use
+  provider identifiers where available, deterministic fallback keys otherwise,
+  and concern fingerprints to recognise repeat concerns. For new or repeated
+  feedback, retain identity, source, location, timing, normalised summary, and
+  fingerprint. Do not mark comments seen unless a user-facing report completes.
+- Collate duplicate concerns into one finding while preserving reviewer, link,
+  and code-location references. Give every finding one primary classification
+  and determine whether it is actionable, deferred, declined, or stale. For a
+  concern superseded by current code, classify it as `stale_or_not_applicable`,
+  explain the current state, and recommend `no action`; otherwise recommend
+  `fix`, `defer`, `decline`, `ask reviewer`, or `no action` with concise
+  reasoning.
+- Report a grouped inventory by default. If the user prefers a sequential
+  walkthrough, recommend {{#recommend}}skill:just-one{{/recommend}} after the
+  inventory is stable; do not invoke it otherwise.
+- Provide analysis and recommendations only. Do not modify pull-request code,
+  reply to or resolve comments, or implement any recommended action.
