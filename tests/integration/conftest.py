@@ -101,6 +101,7 @@ async def resource_project(runtime, tmp_path):
         "_skills/workflow-status/resources",
         "_skills/workflow-status/scripts",
         "_skills/grouped/nested",
+        "_skills/grouped/nested/resources",
     ):
         (docroot / folder).mkdir(parents=True, exist_ok=True)
     (docroot / "docs/readme.md").write_text("docs content")
@@ -146,13 +147,23 @@ async def resource_project(runtime, tmp_path):
     )
     (docroot / "_skills/workflow-status/scripts/inspect.py").write_text("print('inspect locally')\n")
     (docroot / "_skills/grouped/nested/SKILL.md.mustache").write_text(
-        "---\nname: grouped-nested\ndescription: This must not be discoverable.\n---\nIgnored."
+        "---\n"
+        "name: grouped-nested\n"
+        "description: A nested skill package.\n"
+        "usage: Use when nested skill discovery is required.\n"
+        "---\n"
+        "Nested skill content."
     )
+    (docroot / "_skills/grouped/nested/resources/checklist.md.mustache").write_text("Nested member content.")
     templates_path = await get_templates_path()
-    for skill_name in ("git-pr-triage", "just-one"):
-        production_skill = templates_path / f"_skills/{skill_name}/SKILL.md.mustache"
-        installed_skill = docroot / f"_skills/{skill_name}/SKILL.md.mustache"
-        installed_skill.parent.mkdir()
+    for _skill_name, package_path in (
+        ("triage-pr", "triage/pr"),
+        ("triage-items", "triage/items"),
+        ("triage-review", "triage/review"),
+    ):
+        production_skill = templates_path / f"_skills/{package_path}/SKILL.md.mustache"
+        installed_skill = docroot / f"_skills/{package_path}/SKILL.md.mustache"
+        installed_skill.parent.mkdir(parents=True, exist_ok=True)
         installed_skill.write_text(production_skill.read_text())
     runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
     session = await create_bound_test_session(runtime, "resource-project")

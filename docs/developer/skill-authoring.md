@@ -4,11 +4,14 @@ Guide skills are server-owned, native-skill-shaped packages in the configured do
 
 ```text
 _skills/
-  workflow-review/
-    SKILL.md.mustache
+  workflow/
+    review/
+      SKILL.md.mustache
 ```
 
-The public entrypoint for that example is `guide://$workflow-review`. A skill package may include
+The package directory may be nested for organisation. Its directory is private implementation detail;
+the public entrypoint is the required frontmatter `name`, so this example remains
+`guide://$workflow-review`. A skill package may include
 `references/`, `scripts/`, or `agents/` members, which are retrieved individually through the same
 skill URI root. `SKILL.md` is the entrypoint and contains the instructions an agent follows.
 
@@ -27,6 +30,11 @@ usage: Use when the user asks to review a change.
 The normal document frontmatter fields, including `type`, `instruction`, `requires-*`, `cache`,
 and template variables, apply to skills. Bundled skills omit `type`; their entrypoint delivery
 defaults to `agent/instruction`.
+
+Skill names are global identifiers within one Guide runtime and must be unique. Missing, invalid,
+or duplicate names make the affected package unavailable and produce a server warning. A
+`requires-*` declaration controls availability for each session after Guide has discovered the
+shared package catalogue; it does not change the package's public identity.
 
 ## Elicitation
 

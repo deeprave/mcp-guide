@@ -9,20 +9,22 @@ skill packages.
 
 ## Package Layout
 
-Each bundled skill is a direct child of `_skills/`:
+Bundled skills may be nested below `_skills/` for organisation:
 
 ```text
 _skills/
-  <skill-name>/
-    SKILL.md.mustache
-    resources/        # optional readable package resources
-    scripts/          # optional agent-run scripts
-    agents/           # optional agent definitions
+  git/
+    commit/
+      SKILL.md.mustache
+      resources/        # optional readable package resources
+      scripts/          # optional agent-run scripts
+      agents/           # optional agent definitions
 ```
 
-`SKILL.md.mustache` is the public entrypoint for each skill. Its package name becomes the
-skill identifier and resource URI, for example `git-commit` becomes
-`guide://$git-commit`.
+`SKILL.md.mustache` is the public entrypoint for each skill. Its frontmatter `name`, rather than
+its private package path, is the globally unique public skill identifier and resource URI. For
+example, `_skills/git/commit/SKILL.md.mustache` declares `name: git-commit` and is available as
+`guide://$git-commit`. Do not expose or depend on the package path in skill instructions.
 
 ## Required Entrypoint Metadata
 

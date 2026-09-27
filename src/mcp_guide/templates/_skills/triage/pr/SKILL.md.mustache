@@ -1,10 +1,10 @@
 ---
-name: git-pr-triage
-description: Analyse new pull-request review feedback, retain a durable comment inventory, and recommend next actions without applying changes.
-usage: Use when triaging review comments on a pull request, especially after new feedback arrives.
+name: triage-pr
+description: Help a pull-request author decide how to respond to review feedback while retaining its source evidence.
+usage: Use when a pull-request author needs to assess review feedback, choose its disposition, or prepare authorised replies and resolution actions.
 cache: short, private
 ---
-# Git Pull Request Triage
+# Pull Request Triage
 
 ## Directives
 
@@ -26,15 +26,17 @@ cache: short, private
   and concern fingerprints to recognise repeat concerns. For new or repeated
   feedback, retain identity, source, location, timing, normalised summary, and
   fingerprint. Do not mark comments seen unless a user-facing report completes.
-- Collate duplicate concerns into one finding while preserving reviewer, link,
-  and code-location references. Give every finding one primary classification
+- Collate duplicate concerns into one item while preserving reviewer, link,
+  and code-location references. Give every item one primary classification
   and determine whether it is actionable, deferred, declined, or stale. For a
   concern superseded by current code, classify it as `stale_or_not_applicable`,
   explain the current state, and recommend `no action`; otherwise recommend
   `fix`, `defer`, `decline`, `ask reviewer`, or `no action` with concise
   reasoning.
-- Report a grouped inventory by default. If the user prefers a sequential
-  walkthrough, recommend {{#recommend}}skill:just-one{{/recommend}} after the
-  inventory is stable; do not invoke it otherwise.
-- Provide analysis and recommendations only. Do not modify pull-request code,
-  reply to or resolve comments, or implement any recommended action.
+- Once the inventory is stable, recommend {{#recommend}}skill:triage-items{{/recommend}} when a serial walkthrough matches the user's normal preference; grouped reporting is equally valid when the user prefers it.
+- The pull-request author decides whether each item is accepted, declined,
+  varied, deferred, stale, or needs reviewer clarification. Explain the basis
+  for each recommendation without treating reviewer feedback as binding.
+- Do not modify pull-request code, reply to or resolve comments, change review
+  disposition, or take another external action unless the user explicitly
+  authorises the specific action after the relevant decisions are complete.

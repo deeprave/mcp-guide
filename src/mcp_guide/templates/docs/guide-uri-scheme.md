@@ -56,7 +56,7 @@ Access via MCP resources protocol:
 - Returns plain text/markdown content for both content and command URIs
 - Handles missing collections/documents gracefully
 - Supports command discovery through advertised resource templates
-- Serves bundled skills as flat packages rooted at `{docroot}/_skills/<skill-name>/SKILL.md`; the catalogue exposes selected frontmatter rather than raw YAML
+- Serves bundled skills from private, optionally nested packages below `{docroot}/_skills/`; the required frontmatter `name` is the public skill identity and the catalogue exposes selected frontmatter rather than raw YAML
 - Returns the rendered entrypoint for `guide://$<skill-name>` and a named rendered member for `guide://$<skill-name>/<member-path>`
 - Lets a skill entrypoint declare primitive `elicitation` forms in frontmatter. Guide requests a form only when its required values are absent from the URI, then makes accepted values available as template keyword arguments
 - Makes `resources/`, `scripts/`, and `agents/` package members available on demand. Scripts are returned as content only: clients must download, inspect, establish trust, and obtain authority before local execution

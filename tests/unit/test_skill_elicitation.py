@@ -5,7 +5,7 @@ from typing import cast
 
 import pytest
 from fastmcp import Context
-from mcp.server.elicitation import CancelledElicitation
+from fastmcp.server.elicitation import AcceptedElicitation, CancelledElicitation
 
 from mcp_guide.skill_elicitation import resolve_skill_elicitations
 
@@ -242,3 +242,68 @@ async def test_legacy_cancelled_form_uses_schema_defaults() -> None:
 
     assert result == {"mode": "uncommitted"}
     assert getattr(result, "defaulted_forms") == frozenset({"review-target"})
+
+
+@pytest.mark.anyio
+async def test_modern_cancelled_render_fallback_renders_without_values() -> None:
+    """A cancelled optional form permits its declared render fallback."""
+    context = SimpleNamespace(
+        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
+        input_responses={"optional": SimpleNamespace(action="cancel", content=None)},
+        request_context=SimpleNamespace(protocol_version="2026-07-28"),
+    )
+
+    result = await resolve_skill_elicitations(
+        {
+            "elicitation": {
+                "optional": {
+                    "message": "Optional.",
+                    "fallback": "render",
+                    "schema": {"type": "object", "properties": {"value": {"type": "string"}}, "required": ["value"]},
+                }
+            }
+        },
+        {},
+        cast(Context, context),
+    )
+
+    assert result == {}
+    assert getattr(result, "defaulted_forms") == frozenset({"optional"})
+
+
+@pytest.mark.anyio
+async def test_legacy_elicitation_rechecks_conditional_forms() -> None:
+    """A legacy client is prompted for forms activated by an earlier answer."""
+    prompted: list[str] = []
+
+    async def accept_form(_message: str, model: object) -> AcceptedElicitation[object]:
+        prompted.append(_message)
+        values = {"mode": "branch"} if len(prompted) == 1 else {"branch": "feature/example"}
+        return AcceptedElicitation(data=model(**values))  # type: ignore[operator]
+
+    context = SimpleNamespace(
+        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
+        input_responses=None,
+        request_context=SimpleNamespace(protocol_version="2025-11-25"),
+        elicit=accept_form,
+    )
+    result = await resolve_skill_elicitations(
+        {
+            "elicitation": {
+                "target": {
+                    "message": "Choose target.",
+                    "schema": {"type": "object", "properties": {"mode": {"type": "string"}}, "required": ["mode"]},
+                },
+                "branch": {
+                    "message": "Enter branch.",
+                    "when": {"mode": "branch"},
+                    "schema": {"type": "object", "properties": {"branch": {"type": "string"}}, "required": ["branch"]},
+                },
+            }
+        },
+        {},
+        cast(Context, context),
+    )
+
+    assert prompted == ["Choose target.", "Enter branch."], repr(result)
+    assert result == {"mode": "branch", "branch": "feature/example"}

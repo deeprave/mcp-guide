@@ -24,6 +24,14 @@ These rules are critical for MCP operations to work correctly.
 - Run every pytest invocation in a foreground terminal, including direct `pytest` commands and indirect invocations through pre-commit or `git commit` hooks.
 - Do not run pytest in a background or short-lived execution context; wait for its complete result before proceeding.
 
+## Test Quality
+
+- NEVER test the literal content of a production file. Tests MUST validate observable behaviour; source-text assertions against templates, documentation, or other production files are prohibited.
+
+## Transient Documentation
+
+- NEVER create execution plans, agent ledgers, reviews, or other transient documentation in the worktree. The configured or default `{{path.documents}}` directory is the ONLY allowed location for transient documentation.
+
 ## Workflow Handover
 
 - After each significant milestone, update `.todo/context.json` with the current handover context so work can be resumed reliably by this or another agent.
