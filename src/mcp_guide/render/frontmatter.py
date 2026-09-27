@@ -1,6 +1,7 @@
 """Front-matter parsing utilities for YAML metadata extraction."""
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -54,7 +55,7 @@ def _normalize_requires_actual_value(flag_name: str, actual_value: Any) -> Any:
     return normalized_value
 
 
-def check_frontmatter_requirements(frontmatter: Dict[str, Any], context: Dict[str, Any]) -> bool:
+def check_frontmatter_requirements(frontmatter: Mapping[str, object], context: Mapping[str, object]) -> bool:
     """Check if frontmatter requirements are satisfied by context.
 
     Args:

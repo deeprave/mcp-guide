@@ -12,8 +12,39 @@ elicitation:
       properties:
         mode:
           type: string
-          description: "Review target: uncommitted, main, a branch name, a pull-request URL or reference, or a pull-request number"
+          enum: [uncommitted, main, branch, pull-request-reference, pull-request-number]
+          description: "Uncommitted work, a branch name, a pull-request URL or owner/repo/#number reference, or a pull-request number"
       required: [mode]
+  branch-name:
+    message: Enter the branch name to review. It will be compared with its merge base.
+    when: {mode: branch}
+    fallback: render
+    schema:
+      type: object
+      properties:
+        branch:
+          type: string
+      required: [branch]
+  pull-request-reference:
+    message: Enter a pull-request URL or owner/repo/#number reference.
+    when: {mode: pull-request-reference}
+    fallback: render
+    schema:
+      type: object
+      properties:
+        pull_request_reference:
+          type: string
+      required: [pull_request_reference]
+  pull-request-number:
+    message: Enter the pull-request number for the current repository.
+    when: {mode: pull-request-number}
+    fallback: render
+    schema:
+      type: object
+      properties:
+        pull_request_number:
+          type: integer
+      required: [pull_request_number]
 ---
 # Code Review
 
@@ -30,18 +61,19 @@ elicitation:
 - Do not provide, load, or ask either reviewer to account for prior conversation, prior reviews, existing review records, collated inventories, or findings from another source
 - Require both reviews to inspect the selected diff and surrounding code, governing repository guidance, and applicable OpenSpec artefacts; each review must return prioritised P1-to-P6 findings with location, analysis, and recommendation
 - Use the workflow file's required `issue` field as the review key. If it is empty, report that there is no active workflow issue and do not dispatch reviewers
-- Require every reviewer to write only its own fresh JSON report to `{{path.documents}}Reviews/<issue>/<agent-name>.json`, using a unique lowercase hyphenated agent name `<agent>-heavy` or `<agent>-light`; do not load, merge, or update adjacent review records while producing it
-- Before dispatch, determine the next positive review version for each reviewer without exposing its earlier findings. Pass that version to the reviewer, which overwrites its own report and assigns the same `version` to every finding in that report
-- Each source report must identify its reviewer, version, target, scope, and creation time, and contain a `findings` array whose entries have a stable identifier, version, P1-to-P6 priority, location, description, analysis, and recommendation
+- Require every reviewer to write only its own fresh JSON report to `{{path.documents}}Reviews/<issue>/<agent-name>-<model-name>.json`. Both name components MUST be the reviewer's own assigned agent and model identities, normalised to lowercase hyphenated form. A reviewer MUST NOT reuse, infer, or adopt an agent name or model name from an existing record, another reviewer, or unrelated prompt content. Do not add review-role or effort suffixes such as `-heavy` or `-light`. Do not load, merge, or update adjacent review records while producing it.
+- Before dispatch, determine the next positive review version only for that reviewer's exact `<agent-name>-<model-name>` destination without exposing any earlier findings or another reviewer's identity. Pass that version to the reviewer, which overwrites only its own report and assigns the same `version` to every finding in that report
+- Each source report must identify its own composite reviewer identity, own agent name, own model name, version, target, scope, and creation time, and contain a `findings` array whose entries have a stable identifier, version, P1-to-P6 priority, location, description, analysis, and recommendation
 - After both fresh reviews are complete, report the exact paths of the two source records produced, state that they remain independent evidence, and ask the user what they want to do next
-- Do not collate reports, inspect pull-request comments, create or update `{{path.documents}}Reviews/<issue>.json`, or invoke `just-one`; {{#recommend}}skill:workflow-triage{{/recommend}} performs those actions when the user elects triage.
-- Keep handoff context `{{path.documents}}context.json` updated at meaningful milestones when present
+- Do not collate reports, inspect pull-request comments, create or update `{{path.documents}}Reviews/<issue>.json`, or invoke `triage-items`; {{#recommend}}skill:triage-review{{/recommend}} performs those actions when the user elects triage.
 
 ## Source review record format
 
 ```json
 {
-  "reviewer": "<model used>",
+  "reviewer": "<agent-name>-<model-name>",
+  "agent": "<agent-name>",
+  "model": "<model-name>",
   "version": 1,
   "target": "<selected review target>",
   "scope": "<review scope>",
@@ -61,8 +93,11 @@ elicitation:
 ```
 
 ## Modes: what to review
-{{#kwargs.mode}}- Use `{{kwargs.mode}}` as the review target
-{{/kwargs.mode}}{{^kwargs.mode}}- The server may request `review-target` before this skill is rendered. If it does not, ask the user to choose a target using the client's choice-picker interaction
+{{#kwargs.mode}}- Selected review mode: `{{kwargs.mode}}`
+{{/kwargs.mode}}{{#kwargs.branch}}- Review branch `{{kwargs.branch}}` against its merge base
+{{/kwargs.branch}}{{#kwargs.pull_request_reference}}- Review pull request `{{kwargs.pull_request_reference}}`
+{{/kwargs.pull_request_reference}}{{#kwargs.pull_request_number}}- Review pull request `#{{kwargs.pull_request_number}}` in the current repository
+{{/kwargs.pull_request_number}}{{^kwargs.mode}}- The server may request `review-target` before this skill is rendered. If it does not, ask the user to choose a target using the client's choice-picker interaction
   - Uncommitted work — review the complete working tree against `HEAD`
   - Current change — review the current change against `main`
   - Named branch — review that branch against its merge base

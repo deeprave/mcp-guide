@@ -47,7 +47,6 @@ class SkillsListRequest(Request[SkillsListParams, Literal["skills/list"]]):
 class SkillDescription(BaseModel):
     """One serialisable Guide skill in the extension catalogue."""
 
-    identifier: str
     name: str
     description: str
     usage: str
@@ -57,7 +56,6 @@ class SkillDescription(BaseModel):
     def from_skill(cls, skill: GuideSkill) -> "SkillDescription":
         """Convert one internal Guide skill without exposing filesystem state."""
         return cls(
-            identifier=skill.identifier,
             name=skill.name,
             description=skill.description,
             usage=skill.usage,

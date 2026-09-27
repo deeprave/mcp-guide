@@ -1,5 +1,7 @@
 """Resource URI routing through real project content and command templates."""
 
+import os
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -56,15 +58,37 @@ async def test_skill_entrypoint_reports_its_rendered_virtual_file(resource_proje
 
 
 @pytest.mark.anyio
-async def test_git_pr_triage_skill_is_available_for_analysis_only_review_feedback(resource_project):
-    """A bundled triage skill delivers review analysis guidance without applying changes."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$git-pr-triage"), resource_project)
+async def test_triage_pr_skill_guides_pr_author_decisions(resource_project):
+    """A bundled triage skill guides a PR author without taking unapproved action."""
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$triage-pr"), resource_project)
 
     assert result.success, result.error
-    assert "analysis and recommendations only" in result.value
+    assert "pull-request author" in result.value
     assert "Do not modify pull-request code" in result.value
-    recommendation = parse_recommendation("skill:just-one")
-    assert f'Guide skill "just-one"[^{recommendation.label}]' in result.value
+    recommendation = parse_recommendation("skill:triage-items")
+    assert f'Guide skill "triage-items"[^{recommendation.label}]' in result.value
+
+
+@pytest.mark.anyio
+async def test_triage_items_supports_non_workflow_inventories_and_authorised_follow_up(resource_project):
+    """Item triage is reusable without a workflow issue or a review inventory."""
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$triage-items"), resource_project)
+
+    assert result.success, result.error
+    assert "current context" in result.value
+    assert "Triage/<derived-key>.json" in result.value
+    assert "Perform a local change or an external action only" in result.value
+
+
+@pytest.mark.anyio
+async def test_triage_review_includes_all_initial_sources_and_cuts_off_incremental_sources(resource_project):
+    """Workflow review collation distinguishes initial and incremental inventories."""
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$triage-review"), resource_project)
+
+    assert result.success, result.error
+    assert "initial collation" in result.value
+    assert "every valid source record" in result.value
+    assert "strictly newer than that cutoff" in result.value
 
 
 @pytest.mark.anyio
@@ -358,6 +382,13 @@ async def test_skill_catalogue_is_available_through_read_resource(resource_proje
 
     assert result.success, result.error
     assert "workflow-status" in result.value
+    assert "triage-items" in result.value
+    assert "triage-pr" in result.value
+    assert "triage-review" in result.value
+    assert "just-one" not in result.value
+    assert "git-pr-triage" not in result.value
+    assert "workflow-triage" not in result.value
+    assert "grouped-nested" in result.value
     assert "grouped/nested" not in result.value
     assert "missing-usage" not in result.value
     assert "Use when: Use when the user asks for the current Guide workflow or OpenSpec status." in result.value
@@ -392,6 +423,24 @@ async def test_skill_catalogue_skips_invalid_or_malformed_packages(resource_proj
     assert "unsafe?skill" not in result.value
     assert "invalid?name" not in result.value
     assert "malformed" not in result.value
+
+
+@pytest.mark.anyio
+async def test_skill_catalogue_omits_duplicate_public_names(resource_project, caplog):
+    """Duplicate public names are developer errors, never precedence rules."""
+    duplicate = resource_project.resolve_document_path("_skills/other/status/SKILL.md.mustache")
+    duplicate.parent.mkdir(parents=True)
+    duplicate.write_text(
+        "---\nname: workflow-status\ndescription: Conflicting package.\nusage: Never.\n---\nIgnored.",
+        encoding="utf-8",
+    )
+
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+
+    assert result.success, result.error
+    assert "workflow-status" not in result.value
+    assert "grouped-nested" in result.value
+    assert "Ignoring duplicate Guide skill name workflow-status" in caplog.text
 
 
 @pytest.mark.anyio
@@ -457,12 +506,121 @@ async def test_list_skills_table_returns_a_user_facing_markdown_table(resource_p
 
 
 @pytest.mark.anyio
-async def test_nested_skill_package_is_not_discoverable(resource_project):
-    """Guide skill packages are direct children so their names remain portable."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$grouped/nested"), resource_project)
+async def test_nested_skill_package_resolves_by_its_frontmatter_name(resource_project):
+    """A nested package remains private while its declared name is public."""
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$grouped-nested"), resource_project)
 
-    assert result.success is False
-    assert result.error_type == "not_found"
+    assert result.success, result.error
+    assert result.value == "Nested skill content."
+    assert result.message == "Rendered skill file: grouped-nested/SKILL.md"
+
+
+@pytest.mark.anyio
+async def test_nested_skill_member_uses_the_public_virtual_path(resource_project):
+    """Package members resolve from a nested private root without exposing it."""
+    result = await internal_read_resource(
+        ReadResourceArgs(uri="guide://$grouped-nested/resources/checklist.md"), resource_project
+    )
+
+    assert result.success, result.error
+    assert result.value == "Nested member content."
+    assert result.message == "Rendered skill file: grouped-nested/resources/checklist.md"
+
+
+@pytest.mark.anyio
+async def test_skill_requirements_are_filtered_after_shared_discovery(resource_project, runtime):
+    """One runtime catalogue is filtered independently for each session's flags."""
+    from tests.helpers import create_bound_test_session, request_context_for
+
+    gated = resource_project.resolve_document_path("_skills/gated/SKILL.md.mustache")
+    gated.parent.mkdir(parents=True)
+    gated.write_text(
+        "---\nname: gated\ndescription: A gated skill.\nusage: Use when workflow is enabled.\n"
+        "requires-workflow: true\n---\nGated.",
+        encoding="utf-8",
+    )
+
+    unavailable = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+    assert unavailable.success, unavailable.error
+    assert "gated" not in unavailable.value
+    unavailable_resource = await internal_read_resource(ReadResourceArgs(uri="guide://$gated"), resource_project)
+    assert unavailable_resource.success is False
+    assert unavailable_resource.error_type == "not_found"
+
+    second_session = await create_bound_test_session(runtime, "gated-second-session")
+    await second_session.project_flags().set("workflow", True)
+    second_context = await request_context_for(second_session, "gated-second-request")
+    available = await internal_read_resource(ReadResourceArgs(uri="guide://$"), second_context)
+
+    assert available.success, available.error
+    assert "gated" in available.value
+    available_resource = await internal_read_resource(ReadResourceArgs(uri="guide://$gated"), second_context)
+    assert available_resource.success, available_resource.error
+    assert available_resource.value == "Gated."
+
+
+@pytest.mark.anyio
+async def test_runtime_skill_cache_refreshes_and_development_mode_bypasses_reuse(resource_project, runtime):
+    """The runtime cache refreshes by mtime and development mode always rebuilds it."""
+    initial = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+    assert initial.success, initial.error
+    cached = runtime.skill_discovery_cache
+    assert cached is not None
+    cached_mtime, _, cached_skills = cached
+    cached_skill = cached_skills["workflow-status"]
+    with pytest.raises(TypeError):
+        cached_skill.requirements["requires-workflow"] = True
+    runtime.cache_skill_discovery(cached_mtime, time.monotonic() - 301, cached_skills)
+
+    refreshed = resource_project.resolve_document_path("_skills/refreshed/SKILL.md.mustache")
+    refreshed.parent.mkdir(parents=True)
+    refreshed.write_text(
+        "---\nname: refreshed\ndescription: A refreshed skill.\nusage: Use to test cache refresh.\n---\nRefreshed.",
+        encoding="utf-8",
+    )
+    after_refresh = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+    assert after_refresh.success, after_refresh.error
+    assert "refreshed" in after_refresh.value
+
+    development_only = resource_project.resolve_document_path("_skills/refreshed/development/SKILL.md.mustache")
+    development_only.parent.mkdir(parents=True)
+    development_only.write_text(
+        "---\nname: development-only\ndescription: A development-only skill.\n"
+        "usage: Use to test development discovery.\n---\nDevelopment.",
+        encoding="utf-8",
+    )
+    os.utime(development_only, (cached_mtime, cached_mtime))
+    before_development = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+    assert before_development.success, before_development.error
+    assert "development-only" not in before_development.value
+
+    await runtime.feature_flags().set("guide-development", True)
+    in_development = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+    assert in_development.success, in_development.error
+    assert "development-only" in in_development.value
+
+
+@pytest.mark.anyio
+async def test_runtime_skill_cache_retains_known_good_mapping_after_refresh_error(
+    resource_project, runtime, monkeypatch
+):
+    """An expired cache remains available when rediscovery encounters an I/O error."""
+    from mcp_guide.tools import tool_resource
+
+    initial = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+    assert initial.success, initial.error
+    cached = runtime.skill_discovery_cache
+    assert cached is not None
+    runtime.cache_skill_discovery(cached[0], time.monotonic() - 301, cached[2])
+
+    async def fail_discovery(*args, **kwargs):
+        raise OSError("unavailable for this refresh")
+
+    monkeypatch.setattr(tool_resource, "discover_document_files", fail_discovery)
+    retained = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+
+    assert retained.success, retained.error
+    assert "workflow-status" in retained.value
 
 
 @pytest.mark.anyio

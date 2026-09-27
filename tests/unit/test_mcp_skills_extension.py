@@ -1,5 +1,6 @@
 """MCP skills-extension contract tests."""
 
+import time
 from typing import Any, cast
 
 import pytest
@@ -34,6 +35,13 @@ def _write_skill(
         f"{content}",
         encoding="utf-8",
     )
+
+
+def _expire_skill_discovery_cache(runtime) -> None:
+    """Move a populated cache beyond its intentional no-I/O reuse window."""
+    cached = runtime.skill_discovery_cache
+    assert cached is not None
+    runtime.cache_skill_discovery(cached[0], time.monotonic() - 301, cached[2])
 
 
 @pytest.mark.anyio
@@ -134,7 +142,7 @@ async def test_negotiated_skills_list_returns_only_bound_session_skills(tmp_path
             SkillsListResult,
         )
 
-    assert [skill.identifier for skill in result.skills] == ["workflow-status"]
+    assert [skill.name for skill in result.skills] == ["workflow-status"]
     assert result.skills[0].uri == "guide://$workflow-status"
 
 
@@ -204,6 +212,7 @@ async def test_skills_list_change_notification_requires_an_effective_change(
         update = cast(Any, object())
         await extension.on_configuration_changed(session, update)
         _write_skill(docroot, name="workflow-check")
+        _expire_skill_discovery_cache(application.runtime)
         await extension.on_configuration_changed(session, update)
         await extension.on_configuration_changed(session, update)
 
@@ -273,6 +282,7 @@ async def test_skills_list_change_detects_a_delayed_skill_tree_update(tmp_path, 
         current_context = CurrentMcpContext(session_id)
         monkeypatch.setattr(extension_module, "get_context", lambda: current_context)
         _write_skill(docroot, name="workflow-check")
+        _expire_skill_discovery_cache(application.runtime)
 
         await extension.on_request_started(session)
 
@@ -342,6 +352,7 @@ async def test_skills_list_change_waits_for_the_owning_sessions_request_context(
         session = next(iter(extension._effective_skills))
         before = extension._effective_skills[session]
         _write_skill(docroot, name="workflow-check")
+        _expire_skill_discovery_cache(application.runtime)
         update = cast(Any, object())
 
         monkeypatch.setattr(extension_module, "get_context", lambda: (_ for _ in ()).throw(RuntimeError()))
@@ -426,6 +437,7 @@ async def test_skills_list_subscription_survives_project_switch(tmp_path, monkey
         current_context = CurrentMcpContext(session_id)
         monkeypatch.setattr(extension_module, "get_context", lambda: current_context)
         _write_skill(docroot, name="workflow-check")
+        _expire_skill_discovery_cache(application.runtime)
 
         replacement = await original.switch_project(path=second_root)
 

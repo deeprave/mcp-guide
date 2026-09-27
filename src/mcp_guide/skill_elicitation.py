@@ -27,6 +27,7 @@ class SkillElicitation:
     message: str
     schema: dict[str, Any]
     fallback: str
+    when: tuple[str, str] | None = None
 
     @property
     def required_fields(self) -> tuple[str, ...]:
@@ -71,12 +72,19 @@ def _validate_schema(identifier: str, value: object) -> SkillElicitation | Resul
     message = value.get("message")
     schema = value.get("schema")
     fallback = value.get("fallback", "error")
+    raw_when = value.get("when")
     if not isinstance(message, str) or not message.strip():
         return _failure(f"'{identifier}.message' must be a non-empty string")
     if not isinstance(schema, Mapping) or schema.get("type") != "object":
         return _failure(f"'{identifier}.schema' must be an object schema")
     if fallback not in {"error", "render"}:
         return _failure(f"'{identifier}.fallback' must be 'error' or 'render'")
+    if raw_when is not None and (
+        not isinstance(raw_when, Mapping)
+        or len(raw_when) != 1
+        or not all(isinstance(key, str) and isinstance(item, str) for key, item in raw_when.items())
+    ):
+        return _failure(f"'{identifier}.when' must contain one string field and value")
     properties = schema.get("properties")
     required = schema.get("required", [])
     if not isinstance(properties, Mapping) or not properties:
@@ -97,7 +105,8 @@ def _validate_schema(identifier: str, value: object) -> SkillElicitation | Resul
             return _failure(f"'{identifier}.schema.properties.{field}.enum' must contain primitive values")
         if "default" in definition and not _is_valid_field_value(definition, definition["default"]):
             return _failure(f"'{identifier}.schema.properties.{field}.default' must match its field definition")
-    return SkillElicitation(identifier=identifier, message=message, schema=dict(schema), fallback=fallback)
+    when = None if raw_when is None else cast(tuple[str, str], tuple(raw_when.items())[0])
+    return SkillElicitation(identifier=identifier, message=message, schema=dict(schema), fallback=fallback, when=when)
 
 
 def parse_skill_elicitations(frontmatter: Mapping[str, Any]) -> tuple[SkillElicitation, ...] | Result[Any]:
@@ -216,35 +225,6 @@ def _render_fallback_values(elicitations: tuple[SkillElicitation, ...]) -> Resol
     return None
 
 
-def _response_values(
-    elicitations: tuple[SkillElicitation, ...], mcp_context: Context
-) -> ResolvedSkillKeywords | Result[Any] | None:
-    """Return all accepted modern selections, or ``None`` before the first response."""
-    responses = getattr(mcp_context, "input_responses", None)
-    if not responses:
-        return None
-    values: dict[str, str | bool | float | int] = {}
-    defaulted_forms: set[str] = set()
-    for elicitation in elicitations:
-        response = responses.get(elicitation.identifier)
-        if response is None:
-            return Result.failure(f"Skill input '{elicitation.identifier}' was not completed.")
-        if getattr(response, "action", None) == "cancel":
-            defaults = _default_values(elicitation)
-            if defaults is not None:
-                values.update(defaults)
-                defaulted_forms.add(elicitation.identifier)
-                continue
-            if elicitation.fallback == "render":
-                continue
-            return Result.failure(f"Skill input '{elicitation.identifier}' was not completed.")
-        selection = _selection_from_response(elicitation, response)
-        if isinstance(selection, Result):
-            return selection
-        values.update(selection)
-    return ResolvedSkillKeywords(values, defaulted_forms=frozenset(defaulted_forms))
-
-
 def _legacy_model(elicitation: SkillElicitation) -> type[BaseModel]:
     """Build FastMCP's legacy elicitation model from a primitive schema."""
     fields: dict[str, tuple[Any, Any]] = {}
@@ -266,9 +246,39 @@ async def resolve_skill_elicitations(
     parsed = parse_skill_elicitations(frontmatter)
     if isinstance(parsed, Result):
         return parsed
-    missing = tuple(elicitation for elicitation in parsed if _required_fields_missing(elicitation, kwargs))
+    known: dict[str, Any] = dict(kwargs)
+    defaulted_forms: set[str] = set()
+    responses = getattr(mcp_context, "input_responses", None) if mcp_context is not None else None
+    if responses:
+        for elicitation in parsed:
+            response = responses.get(elicitation.identifier)
+            if response is None:
+                continue
+            if getattr(response, "action", None) == "cancel":
+                defaults = _default_values(elicitation)
+                if defaults is not None:
+                    known.update(defaults)
+                    defaulted_forms.add(elicitation.identifier)
+                    continue
+                if elicitation.fallback == "render":
+                    defaulted_forms.add(elicitation.identifier)
+                    continue
+            selection = _selection_from_response(elicitation, response)
+            if isinstance(selection, Result):
+                return selection
+            known.update({key: value for key, value in selection.items() if key not in kwargs})
+    active = tuple(
+        elicitation
+        for elicitation in parsed
+        if elicitation.when is None or known.get(elicitation.when[0]) == elicitation.when[1]
+    )
+    missing = tuple(
+        elicitation
+        for elicitation in active
+        if elicitation.identifier not in defaulted_forms and _required_fields_missing(elicitation, known)
+    )
     if not missing:
-        return ResolvedSkillKeywords(kwargs)
+        return ResolvedSkillKeywords(known, defaulted_forms=frozenset(defaulted_forms))
     required = ", ".join(sorted({field for elicitation in missing for field in elicitation.required_fields}))
     if mcp_context is None or not _client_supports_elicitation(mcp_context):
         defaults = _defaulted_values(missing)
@@ -279,25 +289,22 @@ async def resolve_skill_elicitations(
             return ResolvedSkillKeywords({**render_fallback, **kwargs})
         return Result.failure(f"This skill requires input; pass: {required}.")
 
-    selections = _response_values(missing, mcp_context)
-    if isinstance(selections, Result):
-        return selections
-    if selections is not None:
-        return ResolvedSkillKeywords({**selections, **kwargs}, defaulted_forms=selections.defaulted_forms)
     if getattr(mcp_context.request_context, "protocol_version", None) == "2026-07-28":
         return _input_request(missing)
 
-    values: dict[str, str | bool | float | int] = {}
-    defaulted_forms: set[str] = set()
-    for elicitation in missing:
+    values: dict[str, Any] = dict(known)
+    pending = list(missing)
+    while pending:
+        elicitation = pending.pop(0)
         outcome = await mcp_context.elicit(elicitation.message, _legacy_model(elicitation))
         if isinstance(outcome, CancelledElicitation):
             defaults = _default_values(elicitation)
             if defaults is not None:
-                values.update(defaults)
+                values.update({key: value for key, value in defaults.items() if key not in kwargs})
                 defaulted_forms.add(elicitation.identifier)
                 continue
             if elicitation.fallback == "render":
+                defaulted_forms.add(elicitation.identifier)
                 continue
             return Result.failure(f"Skill input '{elicitation.identifier}' was not completed.")
         if not isinstance(outcome, AcceptedElicitation):
@@ -306,5 +313,13 @@ async def resolve_skill_elicitations(
         selection = _selection_from_response(elicitation, response)
         if isinstance(selection, Result):
             return selection
-        values.update(selection)
-    return ResolvedSkillKeywords({**values, **kwargs}, defaulted_forms=frozenset(defaulted_forms))
+        values.update({key: value for key, value in selection.items() if key not in kwargs})
+        pending.extend(
+            candidate
+            for candidate in parsed
+            if candidate not in pending
+            and candidate.identifier not in defaulted_forms
+            and (candidate.when is None or values.get(candidate.when[0]) == candidate.when[1])
+            and _required_fields_missing(candidate, values)
+        )
+    return ResolvedSkillKeywords(values, defaulted_forms=frozenset(defaulted_forms))

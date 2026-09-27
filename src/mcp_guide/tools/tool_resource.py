@@ -2,10 +2,12 @@
 
 """Read resource tool for resolving guide:// URIs."""
 
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass
 from glob import has_magic
 from pathlib import Path, PurePosixPath
+from types import MappingProxyType
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -21,7 +23,9 @@ from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.core.validation import validate_content_name
 from mcp_guide.discovery.commands import discover_commands, normalise_alias_metadata
-from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, discover_document_files
+from mcp_guide.discovery.files import discover_document_files
+from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
+from mcp_guide.feature_flags.validators import is_value_true
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render.context import TemplateContext, keyword_context
@@ -36,7 +40,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_DISPLAY_ONLY,
     USER_INFO,
 )
-from mcp_guide.runtime import RequestContext
+from mcp_guide.runtime import RequestContext, get_runtime
 from mcp_guide.skill_elicitation import resolve_skill_elicitations
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.tools.tool_result import ToolResult, tool_result
@@ -49,28 +53,34 @@ logger = get_logger(__name__)
 class GuideSkill:
     """A Guide skill package rooted at a rendered SKILL.md entrypoint."""
 
-    identifier: str
     name: str
     description: str
     usage: str
-    frontmatter: Mapping[str, Any]
+    frontmatter: Mapping[str, object]
+    requirements: Mapping[str, object]
+    package_root: PurePosixPath
 
     @property
     def uri(self) -> str:
         """Return the package's stable Guide resource URI."""
-        return f"guide://${self.identifier}"
+        return f"guide://${self.name}"
 
     @property
     def entrypoint_path(self) -> str:
         """Return the package-relative public entrypoint path."""
-        return f"{self.identifier}/SKILL.md"
+        return f"{self.name}/SKILL.md"
 
 
-async def _discover_guide_skills(session: Any, resolver: Any, task_manager: Any) -> list[GuideSkill]:
+def _visible_guide_skills(discovered: Mapping[str, GuideSkill], flags: Mapping[str, object]) -> dict[str, GuideSkill]:
+    """Filter the shared discovery mapping for one session's feature flags."""
+    return {
+        name: skill for name, skill in discovered.items() if check_frontmatter_requirements(skill.requirements, flags)
+    }
+
+
+async def _discover_guide_skills(session: Any, resolver: Any) -> dict[str, GuideSkill]:
     """Discover effective skills from one session and document resolver."""
     skills_dir = resolver(SKILLS_DIR)
-    cache_key = str(skills_dir)
-    cache_generation = task_manager.skill_cache_generation
 
     async def _max_file_mtime(base: Path, fallback: float) -> float:
         result = fallback
@@ -82,79 +92,98 @@ async def _discover_guide_skills(session: Any, resolver: Any, task_manager: Any)
                     continue
         return result
 
-    try:
-        root_mtime = (await AsyncPath(skills_dir).stat()).st_mtime
-        effective_mtime = await _max_file_mtime(skills_dir, root_mtime)
-    except OSError:
-        task_manager.cache_skills(cache_key, 0.0, [], cache_generation)
-        return []
-    if cached := task_manager.get_cached_skills(cache_key, cache_generation):
-        cached_mtime, cached_skills = cached
-        if cached_mtime >= effective_mtime:
-            return cached_skills
-
-    try:
-        files = await discover_document_files(skills_dir, ["*/SKILL.md"])
-    except FileNotFoundError:
-        return []
-
-    if files.truncation_reasons:
-        logger.warning("Guide skill discovery truncated by %s", ", ".join(sorted(files.truncation_reasons)))
-
     flags = await resolve_all_flags(session)
-    skills: list[GuideSkill] = []
-    for file_info in files:
-        try:
-            file_info.resolve(resolver, SKILLS_DIR)
-            frontmatter = parse_content_with_frontmatter(await file_info.read_raw()).frontmatter
-        except (OSError, UnicodeError) as error:
-            logger.warning("Ignoring unreadable Guide skill package %s: %s", file_info.path, error)
-            continue
-        package_path = PurePosixPath(file_info.name).parent
-        identifier = package_path.as_posix()
-        name = frontmatter.get("name")
-        description = frontmatter.get("description")
-        usage = frontmatter.get("usage")
-        if identifier == "." or not all(isinstance(value, str) and value for value in (name, description, usage)):
-            logger.warning("Ignoring Guide skill %s without valid catalogue frontmatter", file_info.path)
-            continue
-        assert isinstance(name, str)
-        assert isinstance(description, str)
-        assert isinstance(usage, str)
-        try:
-            validate_content_name(identifier, "Guide skill package")
-            validate_content_name(name, "Guide skill")
-        except ValueError as error:
-            logger.warning("Ignoring Guide skill package %s: %s", file_info.path, error)
-            continue
-        if not check_frontmatter_requirements(frontmatter, flags):
-            continue
-        skills.append(
-            GuideSkill(
-                identifier=identifier,
-                name=name,
-                description=description,
-                usage=usage,
-                frontmatter=dict(frontmatter),
-            )
-        )
+    runtime = get_runtime()
+    development_mode = is_value_true(flags.get(FLAG_GUIDE_DEVELOPMENT))
 
-    skills = sorted(skills, key=lambda skill: skill.identifier)
-    task_manager.cache_skills(cache_key, effective_mtime, skills, cache_generation)
-    return skills
+    async with runtime.skill_discovery_lock:
+        cached = runtime.skill_discovery_cache
+        if not development_mode and cached is not None and time.monotonic() < cached[1] + 300:
+            discovered = cached[2]
+        else:
+            try:
+                root_mtime = (await AsyncPath(skills_dir).stat()).st_mtime
+                effective_mtime = await _max_file_mtime(skills_dir, root_mtime)
+            except OSError as error:
+                logger.warning("Retaining cached Guide skill discovery after validation failure: %s", error)
+                return {} if cached is None else _visible_guide_skills(cached[2], flags)
+            if not development_mode and cached is not None and cached[0] >= effective_mtime:
+                discovered = cached[2]
+            else:
+                try:
+                    files = await discover_document_files(skills_dir, ["**/SKILL.md"])
+                except OSError as error:
+                    logger.warning("Retaining cached Guide skill discovery after refresh failure: %s", error)
+                    return {} if cached is None else _visible_guide_skills(cached[2], flags)
+
+                if files.truncation_reasons:
+                    logger.warning("Guide skill discovery truncated by %s", ", ".join(sorted(files.truncation_reasons)))
+
+                discovered = {}
+                duplicate_names: set[str] = set()
+                for file_info in files:
+                    try:
+                        file_info.resolve(resolver, SKILLS_DIR)
+                        frontmatter = parse_content_with_frontmatter(await file_info.read_raw()).frontmatter
+                    except (OSError, UnicodeError) as error:
+                        logger.warning("Ignoring unreadable Guide skill package %s: %s", file_info.path, error)
+                        continue
+                    package_root = PurePosixPath(file_info.name).parent
+                    name = frontmatter.get("name")
+                    description = frontmatter.get("description")
+                    usage = frontmatter.get("usage")
+                    if package_root == PurePosixPath(".") or not all(
+                        isinstance(value, str) and value for value in (name, description, usage)
+                    ):
+                        logger.warning("Ignoring Guide skill %s without valid catalogue frontmatter", file_info.path)
+                        continue
+                    assert isinstance(name, str)
+                    assert isinstance(description, str)
+                    assert isinstance(usage, str)
+                    try:
+                        validate_content_name(name, "Guide skill")
+                    except ValueError as error:
+                        logger.warning("Ignoring Guide skill package %s: %s", file_info.path, error)
+                        continue
+                    skill = GuideSkill(
+                        name=name,
+                        description=description,
+                        usage=usage,
+                        frontmatter=MappingProxyType(
+                            {key: value for key, value in frontmatter.items() if key != "name"}
+                        ),
+                        requirements=MappingProxyType(
+                            {key: value for key, value in frontmatter.items() if key.startswith("requires-")}
+                        ),
+                        package_root=package_root,
+                    )
+                    if name in duplicate_names:
+                        continue
+                    if existing := discovered.pop(name, None):
+                        logger.warning(
+                            "Ignoring duplicate Guide skill name %s at %s and %s",
+                            name,
+                            existing.package_root,
+                            skill.package_root,
+                        )
+                        duplicate_names.add(name)
+                        continue
+                    discovered[name] = skill
+                runtime.cache_skill_discovery(effective_mtime, time.monotonic(), discovered)
+
+    return _visible_guide_skills(discovered, flags)
 
 
 async def discover_guide_skills(request_context: RequestContext) -> list[GuideSkill]:
     """Discover skills from their frontmatter, excluding unmet requirements."""
-    return await _discover_guide_skills(
-        request_context.session, request_context.resolve_document_path, request_context.session.task_manager
-    )
+    skills = await _discover_guide_skills(request_context.session, request_context.resolve_document_path)
+    return [skills[name] for name in sorted(skills)]
 
 
 async def discover_guide_skills_for_rendering(session: Any, resolver: Any) -> dict[str, str]:
     """Return catalogue descriptions for skill footnotes during rendering."""
-    skills = await _discover_guide_skills(session, resolver, session.task_manager)
-    return {skill.identifier: skill.description for skill in skills}
+    skills = await _discover_guide_skills(session, resolver)
+    return {name: skills[name].description for name in sorted(skills)}
 
 
 def _catalogue_table_cell(value: str) -> str:
@@ -170,7 +199,7 @@ def _skill_catalogue_content(skills: list[GuideSkill], *, table: bool = False) -
         rows = ["| Skill | Purpose | Use when | Entrypoint |", "|---|---|---|---|"]
         rows.extend(
             "| "
-            f"`{_catalogue_table_cell(skill.identifier)}` | "
+            f"`{_catalogue_table_cell(skill.name)}` | "
             f"{_catalogue_table_cell(skill.description)} | "
             f"{_catalogue_table_cell(skill.usage)} | "
             f"`{skill.uri}` |"
@@ -178,8 +207,7 @@ def _skill_catalogue_content(skills: list[GuideSkill], *, table: bool = False) -
         )
         return "\n".join(rows)
     return "\n\n".join(
-        f"### {skill.name}\n\nID: `{skill.identifier}`\n\n{skill.description}\n\n"
-        f"Use when: {skill.usage}\n\nEntrypoint: `{skill.uri}`"
+        f"### {skill.name}\n\n{skill.description}\n\nUse when: {skill.usage}\n\nEntrypoint: `{skill.uri}`"
         for skill in skills
     )
 
@@ -222,7 +250,7 @@ async def list_skills(args: ListSkillsArgs, request_context: RequestContext) -> 
     return await tool_result("list_skills", result, session=request_context.session, session_id=args.session_id)
 
 
-def _skill_member_path(skill_path: str, skills: list[GuideSkill]) -> tuple[GuideSkill, str] | None:
+def _skill_member_path(skill_path: str, skills: Mapping[str, GuideSkill]) -> tuple[GuideSkill, str] | None:
     """Locate a package and its requested literal member path."""
     requested = PurePosixPath(skill_path)
     if requested.is_absolute() or any(part in {".", ".."} for part in requested.parts):
@@ -230,13 +258,13 @@ def _skill_member_path(skill_path: str, skills: list[GuideSkill]) -> tuple[Guide
     if any(has_magic(part) for part in requested.parts):
         raise ValueError("Guide skill member path must not contain glob syntax")
 
-    for skill in sorted(skills, key=lambda candidate: len(PurePosixPath(candidate.identifier).parts), reverse=True):
-        package_parts = PurePosixPath(skill.identifier).parts
-        if requested.parts[: len(package_parts)] != package_parts:
-            continue
-        member_parts = requested.parts[len(package_parts) :]
-        return skill, PurePosixPath(*member_parts).as_posix() if member_parts else "SKILL.md"
-    return None
+    if not requested.parts:
+        return None
+    skill = skills.get(requested.parts[0])
+    if skill is None:
+        return None
+    member_parts = requested.parts[1:]
+    return skill, PurePosixPath(*member_parts).as_posix() if member_parts else "SKILL.md"
 
 
 def _skill_template_context(skill: GuideSkill, kwargs: Mapping[str, Any]) -> TemplateContext:
@@ -245,7 +273,7 @@ def _skill_template_context(skill: GuideSkill, kwargs: Mapping[str, Any]) -> Tem
     return TemplateContext(
         {
             "skill": {
-                "path": skill.identifier,
+                "path": skill.name,
                 "entrypoint": skill.entrypoint_path,
                 "uri": skill.uri,
                 "resources_uri": f"{skill.uri}/resources",
@@ -258,18 +286,6 @@ def _skill_template_context(skill: GuideSkill, kwargs: Mapping[str, Any]) -> Tem
     )
 
 
-def _public_skill_member_path(template_path: Path, skills_dir: str, request_context: RequestContext) -> str:
-    """Return a rendered package path without leaking server template suffixes."""
-    relative = request_context.resolve_document_path(template_path).relative_to(
-        request_context.resolve_document_path(skills_dir)
-    )
-    rendered_path = relative.as_posix()
-    for extension in TEMPLATE_EXTENSIONS:
-        if rendered_path.endswith(extension):
-            return rendered_path[: -len(extension)]
-    return rendered_path
-
-
 async def _read_guide_skill(
     skill_path: str,
     request_context: RequestContext,
@@ -279,7 +295,10 @@ async def _read_guide_skill(
 ) -> Result[Any] | InputRequiredResult:
     """Render one contained member of a server-owned skill package."""
     try:
-        selected = _skill_member_path(skill_path, await discover_guide_skills(request_context))
+        selected = _skill_member_path(
+            skill_path,
+            await _discover_guide_skills(request_context.session, request_context.resolve_document_path),
+        )
     except ValueError as error:
         return Result.failure(str(error), error_type=ERROR_VALIDATION)
     if selected is None:
@@ -301,7 +320,7 @@ async def _read_guide_skill(
     try:
         rendered = await render_content(
             request_context.session,
-            f"{skill.identifier}/{member_path}",
+            f"{skill.package_root.as_posix()}/{member_path}",
             SKILLS_DIR,
             template_context,
             "Guide skills",
@@ -318,7 +337,7 @@ async def _read_guide_skill(
         rendered.log_discarded_errors(f"Template {rendered.template_path}")
     return Result.ok(
         rendered.content,
-        message=f"Rendered skill file: {_public_skill_member_path(rendered.template_path, SKILLS_DIR, request_context)}",
+        message=f"Rendered skill file: {skill.name}/{member_path}",
         instruction=rendered.instruction,
         disposition=rendered.disposition,
         cache_policy=rendered.cache_policy,
@@ -334,12 +353,11 @@ async def internal_use_skill(
 ) -> Result[Any] | InputRequiredResult:
     """Resolve one catalogued Guide skill through its SKILL.md entrypoint."""
     identifier = skill_name.removeprefix("$")
-    selected = next(
-        (skill for skill in await discover_guide_skills(request_context) if skill.identifier == identifier), None
-    )
+    skills = await _discover_guide_skills(request_context.session, request_context.resolve_document_path)
+    selected = skills.get(identifier)
     if selected is None:
         return Result.failure(f"Guide skill '{identifier}' was not found", error_type=ERROR_NOT_FOUND)
-    return await _read_guide_skill(selected.identifier, request_context, kwargs=kwargs, mcp_context=mcp_context)
+    return await _read_guide_skill(selected.name, request_context, kwargs=kwargs, mcp_context=mcp_context)
 
 
 class UseSkillArgs(ToolArguments):

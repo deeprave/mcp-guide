@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from mcp_guide.configuration import ConfigManager
     from mcp_guide.feature_flags.feature_flags import FeatureFlags
     from mcp_guide.session import Session
+    from mcp_guide.tools.tool_resource import GuideSkill
 
 SessionT = TypeVar("SessionT")
 
@@ -71,6 +72,8 @@ class GuideRuntime(Generic[SessionT]):
             raise ValueError("session_idle_timeout must be positive or None")
         self._session_idle_timeout = session_idle_timeout
         self._configuration_transition_lock = AsyncReentrantLock()
+        self._skill_discovery_lock = asyncio.Lock()
+        self._skill_discovery_cache: tuple[float, float, dict[str, "GuideSkill"]] | None = None
         self._config_manager = ConfigManager(
             config_dir=config_dir,
             docroot=docroot,
@@ -251,6 +254,22 @@ class GuideRuntime(Generic[SessionT]):
     def configuration_transition_lock(self) -> AsyncReentrantLock:
         """Serialise configuration mutation with session binding transitions."""
         return self._configuration_transition_lock
+
+    @property
+    def skill_discovery_lock(self) -> asyncio.Lock:
+        """Serialise access to the runtime-owned skill discovery cache."""
+        return self._skill_discovery_lock
+
+    @property
+    def skill_discovery_cache(self) -> tuple[float, float, dict[str, "GuideSkill"]] | None:
+        """Return the cached private skill-package discovery records."""
+        return self._skill_discovery_cache
+
+    def cache_skill_discovery(
+        self, effective_mtime: float, populated_at: float, skills: dict[str, "GuideSkill"]
+    ) -> None:
+        """Replace the complete runtime-owned skill discovery mapping."""
+        self._skill_discovery_cache = (effective_mtime, populated_at, skills)
 
     async def _on_configuration_snapshot_delta(self, delta: ConfigurationSnapshotDelta) -> None:
         """Queue effective configuration updates for this runtime's live Sessions.

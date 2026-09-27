@@ -1,0 +1,57 @@
+---
+name: triage-review
+description: Collate workflow review records into a canonical inventory and guide decisions for their unique findings.
+usage: Use when the user asks to collate workflow review reports, begin workflow review triage, or decide its findings.
+cache: short, private
+---
+# Review Triage
+
+## Directives
+
+- Read `{{workflow-file}}` to identify the current issue. If its required `issue` field is empty, report that there is no active workflow issue and do not begin triage.
+- Locate every valid source record in `{{path.documents}}Reviews/<issue>/`; do not assume reports created in the immediate context are the complete set.
+- For an initial collation, when `{{path.documents}}Reviews/<issue>.json` does not exist, read every valid source record irrespective of its agent or session origin. If none exist, report that there is nothing to triage and stop.
+- For an incremental re-triage, record the canonical inventory's modification time before reading sources. Read only source records strictly newer than that cutoff, preserving the existing canonical findings and their relevant decisions. Do not re-collate older source material unless the user explicitly requests historical re-collation. Present only pending and newly collated findings; resolved findings remain history.
+- If no source record is newer during incremental re-triage, retain the existing unresolved findings; if none remain, report that there is nothing to triage and stop.
+- Build or update one complete, stable canonical inventory at `{{path.documents}}Reviews/<issue>.json`: preserve existing source report references, versions, targets, scopes, and decisions, then add eligible source material; deduplicate only findings that describe the same underlying defect, and retain the strongest evidence for each unique finding.
+- Use the combined inventory format below. New findings begin with a pending triage object. If a canonical inventory already has recorded triage decisions, preserve its decision, variation, rationale, action, and completion state for matching findings
+- When the reviewed work is a pull request, inspect existing pull-request comments only after collation. Mark matching combined findings as already flagged or add useful context in the combined inventory; do not modify source reports
+- Report the created or updated canonical inventory path, then use {{#recommend}}skill:triage-items{{/recommend}} to walk through every unique finding. Do not implement, format, commit, push, discard changes, or take external action during triage unless the user later explicitly authorises the specific follow-up.
+
+## Combined inventory format
+
+```json
+{
+  "issue": "<workflow issue>",
+  "created_at": "<ISO 8601 timestamp>",
+  "source_reports": [
+    {"reviewer": "<agent-name>-<model-name>", "agent": "<agent-name>", "model": "<model-name>", "version": 1, "path": "Reviews/<issue>/<agent-name>-<model-name>.json"}
+  ],
+  "findings": [
+    {
+      "id": "<combined-#>",
+      "sources": [{"reviewer": "<agent-name>", "id": "<agent-#>", "version": 1, "target": "<source target>", "scope": "<source scope>"}],
+      "priority": "P#",
+      "target": "<finding target>",
+      "scope": "<finding scope>",
+      "location": {"file": "<path>", "start": 1, "end": 1},
+      "description": "<short description>",
+      "analysis": "<evidence and consequence>",
+      "recommendation": "<specific action>",
+      "triage": {
+        "decision": "pending",
+        "variation": null,
+        "rationale": null,
+        "action": null,
+        "completion": "not started"
+      }
+    }
+  ]
+}
+```
+
+## Guardrails
+
+- Source reports are immutable independent evidence. Record user decisions only in the canonical inventory
+- Set a combined finding's `target` and `scope` from its source report when they agree. When its sources differ, retain their individual target and scope values in `sources` and omit those combined-finding fields
+- Do not start `triage-items` until the canonical inventory is complete and stable

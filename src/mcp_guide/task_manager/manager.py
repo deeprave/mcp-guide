@@ -205,11 +205,6 @@ class TaskManager(SessionListener):
         # explicit and command-discovery keys cannot collide with task data.
         self.command_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
         self._command_cache_generation = 0
-        # Skills use the same project-scoped discovery lifecycle as commands,
-        # while retaining their own typed catalogue values.
-        self.skill_cache: dict[str, tuple[float, list[Any]]] = {}
-        self._skill_cache_generation = 0
-
         # Instruction tracking for acknowledgement-based retry
         self._tracked_instructions: Dict[str, TrackedInstruction] = {}
 
@@ -455,15 +450,9 @@ class TaskManager(SessionListener):
         self._command_cache_generation += 1
         self.command_cache.clear()
 
-    def clear_skill_cache(self) -> None:
-        """Discard skill catalogues derived from the previous flag state."""
-        self._skill_cache_generation += 1
-        self.skill_cache.clear()
-
     def clear_document_discovery_caches(self) -> None:
-        """Discard derived command and skill listings together."""
+        """Discard the session-local derived command listings."""
         self.clear_command_cache()
-        self.clear_skill_cache()
 
     @property
     def command_cache_generation(self) -> int:
@@ -483,24 +472,6 @@ class TaskManager(SessionListener):
         if generation != self._command_cache_generation:
             return False
         self.command_cache[cache_key] = (effective_mtime, commands)
-        return True
-
-    @property
-    def skill_cache_generation(self) -> int:
-        """Return the generation associated with current skill-cache data."""
-        return self._skill_cache_generation
-
-    def get_cached_skills(self, cache_key: str, generation: int) -> tuple[float, list[Any]] | None:
-        """Return a skill-cache entry only if its discovery generation remains current."""
-        if generation != self._skill_cache_generation:
-            return None
-        return self.skill_cache.get(cache_key)
-
-    def cache_skills(self, cache_key: str, effective_mtime: float, skills: list[Any], generation: int) -> bool:
-        """Store skills only when discovery still belongs to the active generation."""
-        if generation != self._skill_cache_generation:
-            return False
-        self.skill_cache[cache_key] = (effective_mtime, skills)
         return True
 
     def _clear_queued_instructions(self) -> None:
