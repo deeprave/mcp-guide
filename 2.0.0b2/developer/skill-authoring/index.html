@@ -1164,11 +1164,14 @@
 <h1 id="guide-skill-authoring">Guide Skill Authoring<a class="headerlink" href="#guide-skill-authoring" title="Permanent link">&para;</a></h1>
 <p>Guide skills are server-owned, native-skill-shaped packages in the configured document root:</p>
 <div class="codehilite"><pre><span></span><code>_skills/
-  workflow-review/
-    SKILL.md.mustache
+  workflow/
+    review/
+      SKILL.md.mustache
 </code></pre></div>
 
-<p>The public entrypoint for that example is <code>guide://$workflow-review</code>. A skill package may include
+<p>The package directory may be nested for organisation. Its directory is private implementation detail;
+the public entrypoint is the required frontmatter <code>name</code>, so this example remains
+<code>guide://$workflow-review</code>. A skill package may include
 <code>references/</code>, <code>scripts/</code>, or <code>agents/</code> members, which are retrieved individually through the same
 skill URI root. <code>SKILL.md</code> is the entrypoint and contains the instructions an agent follows.</p>
 <h2 id="skill-frontmatter">Skill Frontmatter<a class="headerlink" href="#skill-frontmatter" title="Permanent link">&para;</a></h2>
@@ -1183,6 +1186,10 @@ skill URI root. <code>SKILL.md</code> is the entrypoint and contains the instruc
 <p>The normal document frontmatter fields, including <code>type</code>, <code>instruction</code>, <code>requires-*</code>, <code>cache</code>,
 and template variables, apply to skills. Bundled skills omit <code>type</code>; their entrypoint delivery
 defaults to <code>agent/instruction</code>.</p>
+<p>Skill names are global identifiers within one Guide runtime and must be unique. Missing, invalid,
+or duplicate names make the affected package unavailable and produce a server warning. A
+<code>requires-*</code> declaration controls availability for each session after Guide has discovered the
+shared package catalogue; it does not change the package's public identity.</p>
 <h2 id="elicitation">Elicitation<a class="headerlink" href="#elicitation" title="Permanent link">&para;</a></h2>
 <p>An entrypoint may declare MCP input forms under <code>elicitation</code>. Guide uses the declaration before
 rendering the entrypoint when its required URI keywords are absent:</p>
