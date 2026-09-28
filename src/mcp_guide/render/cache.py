@@ -99,6 +99,8 @@ class TemplateContextCache(SessionListener):
         client_vars: dict[str, Any] = {"client": {}}
         if "client" in client_os_info:
             client_vars["client"].update(client_os_info["client"])
+        if self._session is not None and self._session.protocol_type is not None:
+            client_vars["client"]["protocol"] = self._session.protocol_type.display_name
         if "user" in client_context_info:
             client_vars["user"] = client_context_info["user"]
         if "repo" in client_context_info:

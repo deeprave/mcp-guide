@@ -55,16 +55,20 @@ async def internal_client_info(args: GetClientInfoArgs, request_context: Request
         else:
             prompt_prefix = agent_info.prompt_prefix.replace("{mcp_name}", mcp_name)
 
+        protocol_type = session.protocol_type
+        assert protocol_type is not None
+        protocol = protocol_type.display_name
         data = {
             "agent": agent_info.name,
             "normalized_name": agent_info.normalized_name,
             "version": agent_info.version,
             "command_prefix": prompt_prefix,
+            "protocol": protocol,
         }
 
         # Use existing formatting function
         formatted = format_agent_info(agent_info, mcp_name)
-        markdown = f"# MCP Client Information\n\n{formatted}"
+        markdown = f"# MCP Client Information\n\n{formatted}\nProtocol: {protocol}"
 
         result = Result.ok(data)
         result.message = markdown
