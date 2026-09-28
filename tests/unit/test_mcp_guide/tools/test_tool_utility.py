@@ -5,12 +5,13 @@ from types import SimpleNamespace
 import pytest
 
 from mcp_guide.agent_detection import AgentInfo, detect_agent
+from mcp_guide.mcp_context import SessionProtocolType
 from mcp_guide.tools.tool_utility import GetClientInfoArgs, internal_client_info
 
 
-def _make_request_context(agent_info=None, client_params=None):
+def _make_request_context(agent_info=None, client_params=None, protocol_type=SessionProtocolType.LEGACY):
     """Build an explicit application context with a resolved Session."""
-    session = SimpleNamespace(agent_info=agent_info, client_params=client_params)
+    session = SimpleNamespace(agent_info=agent_info, client_params=client_params, protocol_type=protocol_type)
     return SimpleNamespace(session=session), session
 
 
@@ -58,6 +59,20 @@ async def test_client_info_no_client_params():
 
 
 @pytest.mark.anyio
+async def test_client_info_returns_failure_without_protocol_information():
+    """Client information fails rather than asserting without a protocol class."""
+    request_context, _session = _make_request_context(
+        agent_info=detect_agent({"clientInfo": {"name": "Cursor", "version": "1.0.0"}}),
+        protocol_type=None,
+    )
+
+    result = await internal_client_info(GetClientInfoArgs(), request_context)
+
+    assert result.success is False
+    assert result.error == "No protocol information available"
+
+
+@pytest.mark.anyio
 async def test_client_info_dict_without_client_info():
     """Test client_info with dict missing clientInfo."""
     request_context, _session = _make_request_context(agent_info=detect_agent({}), client_params={})
@@ -95,3 +110,25 @@ async def test_client_info_formats_modern_metadata_cached_at_boundary():
     assert result.success is True
     assert result.value["agent"] == "Cursor"
     assert session.client_params == client_params
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("protocol_type", "expected_protocol"),
+    [
+        (SessionProtocolType.MCP_2026_07_28, "MCP 2026-07-28"),
+        (SessionProtocolType.LEGACY, "legacy"),
+    ],
+)
+async def test_client_info_returns_the_established_protocol_classification(protocol_type, expected_protocol):
+    """The client-information tool reports the connection's public protocol class."""
+    request_context, _session = _make_request_context(
+        agent_info=detect_agent({"clientInfo": {"name": "Cursor", "version": "1.0.0"}}),
+        protocol_type=protocol_type,
+    )
+
+    result = await internal_client_info(GetClientInfoArgs(), request_context)
+
+    assert result.success is True
+    assert result.value["protocol"] == expected_protocol
+    assert f"Protocol: {expected_protocol}" in result.message

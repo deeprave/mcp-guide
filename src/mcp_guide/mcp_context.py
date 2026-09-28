@@ -20,6 +20,15 @@ class SessionProtocolType(StrEnum):
     LEGACY = "legacy"
     MCP_2026_07_28 = "mcp_2026_07_28"
 
+    @property
+    def display_name(self) -> str:
+        """Return the stable client-facing name for this protocol class."""
+        match self:
+            case SessionProtocolType.MCP_2026_07_28:
+                return "MCP 2026-07-28"
+            case SessionProtocolType.LEGACY:
+                return "legacy"
+
 
 def protocol_type_from_revision(protocol_revision: str) -> SessionProtocolType:
     """Classify a negotiated protocol revision for Session response adaptation."""

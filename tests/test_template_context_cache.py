@@ -7,8 +7,10 @@ from datetime import datetime, timezone
 import pytest
 
 from mcp_guide.agent_detection import AgentInfo
+from mcp_guide.mcp_context import SessionProtocolType
 from mcp_guide.models import Category
 from mcp_guide.openspec.task import OpenSpecTask
+from mcp_guide.prompts.guide_prompt import handle_command
 from mcp_guide.render.cache import TemplateContextCache, get_template_contexts
 from mcp_guide.workflow.schema import WorkflowState
 from tests.helpers import create_bound_test_session, create_unbound_test_session
@@ -138,6 +140,55 @@ async def test_agent_context_reports_membership_and_handoff(session, name, norma
     assert agent["prefix"] == (prefix or "")
     assert agent["has_handoff"] is handoff
     assert {key for key, value in agent.items() if key.startswith("is_") and value} == membership
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("protocol_type", "expected_protocol"),
+    [
+        (SessionProtocolType.MCP_2026_07_28, "MCP 2026-07-28"),
+        (SessionProtocolType.LEGACY, "legacy"),
+    ],
+)
+async def test_client_context_exposes_established_protocol(protocol_type, expected_protocol, session):
+    """Templates receive the public protocol class with client information."""
+    session.establish_protocol_type(protocol_type)
+
+    context = await get_template_contexts(session)
+
+    assert context["client"]["protocol"] == expected_protocol
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("protocol_type", "workflow_enabled", "expected_protocol"),
+    [
+        (SessionProtocolType.MCP_2026_07_28, True, "MCP 2026-07-28"),
+        (SessionProtocolType.LEGACY, False, "legacy"),
+    ],
+)
+async def test_status_command_delivers_established_protocol(
+    protocol_type, workflow_enabled, expected_protocol, tmp_path
+):
+    """The shipped status command displays the connected protocol class."""
+    from mcp_guide.installer.core import install_templates
+    from tests.helpers import create_test_runtime, request_context_for
+
+    docroot = tmp_path / "docs"
+    await install_templates(docroot, tmp_path / "templates.zip")
+    runtime = create_test_runtime(str(tmp_path), docroot=docroot)
+    runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
+    try:
+        status_session = await create_bound_test_session(runtime, "status-protocol")
+        status_session.establish_protocol_type(protocol_type)
+        await status_session.project_flags().set("workflow", workflow_enabled)
+
+        result = await handle_command("status", request_context=await request_context_for(status_session))
+
+        assert result.success is True
+        assert f"Protocol: `{expected_protocol}`" in result.value
+    finally:
+        runtime._release_process_runtime()
 
 
 @pytest.mark.anyio
