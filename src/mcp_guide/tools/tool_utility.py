@@ -56,7 +56,8 @@ async def internal_client_info(args: GetClientInfoArgs, request_context: Request
             prompt_prefix = agent_info.prompt_prefix.replace("{mcp_name}", mcp_name)
 
         protocol_type = session.protocol_type
-        assert protocol_type is not None
+        if protocol_type is None:
+            return Result.failure("No protocol information available")
         protocol = protocol_type.display_name
         data = {
             "agent": agent_info.name,

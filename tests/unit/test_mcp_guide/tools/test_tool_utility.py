@@ -59,6 +59,20 @@ async def test_client_info_no_client_params():
 
 
 @pytest.mark.anyio
+async def test_client_info_returns_failure_without_protocol_information():
+    """Client information fails rather than asserting without a protocol class."""
+    request_context, _session = _make_request_context(
+        agent_info=detect_agent({"clientInfo": {"name": "Cursor", "version": "1.0.0"}}),
+        protocol_type=None,
+    )
+
+    result = await internal_client_info(GetClientInfoArgs(), request_context)
+
+    assert result.success is False
+    assert result.error == "No protocol information available"
+
+
+@pytest.mark.anyio
 async def test_client_info_dict_without_client_info():
     """Test client_info with dict missing clientInfo."""
     request_context, _session = _make_request_context(agent_info=detect_agent({}), client_params={})
