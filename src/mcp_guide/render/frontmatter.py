@@ -1,7 +1,7 @@
 """Front-matter parsing utilities for YAML metadata extraction."""
 
 import re
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -24,6 +24,7 @@ __all__ = [
     "Frontmatter",
     "Content",
     "ProcessedFrontmatter",
+    "RENDERED_FRONTMATTER_FIELDS",
     "resolve_instruction",
     "parse_content_with_frontmatter",
     "check_frontmatter_requirements",
@@ -33,6 +34,11 @@ __all__ = [
 ]
 
 logger = get_logger(__name__)
+
+# These are the only frontmatter values treated as Mustache templates.  All
+# structural metadata remains literal so every document consumer observes the
+# same parsed frontmatter contract.
+RENDERED_FRONTMATTER_FIELDS = ("instruction", "description", "elicitation")
 
 # Pre-compile regex for important instruction prefix
 IMPORTANT_PREFIX_PATTERN = re.compile(r"^\^\s*")
@@ -51,13 +57,11 @@ def _render_frontmatter_value(value: Any, context: dict[str, Any]) -> Any:
     return value
 
 
-def render_frontmatter_fields(
-    frontmatter: Frontmatter, render_context: "TemplateContext", fields: Iterable[str]
-) -> Frontmatter:
-    """Return a copy with only the requested frontmatter values rendered."""
+def render_frontmatter_fields(frontmatter: Frontmatter, render_context: "TemplateContext") -> Frontmatter:
+    """Return a copy with the universally renderable frontmatter values rendered."""
     rendered = Frontmatter(frontmatter)
     context = dict(render_context)
-    for field in fields:
+    for field in RENDERED_FRONTMATTER_FIELDS:
         if field in rendered:
             rendered[field] = _render_frontmatter_value(rendered[field], context)
     return rendered
@@ -247,8 +251,6 @@ async def process_frontmatter(
     content: str,
     requirements_context: Optional[Dict[str, Any]],
     render_context: Optional["TemplateContext"] = None,
-    *,
-    render_fields: Iterable[str] = ("instruction", "description", "elicitation", "includes"),
 ) -> Optional[ProcessedFrontmatter]:
     """Process frontmatter: parse, check requirements, render fields.
 
@@ -274,11 +276,10 @@ async def process_frontmatter(
     ):
         return None
 
-    # Render the ordinary delivery fields after requirement gating. Interactive
-    # preflight explicitly selects any additional fields it needs.
+    # Render the shared delivery and interactive fields after requirement gating.
     if render_context:
         try:
-            parsed.frontmatter = render_frontmatter_fields(parsed.frontmatter, render_context, render_fields)
+            parsed.frontmatter = render_frontmatter_fields(parsed.frontmatter, render_context)
         except Exception as error:
             logger.warning("Failed to render frontmatter fields: %s", error)
 

@@ -77,14 +77,10 @@ async def collect_interactive_document_properties(
         return None
 
     # Frontmatter values are part of the parent context for both their own
-    # delivery fields and any listed partials.  This remains preflight-only;
-    # normal document rendering retains its narrower frontmatter semantics.
+    # delivery fields and any listed partials.  Re-render only the universally
+    # renderable values so preflight has the same contract as ordinary delivery.
     preflight_context = (context or TemplateContext({})).new_child(dict(processed.frontmatter))
-    preflight_frontmatter = render_frontmatter_fields(
-        processed.frontmatter,
-        preflight_context,
-        (*processed.frontmatter, FM_INCLUDES),
-    )
+    preflight_frontmatter = render_frontmatter_fields(processed.frontmatter, preflight_context)
 
     parent_properties = DocumentProperties.from_frontmatter(
         preflight_frontmatter,
@@ -108,7 +104,6 @@ async def collect_interactive_document_properties(
                 partial_path,
                 file_info.path.parent,
                 requirements_context,
-                render_fields=("elicitation", "cache", "type"),
                 resolver=resolver,
                 max_content_limit=max_content_limit,
             )

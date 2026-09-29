@@ -53,7 +53,6 @@ async def load_partial_content(
     base_path: Path,
     context: dict[str, Any] | None = None,
     *,
-    render_fields: tuple[str, ...] = ("instruction", "description", "elicitation"),
     resolver: Callable[[str | Path], Path] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
 ) -> tuple[str, "Frontmatter"]:
@@ -103,12 +102,12 @@ async def load_partial_content(
         ensure_within_limit(stat.st_size, limit_name="max-content-limit", limit=max_content_limit)
         content = await final_path.read_text(encoding="utf-8")
 
-        # Process frontmatter: parse, check requirements, render instruction/description
+        # Process frontmatter with the same rendering contract as every document.
         from mcp_guide.render.context import TemplateContext
         from mcp_guide.render.frontmatter import process_frontmatter
 
         render_context = TemplateContext(context) if context else None
-        processed = await process_frontmatter(content, context, render_context, render_fields=render_fields)
+        processed = await process_frontmatter(content, context, render_context)
 
         if processed is None:
             # Requirements not met - return empty content with empty frontmatter

@@ -92,20 +92,46 @@ Content""",
 
 
 @pytest.mark.anyio
-async def test_process_frontmatter_can_render_selected_parent_variables_for_preflight() -> None:
-    """Partial preflight receives rendered parent variables beyond delivery fields."""
+async def test_process_frontmatter_preserves_structural_frontmatter_values() -> None:
+    """Only declared delivery and interactive values are template-rendered."""
     result = await process_frontmatter(
         """---
-partial-mode: '{{workflow.mode}}'
+instruction: 'Use {{workflow.mode}}.'
+description: '{{workflow.mode}} details'
+elicitation:
+  target:
+    message: 'Choose {{workflow.mode}}.'
+    schema:
+      type: object
+      properties:
+        target:
+          type: string
+includes: ['{{partial_name}}']
+cache: '{{cache_policy}}'
+type: '{{disposition}}'
+aliases: ['{{alias}}']
 ---
 Content""",
         {},
-        TemplateContext({"workflow": {"mode": "branch"}}),
-        render_fields=("partial-mode",),
+        TemplateContext(
+            {
+                "workflow": {"mode": "branch"},
+                "partial_name": "input",
+                "cache_policy": "short, private",
+                "disposition": "agent/instruction",
+                "alias": "review",
+            }
+        ),
     )
 
     assert result is not None
-    assert result.frontmatter["partial-mode"] == "branch"
+    assert result.frontmatter["instruction"] == "Use branch."
+    assert result.frontmatter["description"] == "branch details"
+    assert result.frontmatter["elicitation"]["target"]["message"] == "Choose branch."
+    assert result.frontmatter["includes"] == ["{{partial_name}}"]
+    assert result.frontmatter["cache"] == "{{cache_policy}}"
+    assert result.frontmatter["type"] == "{{disposition}}"
+    assert result.frontmatter["aliases"] == ["{{alias}}"]
 
 
 @pytest.mark.anyio

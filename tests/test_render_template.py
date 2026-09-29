@@ -116,10 +116,10 @@ async def test_render_template_exposes_only_runtime_elicitation_context(render_t
 
 
 @pytest.mark.anyio
-async def test_render_template_uses_resolved_frontmatter_includes(render_template, tmp_path):
-    """A template resolves its listed partial with the same context as preflight."""
+async def test_render_template_uses_declared_frontmatter_includes(render_template, tmp_path):
+    """A template resolves the literal partial named by its frontmatter."""
     template = tmp_path / "parent.mustache"
-    template.write_text("---\nincludes: ['{{fragment}}']\n---\nParent {{>child}}")
+    template.write_text("---\nincludes: [child]\n---\nParent {{>child}}")
     (tmp_path / "_child.mustache").write_text("Child")
     stat = template.stat()
     file_info = FileInfo(template, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), template.name)
@@ -128,7 +128,7 @@ async def test_render_template_uses_resolved_frontmatter_includes(render_templat
         file_info=file_info,
         base_dir=tmp_path,
         project_flags={},
-        context=TemplateContext({"fragment": "child"}),
+        context=TemplateContext({}),
         resolver=lambda path: tmp_path / path,
     )
 

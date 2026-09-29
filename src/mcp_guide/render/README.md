@@ -45,7 +45,7 @@ async def process_frontmatter(
 **Process**:
 1. Parse frontmatter from content
 2. Check `requires-*` directives against requirements_context
-3. Render `instruction` and `description` fields as templates if render_context provided
+3. Render only `instruction`, `description`, and `elicitation` as templates if render_context provided; structural metadata remains literal
 
 Used internally by `render_template()` and `process_file()` for consistent frontmatter handling.
 

@@ -74,11 +74,11 @@ async def test_interactive_partial_load_errors_are_logged_without_hiding_composi
 
 
 @pytest.mark.anyio
-async def test_interactive_delivery_properties_use_parent_context(tmp_path) -> None:
-    """The parent and listed partials resolve delivery properties from parent frontmatter."""
+async def test_interactive_delivery_properties_preserve_static_values(tmp_path) -> None:
+    """The parent and listed partials contribute static delivery properties."""
     parent = tmp_path / "parent.mustache"
-    parent.write_text("---\ncache-policy: short, private\ncache: '{{cache-policy}}'\nincludes: [input]\n---\nParent")
-    (tmp_path / "_input.mustache").write_text("---\ncache: '{{cache-policy}}'\n---\n")
+    parent.write_text("---\ncache: short, private\nincludes: [input]\n---\nParent")
+    (tmp_path / "_input.mustache").write_text("---\ncache: short, private\n---\n")
     stat = parent.stat()
     file_info = FileInfo(parent, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), parent.name)
 
@@ -92,6 +92,38 @@ async def test_interactive_delivery_properties_use_parent_context(tmp_path) -> N
     assert properties is not None
     assert properties.delivery_properties is not None
     assert properties.delivery_properties.cache_policy == CachePolicy.parse("short, private")[0]
+
+
+@pytest.mark.anyio
+async def test_interactive_preflight_preserves_structural_parent_values_for_partial_elicitation(tmp_path) -> None:
+    """Partial forms see literal structural parent values, not a preflight-only variant."""
+    parent = tmp_path / "parent.mustache"
+    parent.write_text("---\nparent-label: '{{workflow.name}}'\nincludes: [input]\n---\nParent")
+    (tmp_path / "_input.mustache").write_text(
+        "---\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: 'Choose {{parent-label}}.'\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        target:\n"
+        "          type: string\n"
+        "      required: [target]\n"
+        "---\n"
+    )
+    stat = parent.stat()
+    file_info = FileInfo(parent, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), parent.name)
+
+    properties = await collect_interactive_document_properties(
+        file_info,
+        project_flags={},
+        context=TemplateContext({"workflow": {"name": "review"}}),
+        resolver=document_root_resolver(tmp_path),
+    )
+
+    assert properties is not None
+    assert properties.elicitation.forms["target"]["message"] == "Choose {{workflow.name}}."
 
 
 @pytest.mark.anyio
