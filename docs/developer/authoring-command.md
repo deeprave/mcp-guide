@@ -1,4 +1,4 @@
-# Command Template Authoring Guide
+# Command Authoring Guide
 
 This guide explains how to create custom commands using templates with frontmatter specifications.
 
@@ -83,6 +83,11 @@ When a flag is declared in `argrequired`:
 **Note:** Values starting with `-` (including negative numbers) are treated as flags. Use `--flag=value` syntax for such values:
 - `--threshold -5` ✗ (error: got flag -5)
 - `--threshold=-5` ✓ (works correctly)
+
+## Elicitation
+
+Commands use the shared elicitation contract. See [Elicitation Authoring](authoring-elicitation.md)
+for the complete declaration reference, branching behaviour, protocol differences, and examples.
 
 ## Template Context
 

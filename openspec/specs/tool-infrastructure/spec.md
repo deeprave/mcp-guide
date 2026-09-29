@@ -283,11 +283,15 @@ Arguments:
 - `verbose` (optional, boolean): include detailed information when available.
 
 The tool SHALL return a Result pattern response containing available agent name,
-version, and client environment details.
+version, client environment details, and a `protocol` field containing the
+established session protocol classification. The protocol classification SHALL
+distinguish MCP `2026-07-28` from `legacy` without exposing a raw negotiated
+revision as a substitute for that classification.
 
 #### Scenario: Retrieve client information
-- **WHEN** `client_info` is invoked
-- **THEN** it SHALL return available agent name, version, and environment details
+- **WHEN** `client_info` is invoked for an established session
+- **THEN** it SHALL return available agent name, version, environment details, and
+  the session's MCP `2026-07-28` or `legacy` protocol classification
 - **AND** the response SHALL use the standard Result pattern
 
 ### Requirement: Tool Description Standard for AI Agents

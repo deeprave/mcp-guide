@@ -7,7 +7,7 @@ Provide policy-aware Git workflow skills without reducing them to command wrappe
 
 ### Requirement: Git skills are independently available
 The system SHALL provide `git-commit`, `git-push`, `git-pr`, `git-sync`, and
-`git-pr-triage` as bundled Guide skill packages. Their discovery and rendering
+`triage-pr` as bundled Guide skill packages. Their discovery and rendering
 SHALL NOT require workflow or OpenSpec features. Instructions that refer to
 optional features SHALL be conditional on those features.
 

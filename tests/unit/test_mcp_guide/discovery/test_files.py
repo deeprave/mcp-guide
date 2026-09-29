@@ -289,6 +289,25 @@ async def test_read_raw_with_content_loader():
 
 
 @pytest.mark.anyio
+async def test_frontmatter_and_raw_content_share_one_load() -> None:
+    """Frontmatter inspection and rendering reuse the canonical raw-file cache."""
+    calls = 0
+
+    async def loader() -> str:
+        nonlocal calls
+        calls += 1
+        return "---\ntitle: Cached\n---\nBody"
+
+    fi = FileInfo(
+        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
+    )
+
+    assert await fi.get_frontmatter() == {"title": "Cached"}
+    assert await fi.read_raw() == "---\ntitle: Cached\n---\nBody"
+    assert calls == 1
+
+
+@pytest.mark.anyio
 async def test_read_raw_loader_returns_none_raises():
     """Test read_raw raises FileNotFoundError when loader returns None."""
 

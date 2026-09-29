@@ -36,6 +36,26 @@ declaration.
 - **AND** SHALL preserve those values in the normal command template keyword
   context
 
+#### Scenario: Defaulted form is visible to the template
+
+- **WHEN** an applicable form is completed with its schema defaults or render
+  fallback
+- **THEN** the template context SHALL expose that form at
+  `elicitation.defaulted_forms.<form-name>`
+
+#### Scenario: Numeric field constraint
+
+- **WHEN** an elicitation integer or number field declares `minimum` or `maximum`
+- **THEN** Guide SHALL reject supplied and default values outside that inclusive range
+- **AND** SHALL return the ordinary input validation failure
+
+#### Scenario: Typed URI value selects a conditional branch
+
+- **WHEN** a URI keyword supplies a value for a declared numeric or boolean
+  elicitation field
+- **THEN** Guide SHALL validate and normalise it to the declared field type
+- **AND** SHALL use the normalised value when evaluating `when` conditions
+
 #### Scenario: Entry point has no declared form
 
 - **WHEN** a selected skill or command has no effective `elicitation` frontmatter
@@ -148,3 +168,36 @@ existing partial mechanism.
   elicitation declaration
 - **THEN** Guide SHALL preserve the existing composed-property behaviour
 - **AND** SHALL not change the rendered body solely because the partial was listed
+
+#### Scenario: Interactive partial cannot be loaded
+
+- **WHEN** an entrypoint cannot load one of its listed property contributors
+- **THEN** Guide SHALL log a source-aware warning
+- **AND** SHALL continue without that contributor
+- **AND** SHALL NOT make partial availability a client-facing elicitation failure
+
+#### Scenario: Malformed includes declaration
+
+- **WHEN** an entrypoint's `includes` declaration is present but is not a list of strings
+- **THEN** Guide SHALL log a source-aware warning
+- **AND** SHALL continue as if it had no preflight partial contributors
+- **AND** an absent `includes` declaration SHALL remain valid and produce no warning
+
+### Requirement: Elicitation validation and conditional semantics
+
+The system SHALL normalise values according to their declared primitive field types before
+validating defaults, accepted input, enum membership, numeric bounds, and `when` conditions.
+Integer values supplied as finite numeric values SHALL use mathematical floor semantics. A
+completed form that leaves a value needed by an applicable dependent condition unknown SHALL
+fail with a clear validation result. Composition SHALL report all independently detectable,
+source-aware declaration diagnostics.
+
+#### Scenario: Fractional integer value
+
+- **WHEN** an integer field receives the finite numeric value `-1.2`
+- **THEN** Guide SHALL use `-2` for subsequent enum, bound, and conditional evaluation
+
+#### Scenario: Optional supplier leaves a branch unknown
+
+- **WHEN** a completed form omits an optional value used by a dependent form's `when` condition
+- **THEN** Guide SHALL return a validation failure rather than silently skip the dependent form

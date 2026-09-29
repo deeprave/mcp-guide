@@ -88,7 +88,6 @@ async def resource_project(runtime, tmp_path):
     """Real content and command fixtures shared by the two resource entry points."""
     import yaml
 
-    from mcp_guide.installer.core import get_templates_path
     from mcp_guide.models import Category
     from tests.helpers import create_bound_test_session, request_context_for
 
@@ -155,16 +154,29 @@ async def resource_project(runtime, tmp_path):
         "Nested skill content."
     )
     (docroot / "_skills/grouped/nested/resources/checklist.md.mustache").write_text("Nested member content.")
-    templates_path = await get_templates_path()
-    for _skill_name, package_path in (
-        ("triage-pr", "triage/pr"),
-        ("triage-items", "triage/items"),
-        ("triage-review", "triage/review"),
+    for name, description, usage, content in (
+        (
+            "triage-pr",
+            "Classify pull request feedback.",
+            "Use when reviewing a pull request.",
+            "Review the findings, then {{#recommend}}skill:triage-items{{/recommend}}.",
+        ),
+        (
+            "triage-items",
+            "Classify a supplied inventory.",
+            "Use when deciding the next action for listed items.",
+            "Classify the inventory before any authorised local or external action.",
+        ),
+        (
+            "triage-review",
+            "Classify review findings.",
+            "Use when reviewing a collected set of findings.",
+            "Keep the initial inventory cutoff and classify newer records separately.",
+        ),
     ):
-        production_skill = templates_path / f"_skills/{package_path}/SKILL.md.mustache"
-        installed_skill = docroot / f"_skills/{package_path}/SKILL.md.mustache"
-        installed_skill.parent.mkdir(parents=True, exist_ok=True)
-        installed_skill.write_text(production_skill.read_text())
+        skill_file = docroot / f"_skills/{name}/SKILL.md.mustache"
+        skill_file.parent.mkdir(parents=True, exist_ok=True)
+        skill_file.write_text(f"---\nname: {name}\ndescription: {description}\nusage: {usage}\n---\n{content}")
     runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
     session = await create_bound_test_session(runtime, "resource-project")
     for name, patterns in (("docs", ["*.md"]), ("policies", ["git/ops/*.md", "other.md"])):
@@ -172,3 +184,22 @@ async def resource_project(runtime, tmp_path):
             lambda p, name=name, patterns=patterns: p.with_category(name, Category(dir=name, patterns=patterns))
         )
     return await request_context_for(session, "resource-session")
+
+
+@pytest.fixture(scope="function")
+def modern_elicitation_context():
+    """Build isolated modern-MCP contexts for input and continuation tests."""
+    from types import SimpleNamespace
+
+    session = SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={})))
+    request_context = SimpleNamespace(protocol_version="2026-07-28")
+
+    def build(*, request_state: str | None = None, input_responses: object = None):
+        return SimpleNamespace(
+            session=session,
+            request_context=request_context,
+            request_state=request_state,
+            input_responses=input_responses,
+        )
+
+    return build

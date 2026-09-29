@@ -32,6 +32,13 @@ class UnsafePartialPathError(ValueError):
 _ENVIRONMENT_VARIABLE_REFERENCE = re.compile(r"\$(?:[A-Za-z_][A-Za-z0-9_]*|\{[^}]+\})")
 
 
+def declared_partial_path(include_path: str) -> Path:
+    """Return the conventional underscore-prefixed path for an include declaration."""
+    include = Path(include_path)
+    partial_name = include.stem.removeprefix("_")
+    return include.parent / f"_{partial_name}"
+
+
 def _reject_unsafe_reference(partial_path: Path) -> None:
     """Reject path expansion syntax which has no meaning in template references."""
     path_text = str(partial_path)
@@ -46,6 +53,7 @@ async def load_partial_content(
     base_path: Path,
     context: dict[str, Any] | None = None,
     *,
+    render_fields: tuple[str, ...] = ("instruction", "description", "elicitation"),
     resolver: Callable[[str | Path], Path] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
 ) -> tuple[str, "Frontmatter"]:
@@ -100,7 +108,7 @@ async def load_partial_content(
         from mcp_guide.render.frontmatter import process_frontmatter
 
         render_context = TemplateContext(context) if context else None
-        processed = await process_frontmatter(content, context, render_context)
+        processed = await process_frontmatter(content, context, render_context, render_fields=render_fields)
 
         if processed is None:
             # Requirements not met - return empty content with empty frontmatter

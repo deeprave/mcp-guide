@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
@@ -16,7 +17,19 @@ from mcp_guide.models import CategoryNotFoundError, ExpressionParseError
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.content import FM_INCLUDES, FM_REQUIRES_PREFIX, RenderedContent
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.render.document_properties import DocumentContribution
+from mcp_guide.render.document_properties import DocumentContribution, DocumentElicitation, DocumentProperties
+from mcp_guide.render.frontmatter import (
+    check_frontmatter_requirements,
+    get_frontmatter_includes,
+    process_frontmatter,
+    render_frontmatter_fields,
+)
+from mcp_guide.render.partials import (
+    PartialNotFoundError,
+    UnsafePartialPathError,
+    declared_partial_path,
+    load_partial_content,
+)
 from mcp_guide.render.recommendations import Recommendation
 from mcp_guide.render.renderer import is_template_file, render_template_content
 
@@ -24,6 +37,113 @@ if TYPE_CHECKING:
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class InteractiveDocumentProperties:
+    """Pre-render forms plus the listed partial properties not rendered in a body."""
+
+    elicitation: DocumentElicitation
+    delivery_properties: DocumentProperties | None
+
+
+def _document_source_path(path: Path, resolver: Callable[[str | Path], Path]) -> str:
+    """Return a document-root-relative source label safe for client diagnostics."""
+    try:
+        return path.relative_to(resolver(".")).as_posix()
+    except ValueError as error:
+        raise ValueError(f"Interactive document source is outside the document root: {path}") from error
+
+
+async def collect_interactive_document_properties(
+    file_info: FileInfo,
+    *,
+    project_flags: dict[str, Any],
+    context: TemplateContext | None,
+    resolver: Callable[[str | Path], Path],
+    max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
+) -> InteractiveDocumentProperties | None:
+    """Collect an entrypoint's eligible elicitation declarations before rendering.
+
+    This intentionally follows only the parent frontmatter's declared includes.
+    It does not affect ordinary partial interpolation or output properties.
+    """
+    processed = await process_frontmatter(
+        await file_info.read_raw(max_bytes=max_content_limit),
+        project_flags,
+        context,
+    )
+    if processed is None:
+        return None
+
+    # Frontmatter values are part of the parent context for both their own
+    # delivery fields and any listed partials.  This remains preflight-only;
+    # normal document rendering retains its narrower frontmatter semantics.
+    preflight_context = (context or TemplateContext({})).new_child(dict(processed.frontmatter))
+    preflight_frontmatter = render_frontmatter_fields(
+        processed.frontmatter,
+        preflight_context,
+        (*processed.frontmatter, FM_INCLUDES),
+    )
+
+    parent_properties = DocumentProperties.from_frontmatter(
+        preflight_frontmatter,
+        source=_document_source_path(file_info.path, resolver),
+    )
+    parent_variables = {
+        key: value
+        for key, value in preflight_frontmatter.items()
+        if not key.startswith(FM_REQUIRES_PREFIX) and key != FM_INCLUDES
+    }
+    partial_context = context.new_child(parent_variables) if context is not None else TemplateContext(parent_variables)
+    partial_property_sets: list[DocumentProperties] = []
+    requirements_context = {**dict(partial_context), **project_flags}
+    includes = get_frontmatter_includes(dict(preflight_frontmatter))
+    if FM_INCLUDES in preflight_frontmatter and includes is None:
+        logger.warning("Ignoring malformed includes declaration for interactive properties: %s", file_info.path)
+    for include_path in includes or []:
+        partial_path = declared_partial_path(include_path)
+        try:
+            _, partial_frontmatter = await load_partial_content(
+                partial_path,
+                file_info.path.parent,
+                requirements_context,
+                render_fields=("elicitation", "cache", "type"),
+                resolver=resolver,
+                max_content_limit=max_content_limit,
+            )
+        except PartialNotFoundError as error:
+            logger.error("Partial template not found for interactive properties: %s - %s", include_path, error)
+            continue
+        except (OSError, PermissionError) as error:
+            logger.error("Failed to read interactive partial %s: %s", include_path, error)
+            continue
+        except UnsafePartialPathError as error:
+            logger.warning("Unsafe interactive partial reference omitted: %s", error)
+            continue
+        except ValueError as error:
+            logger.error("Invalid interactive partial path %s: %s", include_path, error)
+            continue
+        if not partial_frontmatter:
+            continue
+        if not check_frontmatter_requirements(partial_frontmatter, requirements_context):
+            continue
+        partial_property_sets.append(
+            DocumentProperties.from_frontmatter(
+                partial_frontmatter,
+                source=_document_source_path(file_info.path.parent / partial_path, resolver),
+            )
+        )
+    properties = DocumentProperties.combine((parent_properties, *partial_property_sets))
+    delivery_contributors = (
+        parent_properties.preflight_delivery_properties(),
+        *(partial_properties.preflight_delivery_properties() for partial_properties in partial_property_sets),
+    )
+    delivery_properties = DocumentProperties.combine(delivery_contributors)
+    return InteractiveDocumentProperties(
+        elicitation=properties.elicitation,
+        delivery_properties=delivery_properties if delivery_properties.properties else None,
+    )
 
 
 async def _recommendation_footnotes(
@@ -135,6 +255,9 @@ async def render_template(
     frontmatter_vars = {
         k: v for k, v in processed.frontmatter.items() if not k.startswith(FM_REQUIRES_PREFIX) and k != FM_INCLUDES
     }
+    caller_elicitation = final_context.get("elicitation")
+    if isinstance(caller_elicitation, dict):
+        frontmatter_vars["elicitation"] = caller_elicitation
 
     # Add frontmatter vars to context for template body rendering
     # Context chain: base → caller → frontmatter_vars

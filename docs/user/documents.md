@@ -112,6 +112,12 @@ Content here...
 - Paths are relative to the origin document
 - Partials must be within the document root (cannot point outside `docroot`)
 
+For an interactive command or selected skill entrypoint, eligible partials named in `includes` also
+contribute composable `elicitation` frontmatter before the entrypoint body renders. A partial can
+therefore provide a form without adding body text; body content still appears only through `{{> name}}`.
+Duplicate form identifiers or input property names across the entrypoint and its contributing partials
+are rejected with an authoring diagnostic that identifies both sources.
+
 ### Template Examples
 
 Many working template examples are installed in the document root. Explore these to see practical implementations of variables, conditionals, loops, and partials.

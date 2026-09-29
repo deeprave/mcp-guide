@@ -82,6 +82,81 @@ async def test_render_template_requires_flag(scenario, project_flags, expected_r
 
 
 @pytest.mark.anyio
+async def test_render_template_exposes_only_runtime_elicitation_context(render_template, tmp_path):
+    """Body templates cannot inspect raw frontmatter form declarations."""
+    template = tmp_path / "elicitation-context.mustache"
+    template.write_text(
+        "---\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Choose target.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        mode:\n"
+        "          type: string\n"
+        "      required: [mode]\n"
+        "---\n"
+        "{{#elicitation.defaulted_forms.target}}defaulted{{/elicitation.defaulted_forms.target}}"
+        "{{#elicitation.target}} leaked{{/elicitation.target}}"
+    )
+    stat = template.stat()
+    file_info = FileInfo(template, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), template.name)
+
+    result = await render_template(
+        file_info=file_info,
+        base_dir=tmp_path,
+        project_flags={},
+        context=TemplateContext({"elicitation": {"defaulted_forms": {"target": True}}}),
+        resolver=lambda path: tmp_path / path,
+    )
+
+    assert result is not None
+    assert result.content == "defaulted"
+
+
+@pytest.mark.anyio
+async def test_render_template_uses_resolved_frontmatter_includes(render_template, tmp_path):
+    """A template resolves its listed partial with the same context as preflight."""
+    template = tmp_path / "parent.mustache"
+    template.write_text("---\nincludes: ['{{fragment}}']\n---\nParent {{>child}}")
+    (tmp_path / "_child.mustache").write_text("Child")
+    stat = template.stat()
+    file_info = FileInfo(template, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), template.name)
+
+    result = await render_template(
+        file_info=file_info,
+        base_dir=tmp_path,
+        project_flags={},
+        context=TemplateContext({"fragment": "child"}),
+        resolver=lambda path: tmp_path / path,
+    )
+
+    assert result is not None
+    assert result.content == "Parent Child"
+
+
+@pytest.mark.anyio
+async def test_render_template_keeps_ordinary_structural_frontmatter_literal(render_template, tmp_path):
+    """Normal delivery does not interpolate structural frontmatter values."""
+    template = tmp_path / "ordinary.mustache"
+    template.write_text("---\ncache: '{{cache-policy}}'\n---\nContent")
+    stat = template.stat()
+    file_info = FileInfo(template, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), template.name)
+
+    result = await render_template(
+        file_info=file_info,
+        base_dir=tmp_path,
+        project_flags={},
+        context=TemplateContext({"cache-policy": "short, private"}),
+        resolver=lambda path: tmp_path / path,
+    )
+
+    assert result is not None
+    assert result.frontmatter["cache"] == "{{cache-policy}}"
+
+
+@pytest.mark.anyio
 async def test_render_template_requires_list_scalar_match(render_template, tmp_path):
     """Test list requirement with scalar value - should match if in list."""
     test_file = tmp_path / "test_requires_list_scalar.mustache"

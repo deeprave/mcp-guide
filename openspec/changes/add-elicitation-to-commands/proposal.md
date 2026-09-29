@@ -9,11 +9,13 @@ document properties.
 
 ## What Changes
 
-- Extend the shared, frontmatter-declared elicitation mechanism to Guide command
-  templates without command-name-specific routing or a second implementation.
-- Add declarative branching so a form can become applicable after prior URI or
-  elicited values meet its declared condition, requesting a follow-up form only
-  when needed.
+- Generalise the existing skill elicitation resolver into shared entrypoint
+  infrastructure, retaining its modern-MCP input-required path, legacy
+  sequential path, URI-value precedence, defaults, fallback rendering, and
+  explicit-decline behaviour for both skills and commands.
+- Complete declarative branching so a form can become applicable after prior URI
+  or elicited values meet all of its primitive equality-membership conditions,
+  requesting a follow-up form only when needed.
 - Allow rendered partials to contribute elicitation declarations to their parent,
   combining distinct forms with the parent and other contributing partials.
 - Support frontmatter-only partials that contribute properties, including
@@ -42,7 +44,7 @@ document properties.
 
 - Affected code: shared elicitation resolver, command dispatch and resource
   handling, frontmatter/document-property composition, partial rendering, and
-  request-context propagation.
+  protocol-specific request-context propagation.
 - Affected templates: command templates and rendered partials may opt into the
   new frontmatter contract; ordinary document delivery remains unchanged.
 - Affected documentation: developer skill, command, and template authoring

@@ -182,6 +182,7 @@ async def guide_command_resource(
     *,
     request_context: RequestContext,
     request_uri: str | None,
+    mcp_context: Context | None = None,
 ) -> object:
     """Read output from a Guide command URI (guide://_command/args).
 
@@ -190,7 +191,7 @@ async def guide_command_resource(
     """
     try:
         uri = request_uri or f"guide://_{command_path}"
-        return await _resolve_guide_uri(uri, request_context)
+        return await _resolve_guide_uri(uri, request_context, mcp_context=mcp_context)
     except InvalidProjectNameError as error:
         return resource_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))
     except (ValueError, FileNotFoundError, PermissionError) as e:

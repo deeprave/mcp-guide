@@ -27,7 +27,7 @@ async def render_template(
 **Process**:
 1. Parse frontmatter
 2. Check `requires-*` directives against `project_flags` (return `None` if not met)
-3. Build context: base → frontmatter vars → caller context
+3. Build context: base → frontmatter vars → caller context, including rendered `elicitation` frontmatter
 4. Render template files with Chevron and partials support
 
 ### process_frontmatter()

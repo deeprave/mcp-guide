@@ -66,6 +66,49 @@ Content"""
 
 
 @pytest.mark.anyio
+async def test_process_frontmatter_renders_nested_elicitation_values():
+    """Interactive frontmatter receives the same template variables as the body."""
+    result = await process_frontmatter(
+        """---
+elicitation:
+  target:
+    message: Choose {{workflow.name}}.
+    schema:
+      type: object
+      properties:
+        mode:
+          type: string
+          default: '{{default_mode}}'
+      required: [mode]
+---
+Content""",
+        {},
+        TemplateContext({"workflow": {"name": "review"}, "default_mode": "uncommitted"}),
+    )
+
+    assert result is not None
+    assert result.frontmatter["elicitation"]["target"]["message"] == "Choose review."
+    assert result.frontmatter["elicitation"]["target"]["schema"]["properties"]["mode"]["default"] == "uncommitted"
+
+
+@pytest.mark.anyio
+async def test_process_frontmatter_can_render_selected_parent_variables_for_preflight() -> None:
+    """Partial preflight receives rendered parent variables beyond delivery fields."""
+    result = await process_frontmatter(
+        """---
+partial-mode: '{{workflow.mode}}'
+---
+Content""",
+        {},
+        TemplateContext({"workflow": {"mode": "branch"}}),
+        render_fields=("partial-mode",),
+    )
+
+    assert result is not None
+    assert result.frontmatter["partial-mode"] == "branch"
+
+
+@pytest.mark.anyio
 async def test_process_file_non_template(tmp_path):
     """Test process_file with a non-template markdown file."""
     # Create a simple markdown file

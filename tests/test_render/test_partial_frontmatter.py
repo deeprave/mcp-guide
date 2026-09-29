@@ -1,19 +1,145 @@
 """Tests for partial frontmatter handling."""
 
+from datetime import datetime
 from pathlib import Path
 
 import pytest
 
 from mcp_guide.core.path_security import resolve_safe_path
+from mcp_guide.discovery.files import FileInfo
+from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import Frontmatter
 from mcp_guide.render.partials import UnsafePartialPathError, load_partial_content
 from mcp_guide.render.renderer import render_template_content
+from mcp_guide.render.template import collect_interactive_document_properties
 
 
 def document_root_resolver(document_root: Path):
     """Return the server-side containment resolver used by partial tests."""
     return lambda path: resolve_safe_path(document_root, path)
+
+
+@pytest.mark.anyio
+async def test_interactive_partial_load_errors_are_logged_without_hiding_composition_diagnostics(
+    tmp_path, caplog
+) -> None:
+    """An unavailable listed partial is logged while valid contributors still compose."""
+    parent = tmp_path / "parent.mustache"
+    parent.write_text(
+        "---\n"
+        "includes: [first, missing]\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Choose target.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        mode:\n"
+        "          type: string\n"
+        "      required: [mode]\n"
+        "---\n"
+        "Parent"
+    )
+    (tmp_path / "_first.mustache").write_text(
+        "---\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Duplicate target.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        reference:\n"
+        "          type: string\n"
+        "      required: [reference]\n"
+        "---\n"
+    )
+    stat = parent.stat()
+    file_info = FileInfo(parent, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), parent.name)
+
+    properties = await collect_interactive_document_properties(
+        file_info,
+        project_flags={},
+        context=TemplateContext({}),
+        resolver=document_root_resolver(tmp_path),
+    )
+
+    assert properties is not None
+    assert properties.elicitation.diagnostic is not None
+    assert "declared by both" in properties.elicitation.diagnostic
+    assert "parent.mustache" in properties.elicitation.diagnostic
+    assert str(tmp_path) not in properties.elicitation.diagnostic
+    assert "Listed interactive partial could not be loaded" not in properties.elicitation.diagnostic
+    assert any("missing" in record.message for record in caplog.records)
+
+
+@pytest.mark.anyio
+async def test_interactive_delivery_properties_use_parent_context(tmp_path) -> None:
+    """The parent and listed partials resolve delivery properties from parent frontmatter."""
+    parent = tmp_path / "parent.mustache"
+    parent.write_text("---\ncache-policy: short, private\ncache: '{{cache-policy}}'\nincludes: [input]\n---\nParent")
+    (tmp_path / "_input.mustache").write_text("---\ncache: '{{cache-policy}}'\n---\n")
+    stat = parent.stat()
+    file_info = FileInfo(parent, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), parent.name)
+
+    properties = await collect_interactive_document_properties(
+        file_info,
+        project_flags={},
+        context=TemplateContext({}),
+        resolver=document_root_resolver(tmp_path),
+    )
+
+    assert properties is not None
+    assert properties.delivery_properties is not None
+    assert properties.delivery_properties.cache_policy == CachePolicy.parse("short, private")[0]
+
+
+@pytest.mark.anyio
+async def test_malformed_interactive_includes_are_logged_and_ignored(tmp_path, caplog) -> None:
+    """A malformed includes value remains a tolerant authoring error."""
+    parent = tmp_path / "parent.mustache"
+    parent.write_text("---\nincludes: invalid\n---\nParent")
+    stat = parent.stat()
+    file_info = FileInfo(parent, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), parent.name)
+
+    properties = await collect_interactive_document_properties(
+        file_info,
+        project_flags={},
+        context=TemplateContext({}),
+        resolver=document_root_resolver(tmp_path),
+    )
+
+    assert properties is not None
+    assert not properties.elicitation.forms
+    assert any("includes" in record.message for record in caplog.records)
+
+
+@pytest.mark.anyio
+async def test_form_only_partial_preserves_another_partial_explicit_cache_policy(tmp_path) -> None:
+    """Only explicit property-only cache declarations reach the delivered document."""
+    parent = tmp_path / "parent.mustache"
+    parent.write_text("---\nincludes: [cached, form]\n---\nParent")
+    (tmp_path / "_cached.mustache").write_text(
+        "---\ncache: short, private\nelicitation:\n  target:\n    message: Choose target.\n"
+        "    schema:\n      type: object\n      properties:\n        target:\n          type: string\n      required: [target]\n---\n"
+    )
+    (tmp_path / "_form.mustache").write_text(
+        "---\nelicitation:\n  reference:\n    message: Choose reference.\n"
+        "    schema:\n      type: object\n      properties:\n        reference:\n          type: string\n      required: [reference]\n---\n"
+    )
+    stat = parent.stat()
+    file_info = FileInfo(parent, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), parent.name)
+
+    properties = await collect_interactive_document_properties(
+        file_info,
+        project_flags={},
+        context=TemplateContext({}),
+        resolver=document_root_resolver(tmp_path),
+    )
+
+    assert properties is not None
+    assert properties.delivery_properties is not None
+    assert properties.delivery_properties.cache_policy == CachePolicy.parse("short, private")[0]
 
 
 @pytest.mark.anyio

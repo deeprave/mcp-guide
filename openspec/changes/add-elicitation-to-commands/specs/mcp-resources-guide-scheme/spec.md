@@ -31,3 +31,10 @@ content.
 - **THEN** it SHALL use the same shared command interaction path
 - **AND** SHALL preserve the prompt's existing project-binding and command
   argument semantics
+
+#### Scenario: Prompt shorthand command needs input
+
+- **WHEN** the Guide prompt dispatches a colon- or semicolon-prefixed command
+  with an applicable unresolved elicitation form
+- **THEN** it SHALL preserve the same MCP input-required result and retry
+  contract as an underscore-prefixed command

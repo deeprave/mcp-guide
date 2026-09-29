@@ -1,7 +1,7 @@
 """Front-matter parsing utilities for YAML metadata extraction."""
 
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
@@ -27,6 +27,7 @@ __all__ = [
     "resolve_instruction",
     "parse_content_with_frontmatter",
     "check_frontmatter_requirements",
+    "render_frontmatter_fields",
     "process_frontmatter",
     "process_file",
 ]
@@ -35,6 +36,31 @@ logger = get_logger(__name__)
 
 # Pre-compile regex for important instruction prefix
 IMPORTANT_PREFIX_PATTERN = re.compile(r"^\^\s*")
+
+
+def _render_frontmatter_value(value: Any, context: dict[str, Any]) -> Any:
+    """Render template strings recursively without changing frontmatter structure."""
+    import chevron
+
+    if isinstance(value, str):
+        return chevron.render(value, context)
+    if isinstance(value, list):
+        return [_render_frontmatter_value(item, context) for item in value]
+    if isinstance(value, dict):
+        return {key: _render_frontmatter_value(item, context) for key, item in value.items()}
+    return value
+
+
+def render_frontmatter_fields(
+    frontmatter: Frontmatter, render_context: "TemplateContext", fields: Iterable[str]
+) -> Frontmatter:
+    """Return a copy with only the requested frontmatter values rendered."""
+    rendered = Frontmatter(frontmatter)
+    context = dict(render_context)
+    for field in fields:
+        if field in rendered:
+            rendered[field] = _render_frontmatter_value(rendered[field], context)
+    return rendered
 
 
 def _normalize_requires_actual_value(flag_name: str, actual_value: Any) -> Any:
@@ -221,6 +247,8 @@ async def process_frontmatter(
     content: str,
     requirements_context: Optional[Dict[str, Any]],
     render_context: Optional["TemplateContext"] = None,
+    *,
+    render_fields: Iterable[str] = ("instruction", "description", "elicitation", "includes"),
 ) -> Optional[ProcessedFrontmatter]:
     """Process frontmatter: parse, check requirements, render fields.
 
@@ -246,17 +274,13 @@ async def process_frontmatter(
     ):
         return None
 
-    # Render instruction and description fields if render_context provided
+    # Render the ordinary delivery fields after requirement gating. Interactive
+    # preflight explicitly selects any additional fields it needs.
     if render_context:
-        import chevron
-
-        context_dict = dict(render_context)
-        for field in ("instruction", "description"):
-            if field in parsed.frontmatter and isinstance(parsed.frontmatter[field], str):
-                try:
-                    parsed.frontmatter[field] = chevron.render(parsed.frontmatter[field], context_dict)
-                except chevron.ChevronError as e:
-                    logger.warning(f"Failed to render {field} field: {e}")
+        try:
+            parsed.frontmatter = render_frontmatter_fields(parsed.frontmatter, render_context, render_fields)
+        except Exception as error:
+            logger.warning("Failed to render frontmatter fields: %s", error)
 
     return ProcessedFrontmatter(
         frontmatter=parsed.frontmatter,
