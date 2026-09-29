@@ -32,6 +32,13 @@ class UnsafePartialPathError(ValueError):
 _ENVIRONMENT_VARIABLE_REFERENCE = re.compile(r"\$(?:[A-Za-z_][A-Za-z0-9_]*|\{[^}]+\})")
 
 
+def declared_partial_path(include_path: str) -> Path:
+    """Return the conventional underscore-prefixed path for an include declaration."""
+    include = Path(include_path)
+    partial_name = include.stem.removeprefix("_")
+    return include.parent / f"_{partial_name}"
+
+
 def _reject_unsafe_reference(partial_path: Path) -> None:
     """Reject path expansion syntax which has no meaning in template references."""
     path_text = str(partial_path)
@@ -95,7 +102,7 @@ async def load_partial_content(
         ensure_within_limit(stat.st_size, limit_name="max-content-limit", limit=max_content_limit)
         content = await final_path.read_text(encoding="utf-8")
 
-        # Process frontmatter: parse, check requirements, render instruction/description
+        # Process frontmatter with the same rendering contract as every document.
         from mcp_guide.render.context import TemplateContext
         from mcp_guide.render.frontmatter import process_frontmatter
 

@@ -146,21 +146,27 @@ class FileInfo:
         if self._content is not None:
             return
 
-        # Try content_loader first (e.g. from document store)
+        # A content loader historically treats a missing stored document as an
+        # optional ``None`` for content readers, unlike ``read_raw()`` which is
+        # deliberately strict for renderers.  Cache successful source bytes in
+        # the same raw cache used by both paths.
         if self._content_loader is not None:
-            self._content = await self._content_loader()
-            if self._content is not None:
-                self.size = len(self._content)
+            content = await self._content_loader()
+            if content is None:
+                self._content = None
+                self._load_error = None
+                return
+            self._raw_cache = content
+            self._content = content
+            self.size = len(content)
             self._load_error = None
             return
 
-        # Fall back to filesystem read
-        from mcp_guide.core import read_file_content
-
         try:
-            self._content = await read_file_content(self.path)
-            if self._content is not None:
-                self.size = len(self._content)
+            # Keep the unparsed source in one canonical cache.  Frontmatter
+            # readers may run before renderers, so both must reuse this load.
+            self._content = await self.read_raw()
+            self.size = len(self._content)
             self._load_error = None
         except (OSError, PermissionError, FileNotFoundError) as e:
             self._content = None

@@ -2,6 +2,14 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
+## [2.0.0b3] - 2026-09-29
+
+### Added
+- Commands now support declarative frontmatter elicitation, shared with Guide
+  skills. Authors can define typed fields, choices, dependent forms, branches,
+  and `match` conditions; compatible clients receive interactive forms while
+  legacy clients receive equivalent continuation guidance.
+
 ## [2.0.0b2] - 2026-09-24
 
 ### Added

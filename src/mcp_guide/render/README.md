@@ -27,7 +27,7 @@ async def render_template(
 **Process**:
 1. Parse frontmatter
 2. Check `requires-*` directives against `project_flags` (return `None` if not met)
-3. Build context: base → frontmatter vars → caller context
+3. Build context: base → frontmatter vars → caller context, including rendered `elicitation` frontmatter
 4. Render template files with Chevron and partials support
 
 ### process_frontmatter()
@@ -45,7 +45,7 @@ async def process_frontmatter(
 **Process**:
 1. Parse frontmatter from content
 2. Check `requires-*` directives against requirements_context
-3. Render `instruction` and `description` fields as templates if render_context provided
+3. Render only `instruction`, `description`, and `elicitation` as templates if render_context provided; structural metadata remains literal
 
 Used internally by `render_template()` and `process_file()` for consistent frontmatter handling.
 

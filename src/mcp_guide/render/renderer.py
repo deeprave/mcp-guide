@@ -15,7 +15,12 @@ from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.document_properties import DocumentContribution, DocumentProperties
 from mcp_guide.render.frontmatter import get_frontmatter_includes
 from mcp_guide.render.functions import TemplateFunctions
-from mcp_guide.render.partials import PartialNotFoundError, UnsafePartialPathError, load_partial_content
+from mcp_guide.render.partials import (
+    PartialNotFoundError,
+    UnsafePartialPathError,
+    declared_partial_path,
+    load_partial_content,
+)
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_TEMPLATE, INSTRUCTION_VALIDATION_ERROR
 
@@ -137,14 +142,8 @@ async def render_template_content(
                 try:
                     # Process includes and merge with existing partials
                     for include_path in includes:
-                        partial_name = Path(include_path).stem
-                        if partial_name.startswith("_"):
-                            partial_name = partial_name[1:]
-
-                        # Construct proper partial path with _ prefix
-                        include_dir = Path(include_path).parent
-                        partial_filename = f"_{partial_name}"
-                        full_include_path = include_dir / partial_filename
+                        full_include_path = declared_partial_path(include_path)
+                        partial_name = full_include_path.name.removeprefix("_")
 
                         # Load partial content using base directory
                         try:

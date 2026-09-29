@@ -66,6 +66,26 @@ without a scope is public. Partial rendering combines policies using no-cache fi
 then the shortest TTL and private scope. Template interpolation alone does not require
 private scope; use it when the rendered output varies by project or feature state.
 
+### Interactive elicitation properties
+
+See [Elicitation Authoring](authoring-elicitation.md) for the complete author-facing declaration,
+branching, protocol, and continuation-state reference.
+
+`elicitation` is a composable frontmatter property for an interactive command or selected skill
+entrypoint. Before rendering either body, Guide collects its own declaration and declarations from
+eligible partials explicitly named in `includes`. This pre-render step lets a frontmatter-only
+partial provide a shared form without emitting its body.
+
+Relevant frontmatter values are rendered from the normal template context before Guide evaluates
+them. This includes nested elicitation declarations and document properties, while `requires-*`
+remains a gating declaration evaluated before rendering.
+
+The normal renderer remains unchanged: listing a partial does not interpolate it. Use `{{> name}}`
+when its body should appear. `requires-*` applies before a partial contributes input properties, and
+duplicate form identifiers or schema property names across contributors are rejected with a
+source-aware diagnostic. Ordinary content rendering and non-entrypoint skill members do not evaluate
+`elicitation`, because they cannot safely run an MCP request/response interaction.
+
 ## Rendering Templates
 
 ### render_template()
@@ -294,5 +314,5 @@ Use these constants when accessing frontmatter fields to ensure consistency.
 
 ## See Also
 
-- [Command Authoring Guide](command-authoring.md) - Creating custom commands
+- [Command Authoring Guide](authoring-command.md) - Creating custom commands
 - [Content Management](../user/content-management.md) - Working with content

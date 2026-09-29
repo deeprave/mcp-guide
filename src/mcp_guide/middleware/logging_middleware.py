@@ -2,6 +2,8 @@
 
 from typing import Awaitable, Callable, Union
 
+from mcp_types import InputRequiredResult
+
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.result import Result
 
@@ -12,12 +14,16 @@ async def logging_middleware(
     command_path: str,
     kwargs: dict[str, Union[str, bool, int]],
     args: list[str],
-    next_handler: Callable[[], Awaitable[Result[str]]],
-) -> Result[str]:
+    next_handler: Callable[[], Awaitable[Result[str] | InputRequiredResult]],
+) -> Result[str] | InputRequiredResult:
     """Log command usage and responses."""
     logger.debug(f"Executing command: {command_path} with args={args} kwargs={kwargs}")
 
     result = await next_handler()
+
+    if isinstance(result, InputRequiredResult):
+        logger.debug(f"Command {command_path} requires input")
+        return result
 
     if result.success:
         logger.debug(f"Command {command_path} succeeded with {len(result.value or '')} chars")

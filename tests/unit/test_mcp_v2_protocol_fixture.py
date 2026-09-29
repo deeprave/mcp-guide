@@ -157,6 +157,57 @@ async def test_mcp_prompt_routes_explicit_command_and_skill_namespaces(tmp_path,
 
 
 @pytest.mark.anyio
+async def test_registered_mcp_prompt_drives_modern_command_elicitation(tmp_path, monkeypatch) -> None:
+    """The registered prompt transports a modern elicitation round trip."""
+    from fastmcp import Client
+
+    from mcp_guide.cli import ServerConfig
+    from mcp_guide.server import create_application
+
+    monkeypatch.setenv("MCP_GUIDE_DISABLE_SERVER_TASKS", "1")
+    docroot = tmp_path / "docs"
+    project_root = tmp_path / "project"
+    config_dir = tmp_path / "config"
+    project_root.mkdir()
+    config_dir.mkdir()
+    (config_dir / "config.yaml").write_text(f"docroot: {docroot}\nprojects: {{}}\n", encoding="utf-8")
+    (docroot / "_commands").mkdir(parents=True)
+    (docroot / "_commands" / "review.mustache").write_text(
+        "---\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Choose target.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        mode:\n"
+        "          type: string\n"
+        "      required: [mode]\n"
+        "---\n"
+        "Review {{kwargs.mode}}",
+        encoding="utf-8",
+    )
+    application = create_application(ServerConfig(configdir=str(config_dir), docroot=str(docroot)))
+
+    async def select_target(*_args):
+        return {"mode": "branch"}
+
+    async with Client(
+        application.server,
+        mode="2026-07-28",
+        elicitation_handler=select_target,
+    ) as client:
+        bound = await client.call_tool("set_project", {"args": {"path": str(project_root)}})
+        assert bound.structured_content is not None
+        session_id = bound.structured_content["session_id"]
+        prompt = await client.get_prompt("guide", {"arg1": ":review", "session_id": session_id})
+
+    payload = json.loads(prompt.messages[0].content.text)
+    assert payload["success"] is True
+    assert payload["value"] == "Review branch"
+
+
+@pytest.mark.anyio
 async def test_read_resource_drives_frontmatter_declared_skill_elicitation(tmp_path, monkeypatch) -> None:
     """The ordinary read_resource tool drives any skill's declared selection round trip."""
     from fastmcp import Client

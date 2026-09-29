@@ -24,17 +24,47 @@ __all__ = [
     "Frontmatter",
     "Content",
     "ProcessedFrontmatter",
+    "RENDERED_FRONTMATTER_FIELDS",
     "resolve_instruction",
     "parse_content_with_frontmatter",
     "check_frontmatter_requirements",
+    "render_frontmatter_fields",
     "process_frontmatter",
     "process_file",
 ]
 
 logger = get_logger(__name__)
 
+# These are the only frontmatter values treated as Mustache templates.  All
+# structural metadata remains literal so every document consumer observes the
+# same parsed frontmatter contract.
+RENDERED_FRONTMATTER_FIELDS = ("instruction", "description", "elicitation")
+
 # Pre-compile regex for important instruction prefix
 IMPORTANT_PREFIX_PATTERN = re.compile(r"^\^\s*")
+
+
+def _render_frontmatter_value(value: Any, context: dict[str, Any]) -> Any:
+    """Render template strings recursively without changing frontmatter structure."""
+    import chevron
+
+    if isinstance(value, str):
+        return chevron.render(value, context)
+    if isinstance(value, list):
+        return [_render_frontmatter_value(item, context) for item in value]
+    if isinstance(value, dict):
+        return {key: _render_frontmatter_value(item, context) for key, item in value.items()}
+    return value
+
+
+def render_frontmatter_fields(frontmatter: Frontmatter, render_context: "TemplateContext") -> Frontmatter:
+    """Return a copy with the universally renderable frontmatter values rendered."""
+    rendered = Frontmatter(frontmatter)
+    context = dict(render_context)
+    for field in RENDERED_FRONTMATTER_FIELDS:
+        if field in rendered:
+            rendered[field] = _render_frontmatter_value(rendered[field], context)
+    return rendered
 
 
 def _normalize_requires_actual_value(flag_name: str, actual_value: Any) -> Any:
@@ -246,17 +276,12 @@ async def process_frontmatter(
     ):
         return None
 
-    # Render instruction and description fields if render_context provided
+    # Render the shared delivery and interactive fields after requirement gating.
     if render_context:
-        import chevron
-
-        context_dict = dict(render_context)
-        for field in ("instruction", "description"):
-            if field in parsed.frontmatter and isinstance(parsed.frontmatter[field], str):
-                try:
-                    parsed.frontmatter[field] = chevron.render(parsed.frontmatter[field], context_dict)
-                except chevron.ChevronError as e:
-                    logger.warning(f"Failed to render {field} field: {e}")
+        try:
+            parsed.frontmatter = render_frontmatter_fields(parsed.frontmatter, render_context)
+        except Exception as error:
+            logger.warning("Failed to render frontmatter fields: %s", error)
 
     return ProcessedFrontmatter(
         frontmatter=parsed.frontmatter,

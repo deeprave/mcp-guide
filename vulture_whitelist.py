@@ -106,5 +106,6 @@ _.SessionListenerTarget
 _.methods
 _.method
 # Module-level names
+_.__getattr__  # Python module protocol for lazy render_template compatibility export
 _.__all__
 _.main

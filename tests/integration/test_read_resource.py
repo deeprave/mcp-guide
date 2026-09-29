@@ -5,6 +5,7 @@ import time
 from types import SimpleNamespace
 
 import pytest
+from mcp_types import InputRequiredResult
 
 from mcp_guide.core.tool_decorator import get_tool_registration
 from mcp_guide.models import Category
@@ -58,37 +59,78 @@ async def test_skill_entrypoint_reports_its_rendered_virtual_file(resource_proje
 
 
 @pytest.mark.anyio
-async def test_triage_pr_skill_guides_pr_author_decisions(resource_project):
-    """A bundled triage skill guides a PR author without taking unapproved action."""
+async def test_read_resource_returns_and_resumes_declared_command_input(resource_project):
+    """The generic Guide resource route preserves a command interaction."""
+    resource_project.resolve_document_path("_commands/project/project.mustache").write_text(
+        "---\n"
+        "aliases: ['project']\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Choose target.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        mode:\n"
+        "          type: string\n"
+        "      required: [mode]\n"
+        "---\n"
+        "Project {{kwargs.mode}}"
+    )
+    context = SimpleNamespace(
+        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
+        input_responses=None,
+        request_context=SimpleNamespace(protocol_version="2026-07-28"),
+    )
+
+    pending = await internal_read_resource(
+        ReadResourceArgs(uri="guide://_project"), resource_project, mcp_context=context
+    )
+
+    assert isinstance(pending, InputRequiredResult)
+    accepted = await internal_read_resource(
+        ReadResourceArgs(uri="guide://_project"),
+        resource_project,
+        mcp_context=SimpleNamespace(
+            session=context.session,
+            request_context=context.request_context,
+            request_state=pending.request_state,
+            input_responses={"target": SimpleNamespace(action="accept", content={"mode": "branch"})},
+        ),
+    )
+
+    assert accepted.success, accepted.error
+    assert accepted.value == "Project branch"
+
+
+@pytest.mark.anyio
+async def test_triage_pr_skill_renders_a_recommended_follow_up(resource_project):
+    """A fixture skill can recommend another fixture skill through Guide rendering."""
     result = await internal_read_resource(ReadResourceArgs(uri="guide://$triage-pr"), resource_project)
 
     assert result.success, result.error
-    assert "pull-request author" in result.value
-    assert "Do not modify pull-request code" in result.value
+    assert "Review the findings" in result.value
     recommendation = parse_recommendation("skill:triage-items")
     assert f'Guide skill "triage-items"[^{recommendation.label}]' in result.value
 
 
 @pytest.mark.anyio
-async def test_triage_items_supports_non_workflow_inventories_and_authorised_follow_up(resource_project):
-    """Item triage is reusable without a workflow issue or a review inventory."""
+async def test_triage_items_skill_renders_fixture_guidance(resource_project):
+    """A fixture skill renders its independently supplied guidance."""
     result = await internal_read_resource(ReadResourceArgs(uri="guide://$triage-items"), resource_project)
 
     assert result.success, result.error
-    assert "current context" in result.value
-    assert "Triage/<derived-key>.json" in result.value
-    assert "Perform a local change or an external action only" in result.value
+    assert "Classify the inventory" in result.value
+    assert "authorised local or external action" in result.value
 
 
 @pytest.mark.anyio
-async def test_triage_review_includes_all_initial_sources_and_cuts_off_incremental_sources(resource_project):
-    """Workflow review collation distinguishes initial and incremental inventories."""
+async def test_triage_review_skill_renders_fixture_guidance(resource_project):
+    """A fixture skill preserves its own independent review guidance."""
     result = await internal_read_resource(ReadResourceArgs(uri="guide://$triage-review"), resource_project)
 
     assert result.success, result.error
-    assert "initial collation" in result.value
-    assert "every valid source record" in result.value
-    assert "strictly newer than that cutoff" in result.value
+    assert "initial inventory cutoff" in result.value
+    assert "newer records separately" in result.value
 
 
 @pytest.mark.anyio

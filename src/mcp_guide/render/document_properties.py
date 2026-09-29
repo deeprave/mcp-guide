@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
-from typing import Any, Self, TypeVar
+from typing import Any, Self, TypeVar, cast
 
 from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.result_constants import AGENT_INFO, AGENT_INSTRUCTION, USER_INFO
@@ -36,6 +36,7 @@ class DocumentCache(DocumentProperty):
 
     default: CachePolicy = field(default_factory=CachePolicy.no_cache)
     value: CachePolicy = field(init=False)
+    explicit: bool = False
     diagnostic: str | None = field(default=None, init=False)
 
     def __post_init__(self) -> None:
@@ -46,11 +47,16 @@ class DocumentCache(DocumentProperty):
         return key == "cache"
 
     def apply_frontmatter(self, key: str, value: Any) -> None:
+        self.explicit = True
         self.value, self.diagnostic = CachePolicy.parse(value)
 
     @classmethod
     def combine(cls, properties: Iterable[Self]) -> Self:
-        return cls(default=CachePolicy.combine(property.value for property in properties))
+        property_sets = tuple(properties)
+        return cls(
+            default=CachePolicy.combine(property.value for property in property_sets),
+            explicit=any(property.explicit for property in property_sets),
+        )
 
 
 _TYPE_PRECEDENCE = {
@@ -95,6 +101,60 @@ class DocumentDisposition(DocumentProperty):
 
 
 @dataclass
+class DocumentElicitation(DocumentProperty):
+    """Declarative input forms contributed by interactive document frontmatter."""
+
+    forms: dict[str, Any] = field(default_factory=dict)
+    source: str = "<document>"
+    form_sources: dict[str, str] = field(default_factory=dict)
+    diagnostic: str | None = None
+
+    @classmethod
+    def handles_frontmatter_key(cls, key: str) -> bool:
+        return key == "elicitation"
+
+    def apply_frontmatter(self, key: str, value: Any) -> None:
+        if not isinstance(value, Mapping):
+            self.diagnostic = "'elicitation' must be a mapping of form names"
+            return
+        self.forms = dict(value)
+        self.form_sources = {identifier: self.source for identifier in self.forms}
+
+    @classmethod
+    def combine(cls, properties: Iterable[Self]) -> Self:
+        forms: dict[str, Any] = {}
+        form_sources: dict[str, str] = {}
+        field_sources: dict[str, str] = {}
+        diagnostics: list[str] = []
+        for property in properties:
+            if property.diagnostic:
+                diagnostics.append(property.diagnostic)
+            for identifier, form in property.forms.items():
+                source = property.form_sources.get(identifier, property.source)
+                if identifier in forms:
+                    diagnostics.append(
+                        f"elicitation form '{identifier}' is declared by both {form_sources[identifier]} and {source}"
+                    )
+                    continue
+                schema = form.get("schema") if isinstance(form, Mapping) else None
+                raw_fields = schema.get("properties") if isinstance(schema, Mapping) else None
+                if not isinstance(raw_fields, Mapping):
+                    diagnostics.append(f"elicitation form '{identifier}' in {source} has no property schema")
+                    continue
+                duplicate_fields = set(raw_fields).intersection(field_sources)
+                if duplicate_fields:
+                    field_name = sorted(duplicate_fields)[0]
+                    diagnostics.append(
+                        f"elicitation field '{field_name}' is declared by both {field_sources[field_name]} and {source}"
+                    )
+                    continue
+                field_sources.update({cast(str, field): source for field in raw_fields})
+                forms[identifier] = form
+                form_sources[identifier] = source
+        return cls(forms=forms, form_sources=form_sources, diagnostic="\n".join(diagnostics) or None)
+
+
+@dataclass
 class DocumentProperties:
     """Collection of typed properties derived from a document's frontmatter."""
 
@@ -108,6 +168,7 @@ class DocumentProperties:
         cache_default: CachePolicy | None = None,
         disposition_default: str | None = USER_INFO,
         property_handlers: Iterable[DocumentProperty] | None = None,
+        source: str = "<document>",
     ) -> Self:
         """Create properties and broadcast every frontmatter key to its handlers."""
         result = cls(
@@ -116,6 +177,7 @@ class DocumentProperties:
             else [
                 DocumentCache(default=cache_default or CachePolicy.no_cache()),
                 DocumentDisposition(default=disposition_default),
+                DocumentElicitation(source=source),
             ]
         )
         for key, value in (frontmatter or {}).items():
@@ -143,6 +205,11 @@ class DocumentProperties:
         """Return the effective delivery disposition."""
         return self.get(DocumentDisposition).value
 
+    @property
+    def elicitation(self) -> DocumentElicitation:
+        """Return composed elicitation declarations and diagnostics."""
+        return self.get(DocumentElicitation)
+
     def with_disposition_default(self, default: str | None) -> Self:
         """Apply a contextual default only when no type was explicitly declared."""
         return type(self)(
@@ -154,6 +221,23 @@ class DocumentProperties:
                 if isinstance(property, DocumentDisposition)
                 else property
                 for property in self.properties
+            ]
+        )
+
+    def preflight_delivery_properties(self) -> Self:
+        """Return delivery properties from preflight-only partials.
+
+        Explicit cache declarations remain delivery properties. Implicit
+        no-cache defaults exist only to make preflight property composition
+        safe and must not alter a rendered response.
+        """
+        return type(self)(
+            [
+                property
+                for property in self.properties
+                if not isinstance(property, DocumentElicitation)
+                and (not isinstance(property, DocumentCache) or property.explicit)
+                and (not isinstance(property, DocumentDisposition) or property.explicit)
             ]
         )
 

@@ -20,6 +20,7 @@ from typing import (
 )
 
 from anyio import Path as AsyncPath
+from fastmcp import Context
 from mcp_types import InputRequiredResult
 from pydantic import Field
 
@@ -30,12 +31,15 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import get_prompt_name, promptfunc
 from mcp_guide.discovery.commands import CommandAliasMetadata, discover_commands, normalise_alias_metadata
 from mcp_guide.discovery.files import FileInfo, discover_document_files
+from mcp_guide.elicitation import resolve_elicitations
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render import render_template
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext, convert_lists_to_indexed, keyword_context
+from mcp_guide.render.document_properties import DocumentProperties
+from mcp_guide.render.template import collect_interactive_document_properties
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     AGENT_ERROR,
@@ -71,8 +75,8 @@ class CommandMiddleware(Protocol):
         command_path: str,
         kwargs: dict[str, Union[str, bool, int]],
         args: list[str],
-        next_handler: Callable[[], Awaitable[Result[str]]],
-    ) -> Result[str]:
+        next_handler: Callable[[], Awaitable[Result[Any] | InputRequiredResult]],
+    ) -> Result[Any] | InputRequiredResult:
         """Execute middleware logic."""
         ...
 
@@ -140,7 +144,8 @@ async def handle_command(
     request_context: RequestContext,
     middleware: Optional[List[CommandMiddleware]] = None,
     argv: Optional[list[str]] = None,
-) -> Result[Any]:
+    mcp_context: Context | None = None,
+) -> Result[Any] | InputRequiredResult:
     """Handle command execution with direct file discovery.
 
     Args:
@@ -168,17 +173,20 @@ async def handle_command(
     middleware = [logging_middleware] + middleware
     if middleware:
         # Apply the middleware chain
-        async def next_handler() -> Result[Any]:
-            return await _execute_command(command_path, kwargs, args, request_context, argv=argv)
+        async def next_handler() -> Result[Any] | InputRequiredResult:
+            return await _execute_command(
+                command_path, kwargs, args, request_context, argv=argv, mcp_context=mcp_context
+            )
 
         # Build the middleware chain from right to left
-        handler: Callable[[], Coroutine[Any, Any, Result[Any]]] = next_handler
+        handler: Callable[[], Coroutine[Any, Any, Result[Any] | InputRequiredResult]] = next_handler
         for mw in reversed(middleware):
             # Capture current middleware in closure
             def make_handler(
-                middleware_fn: CommandMiddleware, next_fn: Callable[[], Coroutine[Any, Any, Result[Any]]]
-            ) -> Callable[[], Coroutine[Any, Any, Result[Any]]]:
-                async def wrapper() -> Result[Any]:
+                middleware_fn: CommandMiddleware,
+                next_fn: Callable[[], Coroutine[Any, Any, Result[Any] | InputRequiredResult]],
+            ) -> Callable[[], Coroutine[Any, Any, Result[Any] | InputRequiredResult]]:
+                async def wrapper() -> Result[Any] | InputRequiredResult:
                     return await middleware_fn(command_path, kwargs, args, next_fn)
 
                 return wrapper
@@ -186,7 +194,7 @@ async def handle_command(
             handler = make_handler(mw, handler)
 
         return await handler()
-    return await _execute_command(command_path, kwargs, args, request_context, argv=argv)
+    return await _execute_command(command_path, kwargs, args, request_context, argv=argv, mcp_context=mcp_context)
 
 
 def _resolve_command_alias(command_path: str, commands: list[dict[str, Any]]) -> CommandAliasResolution:
@@ -337,6 +345,7 @@ def _build_command_context(
 
     context_data = {
         **keyword_context(kwargs),
+        "elicitation": {"defaulted_forms": {form: True for form in getattr(kwargs, "defaulted_forms", frozenset())}},
         "args": args,
         "args_str": args_string,
         "command": {"name": command_path, "path": str(file_info.path)},
@@ -380,7 +389,8 @@ async def _execute_command(
     args: list[str],
     request_context: RequestContext,
     argv: Optional[list[str]] = None,
-) -> Result[Any]:
+    mcp_context: Context | None = None,
+) -> Result[Any] | InputRequiredResult:
     """Execute command without middleware."""
     session = request_context.session
     commands_dir = request_context.resolve_document_path(COMMANDS_DIR)
@@ -412,17 +422,15 @@ async def _execute_command(
     # Set the base path for content loading
     file_info.resolve(request_context.resolve_document_path, COMMANDS_DIR)
 
+    frontmatter: dict[str, Any] = {}
+    try:
+        frontmatter = await file_info.get_frontmatter() or {}
+    except OSError as e:
+        logger.warning(f"Failed to read frontmatter for command {command_path}: {e}.")
+
     # If raw argv provided, parse arguments using frontmatter argrequired
     if argv is not None:
-        argrequired = None
-        frontmatter: dict[str, Any] = {}
-        try:
-            frontmatter = await file_info.get_frontmatter() or {}
-            argrequired_value = frontmatter.get("argrequired")
-            if isinstance(argrequired_value, list):
-                argrequired = argrequired_value
-        except OSError as e:
-            logger.warning(f"Failed to read frontmatter for command {command_path}: {e}. Parsing without argrequired.")
+        argrequired = frontmatter.get("argrequired") if isinstance(frontmatter.get("argrequired"), list) else None
         kwargs, args, parse_errors = parse_command_arguments(argv, argrequired=argrequired)
         if parse_errors:
             error_msg = "; ".join(parse_errors)
@@ -441,6 +449,54 @@ async def _execute_command(
 
     kwargs = _merge_alias_kwargs(default_kwargs=alias_implied_kwargs, override_kwargs=kwargs)
 
+    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(session)
+    base_context = await get_template_contexts(session)
+    command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
+
+    # Help describes a command without executing it, so it must not request its
+    # execution inputs.
+    if kwargs.get("_help"):
+        return await get_command_help(session, command_context, commands_dir, request_context.resolve_document_path)
+    if await _is_help_command(command_path, request_context) and args:
+        return await get_command_help(session, command_context, commands_dir, request_context.resolve_document_path)
+
+    # Resolve feature requirements before pre-render input collection so an
+    # excluded entrypoint or partial cannot request input.
+    interactive_properties = None
+    if "elicitation" in frontmatter or "includes" in frontmatter:
+        try:
+            interactive_properties = await collect_interactive_document_properties(
+                file_info,
+                project_flags=requirements_context,
+                context=command_context,
+                resolver=request_context.get_docroot_resolver(),
+            )
+        except (OSError, ValueError) as error:
+            return Result.failure(
+                f"Command preflight failed: {error}", error_type=ERROR_FILE_ERROR, disposition=AGENT_ERROR
+            )
+    if interactive_properties is not None:
+        if interactive_properties.elicitation.diagnostic:
+            return Result.failure(interactive_properties.elicitation.diagnostic, error_type=ERROR_VALIDATION)
+        try:
+            entrypoint_path = file_info.path.relative_to(commands_dir).as_posix()
+        except ValueError:
+            return Result.failure(
+                "Command preflight failed: command source is outside the commands directory.",
+                error_type=ERROR_FILE_ERROR,
+                disposition=AGENT_ERROR,
+            )
+        resolved_kwargs = await resolve_elicitations(
+            {"elicitation": interactive_properties.elicitation.forms},
+            kwargs,
+            mcp_context,
+            entrypoint=f"command:{entrypoint_path}",
+            args=args,
+        )
+        if isinstance(resolved_kwargs, (Result, InputRequiredResult)):
+            return resolved_kwargs
+        kwargs = resolved_kwargs
+
     if command_path == "openspec/list":
         from mcp_guide.openspec.task import OpenSpecTask
 
@@ -449,18 +505,10 @@ async def _execute_command(
         if openspec_task is not None and (force_refresh or not openspec_task.is_cache_valid()):
             openspec_task.prepare_changes_refresh(force=force_refresh)
 
-    # Build template context
+    # Refresh the base context after command-specific state changes, then add
+    # resolved elicitation keywords for rendering.
     base_context = await get_template_contexts(session)
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
-
-    # Check for a help flag or help command with args (after context building)
-    if kwargs.get("_help"):
-        return await get_command_help(session, command_context, commands_dir, request_context.resolve_document_path)
-    if await _is_help_command(command_path, request_context) and args:
-        return await get_command_help(session, command_context, commands_dir, request_context.resolve_document_path)
-
-    # Get resolved flags for requires-* checking
-    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(session)
 
     # Render template using new API
     try:
@@ -512,6 +560,12 @@ async def _execute_command(
             disposition=AGENT_ERROR,
         )
 
+    if interactive_properties is not None and interactive_properties.delivery_properties is not None:
+        assert rendered.properties is not None
+        rendered.properties = DocumentProperties.combine(
+            (rendered.properties, interactive_properties.delivery_properties)
+        )
+
     # Check for application-level errors signaled via {{#_error}} lambda
     if rendered.errors:
         errors = rendered.errors
@@ -528,7 +582,9 @@ async def _execute_command(
     return result
 
 
-async def _handle_command_request(argv: list[str], request_context: RequestContext) -> Result[Any]:
+async def _handle_command_request(
+    argv: list[str], request_context: RequestContext, mcp_context: Context | None = None
+) -> Result[Any] | InputRequiredResult:
     """Handle command-mode request."""
     first_arg = argv[1]
     raw_command_path = first_arg[1:]  # Remove prefix
@@ -549,25 +605,20 @@ async def _handle_command_request(argv: list[str], request_context: RequestConte
         )
         return result
 
-    return await handle_command(command_path, argv=argv[1:], request_context=request_context)
+    return await handle_command(command_path, argv=argv[1:], request_context=request_context, mcp_context=mcp_context)
 
 
-async def _handle_uri_namespace_request(argv: list[str], request_context: RequestContext) -> Result[Any]:
+async def _handle_uri_namespace_request(
+    argv: list[str], request_context: RequestContext, mcp_context: Context | None = None
+) -> Result[Any] | InputRequiredResult:
     """Resolve an underscore- or dollar-prefixed prompt argument as a Guide URI."""
     from mcp_guide.tools.tool_resource import ReadResourceArgs, internal_read_resource
 
     result = await internal_read_resource(
-        ReadResourceArgs(uri=f"guide://{argv[1]}", session_id=request_context.session_id), request_context
+        ReadResourceArgs(uri=f"guide://{argv[1]}", session_id=request_context.session_id),
+        request_context,
+        mcp_context=mcp_context,
     )
-    if isinstance(result, InputRequiredResult):
-        forms = ", ".join(sorted(result.input_requests or {}))
-        form_detail = f" for: {forms}" if forms else ""
-        return Result.failure(
-            "This Guide prompt cannot request skill input"
-            f"{form_detail}; pass the required skill query arguments explicitly.",
-            error_type=ERROR_VALIDATION,
-            disposition=AGENT_ERROR,
-        )
     return result
 
 
@@ -620,7 +671,9 @@ Examples:
     return await internal_get_content(content_args_obj, request_context)
 
 
-async def _route_guide_request(argv: list[str], request_context: RequestContext) -> Result[Any]:
+async def _route_guide_request(
+    argv: list[str], request_context: RequestContext, mcp_context: Context | None = None
+) -> Result[Any] | InputRequiredResult:
     """Route guide request to command or content handler."""
     # Validate arguments
     if len(argv) == 1 or (len(argv) == 2 and argv[1] == ""):
@@ -646,9 +699,9 @@ async def _route_guide_request(argv: list[str], request_context: RequestContext)
     # Route URI-compatible command and skill namespaces before content lookup.
     first_arg = argv[1]
     if first_arg.startswith((":", ";")):
-        return await _handle_command_request(argv, request_context)
+        return await _handle_command_request(argv, request_context, mcp_context)
     if first_arg.startswith(("_", "$")):
-        return await _handle_uri_namespace_request(argv, request_context)
+        return await _handle_uri_namespace_request(argv, request_context, mcp_context)
     else:
         return await _handle_content_request(argv, request_context)
 
@@ -689,6 +742,7 @@ async def guide(
     session_id: Annotated[Optional[str], Field(description=SESSION_ID_DESCRIPTION)] = None,
     *,
     request_context: RequestContext,
+    mcp_context: Context | None = None,
 ) -> object:
     """Access Guide commands and project content.
 
@@ -715,7 +769,10 @@ async def guide(
         argv.append(arg)
 
     # Route request
-    result = await _route_guide_request(argv, request_context)
+    result = await _route_guide_request(argv, request_context, mcp_context)
+
+    if isinstance(result, InputRequiredResult):
+        return result
 
     # Process result through the task manager
     from mcp_guide.tools.tool_result import prompt_result

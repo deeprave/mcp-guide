@@ -1,5 +1,10 @@
 """Template rendering package."""
 
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from mcp_guide.render.template import render_template
+
 from mcp_guide.render.content import (
     FM_ALIASES,
     FM_CATEGORY,
@@ -11,7 +16,6 @@ from mcp_guide.render.content import (
     FM_USAGE,
     RenderedContent,
 )
-from mcp_guide.render.template import render_template
 
 __all__ = [
     "FM_ALIASES",
@@ -25,3 +29,12 @@ __all__ = [
     "RenderedContent",
     "render_template",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    """Load the template renderer lazily to avoid the renderer/discovery import cycle."""
+    if name == "render_template":
+        from mcp_guide.render.template import render_template
+
+        return render_template
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

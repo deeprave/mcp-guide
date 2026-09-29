@@ -183,8 +183,8 @@ async def test_prompt_routes_dollar_prefixed_skill_with_query(resource_project):
 
 
 @pytest.mark.anyio
-async def test_prompt_converts_unrenderable_skill_input_request_to_a_result(resource_project, monkeypatch):
-    """Prompts retain their ordinary result contract when a skill requests MCP input."""
+async def test_prompt_preserves_an_input_request(resource_project, monkeypatch):
+    """Prompts preserve modern MCP input requests for a retry."""
 
     async def requires_input(*_args, **_kwargs):
         return InputRequiredResult(input_requests={}, request_state="skill-elicitation")
@@ -195,13 +195,51 @@ async def test_prompt_converts_unrenderable_skill_input_request_to_a_result(reso
 
     result = await guide_prompt._handle_uri_namespace_request(["guide", "$workflow-review"], resource_project)
 
-    assert result.success is False
-    assert result.error_type == "validation_error"
-    assert result.disposition == "agent/error"
-    assert (
-        result.error
-        == "This Guide prompt cannot request skill input; pass the required skill query arguments explicitly."
+    assert isinstance(result, InputRequiredResult)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("invocation", ["_project", ":project", ";project"])
+async def test_prompt_command_routes_return_and_resume_declared_input(resource_project, invocation):
+    """Every prompt command route keeps the native modern interaction intact."""
+    resource_project.resolve_document_path("_commands/project/project.mustache").write_text(
+        "---\n"
+        "aliases: ['project']\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Choose target.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        mode:\n"
+        "          type: string\n"
+        "      required: [mode]\n"
+        "---\n"
+        "Project {{kwargs.mode}}"
     )
+    context = SimpleNamespace(
+        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
+        input_responses=None,
+        request_context=SimpleNamespace(protocol_version="2026-07-28"),
+    )
+
+    pending = await guide.__wrapped__(invocation, request_context=resource_project, mcp_context=context)
+
+    assert isinstance(pending, InputRequiredResult)
+    accepted = await guide.__wrapped__(
+        invocation,
+        request_context=resource_project,
+        mcp_context=SimpleNamespace(
+            session=context.session,
+            request_context=context.request_context,
+            request_state=pending.request_state,
+            input_responses={"target": SimpleNamespace(action="accept", content={"mode": "branch"})},
+        ),
+    )
+    payload = json.loads(accepted.messages[0].content.text)
+
+    assert payload["success"] is True
+    assert payload["value"] == "Project branch"
 
 
 @pytest.mark.anyio

@@ -1,11 +1,16 @@
 ## Context
 
-See [proposal.md](proposal.md) for motivation. The current resolver is generic in
-its form parsing but is named for skills and invoked only for selected skill
-`SKILL.md` entrypoints. Command templates already have frontmatter, URI keywords,
-and request context, so a second command-specific mechanism would duplicate the
-same protocol and validation work. The current flat declarations request every
-missing form at once and have no way to express a follow-up choice.
+See [proposal.md](proposal.md) for motivation. The existing skill resolver
+already supports frontmatter forms on both MCP protocol paths: a modern
+input-required response with accepted input responses on retry, and legacy
+sequential `Context.elicit` calls. It also preserves URI keyword precedence,
+safe defaults, `fallback: render`, and explicit user declines. Its module and
+public names remain skill-specific, and its current `when` implementation only
+supports one field matching one string.
+
+Command templates already have frontmatter, URI keywords, parsed flags,
+positional arguments, and request context, so a second command-specific
+mechanism would duplicate the same protocol and validation work.
 
 Rendered documents already combine some frontmatter properties from partials, but
 interactive input must be known before an entrypoint body is rendered. A partial
@@ -33,13 +38,14 @@ property-only path.
 
 ## Decisions
 
-### Move the resolver to an entrypoint-neutral domain
+### Generalise the existing resolver to an entrypoint-neutral domain
 
 Move the current skill-named form parser and resolver into an
-entrypoint-neutral elicitation module. Its public input is the effective
-frontmatter declaration, supplied URI keywords, and the request context; it has
-no knowledge of command or skill names. Command and skill dispatch both use the
-same pre-render resolution result.
+entrypoint-neutral elicitation module. Preserve its existing protocol-specific
+behaviour, URI-value precedence, defaults, render fallback, and explicit-decline
+semantics. Its public input is the effective frontmatter declaration, supplied
+keywords, and request context; it has no knowledge of command or skill names.
+Command and skill dispatch both use the same pre-render resolution result.
 
 This retains the existing primitive field and URI semantics while making the
 shared boundary explicit. A command-specific implementation was rejected because
@@ -49,7 +55,7 @@ it would drift in validation, capability negotiation, and response handling.
 
 Each named form remains a `message` and primitive object `schema`. A form may add
 a `when` mapping whose keys name earlier URI or accepted form properties and whose
-values are lists of permitted primitive values:
+values are either one primitive value or lists of permitted primitive values:
 
 ```yaml
 elicitation:
@@ -76,9 +82,9 @@ elicitation:
 
 All `when` keys must match. A condition with an unknown value is not yet
 applicable; a condition with a known non-matching value is skipped. Form and
-property names are globally unique in the effective declaration. This supports
-the needed decision tree without creating an executable expression language or
-ambiguous ordering rules.
+property names are globally unique in the effective declaration. This extends
+the present single-field string-equality behaviour without creating an executable
+expression language or ambiguous ordering rules.
 
 ### Resolve modern branching with an integrity-protected continuation state
 
@@ -110,7 +116,7 @@ and field collision checks, and source-aware combination. It exposes an effectiv
 form set to the neutral resolver; request dispatch remains responsible for MCP
 interaction.
 
-An entrypoint's explicit frontmatter `partials` list is the pre-render property
+An entrypoint's explicit frontmatter `includes` list is the pre-render property
 inclusion mechanism. Each listed partial is resolved with existing containment and
 `requires-*` rules, then contributes its document properties even if its body is
 not interpolated. This allows a frontmatter-only partial to carry shared forms or
