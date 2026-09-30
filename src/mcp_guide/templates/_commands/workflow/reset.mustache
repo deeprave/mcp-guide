@@ -10,7 +10,6 @@ includes:
   - ../_partials/workflow-reset-body
 ---
 Determine the repository default branch. If the current branch is that default branch, leave `{{workflow.file}}` unchanged and stop.
-{{^args.0.value}}
 {{#workflow.issue}}
 {{h2}}Verify Completion
 {{#project_flags.openspec}}
@@ -23,7 +22,6 @@ Determine the repository default branch. If the current branch is that default b
   1. Verify all tasks in the implementation plan `{{workflow.plan}}` are marked complete
   2. If tasks cannot be confirmed as complete, inform the user and STOP
 {{/workflow.issue}}
-{{/args.0.value}}
 Before stashing, perform every completion check in the reset instructions. If any check requires you to stop, do not stash or change `{{workflow.file}}`.
 If the worktree has uncommitted changes, ask the user whether to stash them. If they accept, stash every change including untracked files with `git stash push --include-untracked`; apply the reset steps; then always restore the stash with `git stash pop`. If restoration conflicts, stop and report the conflict.
 If the user declines the stash, stop without changing `{{workflow.file}}`.
