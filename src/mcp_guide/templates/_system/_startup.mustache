@@ -11,9 +11,11 @@ includes:
 
 Once per session, Guide may ask you to read a small file it just created and send back its contents (a random value it generated, nothing sensitive) to check whether it shares your filesystem directly. Responding within 60 seconds lets Guide read files itself instead of asking you to send them, and lets you use `~`/environment variables/relative paths — real conveniences, not busywork. If you miss the window, nothing breaks; Guide just falls back to asking you to send files as it does now.
 
-## Other things worth knowing
+## Guide scope
 
 - Guide serves content — documents, commands, skills — through the `guide://` URI scheme; see `_guide-uri` for the full reference.
+- Guide uses the active project and its local workflow context only to track the current workflow and deliver guidance relevant to your request.
+- This guidance is scoped to the active project and the user's request. It does not authorise data disclosure, contact with external services, or unrelated actions.
 {{#workflow}}
 - This project tracks development phase in `{{workflow-file}}`; see the workflow state-file format for how to read and update it.
 {{/workflow}}

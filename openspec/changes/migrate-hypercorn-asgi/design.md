@@ -48,6 +48,21 @@ shutdown trigger. This preserves mcp-guide's non-blocking `start()` and awaited
 `stop()` lifecycle instead of spawning a separate process or replacing the
 application event loop.
 
+### Keep the FastMCP/MCP dependency boundary unchanged
+
+Replacing the built-in Uvicorn transport removes mcp-guide's direct Uvicorn
+usage and enables Hypercorn's HTTP/2 serving. It does not remove Uvicorn from
+the resolved environment: the current `fastmcp` convenience distribution
+selects `fastmcp-slim[client,server]`, whose server extra requires Uvicorn, and
+the MCP SDK also requires Uvicorn on ordinary platforms. Guide directly uses
+MCP server extension APIs, so installing an unsupported subset of FastMCP or
+omitting the MCP SDK is not viable for this change.
+
+This change therefore treats Hypercorn as the server that Guide starts, not as
+a dependency-minimisation initiative. Eliminating transitive Uvicorn would need
+an upstream optional-dependency change or a separate redesign of the FastMCP/MCP
+boundary.
+
 ## Risks / Trade-offs
 
 - [Hypercorn configuration differs from Uvicorn] → Map existing host, port,
@@ -56,6 +71,9 @@ application event loop.
   document HTTP/1.1 fallback; do not claim HTTP/2 for plain HTTP deployments.
 - [Optional dependency migration breaks existing installations] → Keep HTTP
   dependencies optional and provide a clear missing-dependency error.
+- [The migration is mistaken for removal of Uvicorn] → Verify the resolved
+  dependency graph and document that Uvicorn remains transitive through
+  FastMCP/MCP.
 
 ## Migration Plan
 

@@ -197,6 +197,7 @@ class TaskManager(SessionListener):
         # Queue entries retain ownership and acknowledgement identity, so two
         # producers can emit identical text without sharing lifecycle state.
         self._pending_instructions: List[QueuedInstruction] = []
+        self._reserved_instructions: list[QueuedInstruction] = []
         self._session = session
         self._cache: Dict[str, Any] = {}  # Keyed storage for task data
         self._cache_owners: Dict[str, TaskActivation] = {}
@@ -477,6 +478,7 @@ class TaskManager(SessionListener):
     def _clear_queued_instructions(self) -> None:
         """Clear queued instructions that may reference the previous project."""
         self._pending_instructions.clear()
+        self._reserved_instructions.clear()
         self._tracked_instructions.clear()
 
     async def resolved_flags(self, session: Optional["Session"] = None) -> Dict[str, Any]:
@@ -776,6 +778,7 @@ class TaskManager(SessionListener):
 
         self._subscriptions.clear()
         self._pending_instructions.clear()
+        self._reserved_instructions.clear()
         self._tracked_instructions.clear()
         self._cache.clear()
         self._cache_owners.clear()
@@ -1076,26 +1079,65 @@ class TaskManager(SessionListener):
                     QueuedInstruction(content, activation=tracked.activation, tracking_id=instr_id)
                 )
 
-    async def process_result(self, result: "Result[Any]", event_type: Optional[EventType] = None) -> "Result[Any]":
-        """Process MCP Result and delegate to registered tasks."""
+    async def process_result(
+        self,
+        result: "Result[Any]",
+        event_type: Optional[EventType] = None,
+        *,
+        include_instruction: bool = True,
+    ) -> "Result[Any]":
+        """Process an MCP result and optionally attach the next queued instruction."""
         # Handle filesystem events through registered tasks
         if event_type is not None:
             await self.dispatch_event(event_type, result)
 
-        # Check for queued instructions from tasks (FIFO)
-        if self._pending_instructions:
-            # Get the first instruction (FIFO)
-            instruction = self._pending_instructions.pop(0)
-            tracked = self._tracked_instructions.get(instruction.tracking_id) if instruction.tracking_id else None
-            if tracked is not None and tracked.on_dispatch is not None:
-                on_dispatch, tracked.on_dispatch = tracked.on_dispatch, None
-                if tracked.activation is None or tracked.activation.is_active:
-                    await on_dispatch()
+        if not include_instruction:
+            return result
+
+        instruction = await self.reserve_instruction()
+        if instruction is not None:
+            await self.confirm_instruction(instruction)
             from dataclasses import replace
 
             return replace(result, additional_agent_instructions=instruction.content)
 
         return result
+
+    async def reserve_instruction(self) -> QueuedInstruction | None:
+        """Reserve the next instruction without treating it as dispatched."""
+        if not self._pending_instructions:
+            return None
+        instruction = self._pending_instructions.pop(0)
+        self._reserved_instructions.append(instruction)
+        return instruction
+
+    async def confirm_instruction(self, instruction: QueuedInstruction) -> None:
+        """Confirm successful delivery and run its one-shot dispatch callback.
+
+        Project lifecycle cleanup may retire a reservation while a transport
+        notification is in flight.  In that case delivery has either already
+        completed or the retired instruction must stay discarded; it must not
+        turn response handling into an error or revive stale task state.
+        """
+        if instruction not in self._reserved_instructions:
+            return
+        self._reserved_instructions.remove(instruction)
+        tracked = self._tracked_instructions.get(instruction.tracking_id) if instruction.tracking_id else None
+        if tracked is not None and tracked.on_dispatch is not None:
+            on_dispatch, tracked.on_dispatch = tracked.on_dispatch, None
+            if tracked.activation is None or tracked.activation.is_active:
+                await on_dispatch()
+
+    async def release_instruction(self, instruction: QueuedInstruction) -> None:
+        """Return an unsent reservation to the head of its owning queue.
+
+        A lifecycle-retired reservation is intentionally not requeued: it may
+        refer to a project configuration that is no longer active.
+        """
+        if instruction not in self._reserved_instructions:
+            return
+        self._reserved_instructions.remove(instruction)
+        self._pending_instructions.insert(0, instruction)
 
     def get_task_statistics(self) -> Dict[str, Any]:
         """Get task statistics for template context."""

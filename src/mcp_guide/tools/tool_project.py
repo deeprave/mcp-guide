@@ -3,7 +3,7 @@
 """Project management tools."""
 
 from dataclasses import replace
-from typing import Any, Literal, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from pydantic import ConfigDict, Field, model_validator
 
@@ -31,6 +31,9 @@ from mcp_guide.session import (
 from mcp_guide.tools.tool_helpers import get_session_and_project
 from mcp_guide.tools.tool_result import ToolResult, tool_result
 from mcp_guide.validation import InvalidProjectNameError
+
+if TYPE_CHECKING:
+    from mcp_guide.session import Session
 
 logger = get_logger(__name__)
 
@@ -206,12 +209,14 @@ async def set_project(args: SetCurrentProjectArgs, request_context: RequestConte
     return await tool_result("set_project", result, session=request_context.session, session_id=args.session_id)
 
 
-async def internal_switch_project(args: SwitchProjectArgs, request_context: RequestContext) -> Result[dict[str, Any]]:
-    """Select a configuration project or rebind the project's filesystem root."""
+async def _switch_project_result(
+    args: SwitchProjectArgs, request_context: RequestContext
+) -> tuple[Result[dict[str, Any]], "Session | None"]:
+    """Select a project and retain the replacement Session for response delivery."""
     try:
         session = request_context.session
         if not session.project_is_bound:
-            return await make_no_project_result()
+            return await make_no_project_result(), None
         session = await session.switch_project(args.name, path=args.path)
         async with session.work():
             project = await session.get_project()
@@ -222,20 +227,29 @@ async def internal_switch_project(args: SwitchProjectArgs, request_context: Requ
                 if args.path is not None
                 else f"Selected configuration project '{project.name}'"
             )
-            return await session.task_manager.process_result(Result.ok(response, message=message))
+            return Result.ok(response, message=message), session
     except ValueError as error:
-        return Result.failure(str(error), error_type=ERROR_INVALID_NAME)
+        return Result.failure(str(error), error_type=ERROR_INVALID_NAME), None
+
+
+async def internal_switch_project(args: SwitchProjectArgs, request_context: RequestContext) -> Result[dict[str, Any]]:
+    """Select a configuration project or rebind the project's filesystem root."""
+    result, session = await _switch_project_result(args, request_context)
+    if session is None:
+        return result
+    return await session.task_manager.process_result(result)
 
 
 @toolfunc(SwitchProjectArgs)
 async def switch_project(args: SwitchProjectArgs, request_context: RequestContext) -> ToolResult:
     """Switch active configuration project or rebind the project root with path."""
-    result = await internal_switch_project(args, request_context)
+    result, session = await _switch_project_result(args, request_context)
     return await tool_result(
         "switch_project",
         result,
+        session=session,
         session_id=request_context.session_id,
-        protocol_type=request_context.session.protocol_type,
+        protocol_type=request_context.session.protocol_type if session is None else session.protocol_type,
     )
 
 

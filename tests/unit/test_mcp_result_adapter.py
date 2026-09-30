@@ -78,11 +78,32 @@ def test_modern_adapter_moves_agent_instruction_to_namespaced_metadata(adapter):
     assert response.meta == {"mcp-guide": {"instructions": "Use the bound project only."}}
 
 
+@pytest.mark.parametrize(
+    "adapter", [tool_response, prompt_response, resource_response], ids=["tool", "prompt", "resource"]
+)
+def test_negotiated_notification_delivery_omits_instruction_metadata(adapter):
+    """A dispatched modern instruction is not duplicated in the requested response."""
+    result = Result.ok("answer", additional_agent_instructions="Use the bound project only.")
+
+    response = adapter(
+        result,
+        protocol_type=SessionProtocolType.MCP_2026_07_28,
+        instruction_dispatched=True,
+    )
+
+    assert response.meta is None
+
+
 @pytest.mark.parametrize("adapter", [tool_response, resource_response], ids=["tool", "resource"])
-def test_document_adapter_adds_explicit_cache_policy_to_namespaced_metadata(adapter):
-    """Cache metadata comes only from the resolved document policy."""
+@pytest.mark.parametrize("instruction_dispatched", [False, True], ids=["metadata", "notification"])
+def test_document_adapter_adds_explicit_cache_policy_to_namespaced_metadata(adapter, instruction_dispatched):
+    """Cache metadata remains independent of the instruction delivery channel."""
     result = Result.ok("answer", cache_policy=CachePolicy.parse("medium, private")[0])
 
-    response = adapter(result, protocol_type=SessionProtocolType.MCP_2026_07_28)
+    response = adapter(
+        result,
+        protocol_type=SessionProtocolType.MCP_2026_07_28,
+        instruction_dispatched=instruction_dispatched,
+    )
 
     assert response.meta == {"mcp-guide": {"cache": {"ttl_ms": 900_000, "scope": "private"}}}
