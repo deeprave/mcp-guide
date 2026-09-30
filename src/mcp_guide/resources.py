@@ -19,16 +19,26 @@ from mcp_guide.validation import InvalidProjectNameError
 logger = get_logger(__name__)
 
 
-async def _process_and_serialize(result: Result[Any], request_context: RequestContext) -> object:
+async def _process_and_serialize(
+    result: Result[Any], request_context: RequestContext, *, mcp_context: Context | None = None
+) -> object:
     """Run a Result through the already-resolved Session and adapt it once."""
     try:
-        result = await request_context.process_result(result)
+        from mcp_guide.mcp_instruction_notifications import process_result_for_response
+
+        result, instruction_dispatched = await process_result_for_response(
+            result,
+            session=request_context.session,
+            fastmcp_context=mcp_context,
+        )
     except Exception as e:
         logger.error(f"TaskManager processing failed for resource: {e}")
+        instruction_dispatched = False
     return resource_response(
         result,
         session_id=request_context.session_id,
         protocol_type=request_context.session.protocol_type,
+        instruction_dispatched=instruction_dispatched,
     )
 
 
@@ -41,7 +51,7 @@ async def _resolve_guide_uri(
     )
     if not isinstance(result, Result):
         return result
-    return await _process_and_serialize(result, request_context)
+    return await _process_and_serialize(result, request_context, mcp_context=mcp_context)
 
 
 @resourcefunc("guide://${?session_id,verbose,table}")
@@ -69,7 +79,7 @@ async def guide_skills_catalog(
             if verbose
             else "guide://$"
         )
-        return await _resolve_guide_uri(uri, request_context)
+        return await _resolve_guide_uri(uri, request_context, mcp_context=mcp_context)
     except (ValueError, FileNotFoundError, PermissionError) as error:
         return resource_response(Result.failure(str(error)))
     except Exception as error:
@@ -160,7 +170,7 @@ async def guide_resource(
             expression=collection, pattern=pattern, force=False, session_id=request_context.session_id
         )
         result = await internal_get_content(content_args, request_context)
-        return await _process_and_serialize(result, request_context)
+        return await _process_and_serialize(result, request_context, mcp_context=mcp_context)
 
     except InvalidProjectNameError as error:
         return resource_response(Result.failure(str(error), error_type=ERROR_INVALID_NAME))

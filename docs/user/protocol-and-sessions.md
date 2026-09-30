@@ -15,14 +15,26 @@ a project switch. A Session cannot change protocol type later.
 
 Retained clients continue to receive task-generated guidance in the existing
 `additional_agent_instructions` field of the structured Guide result. MCP
-`2026-07-28` clients receive the same single queued instruction in response metadata
-at `_meta["mcp-guide"]["instructions"]`; that field is omitted from their structured
+`2026-07-28` clients can negotiate the
+`io.uniquode/mcp-guide-instructions` extension. Guide then sends one queued
+instruction as a separate `notifications/instructions/dispatch` notification,
+containing the instruction text and, when relevant, an opaque tracking identifier.
+The requested tool, prompt, or resource response does not include that instruction
+in its structured content or `mcp-guide` metadata.
+
+A modern client that does not negotiate this extension continues to receive the
+single queued instruction in response metadata at
+`_meta["mcp-guide"]["instructions"]`; that field is omitted from its structured
 Guide result. When no instruction is queued, Guide emits neither the `mcp-guide`
 metadata namespace nor its `instructions` key.
 
-This is a compatibility-preserving response representation change. Clients using the
-modern protocol should inspect the response `_meta` block as well as structured
-content.
+Notifications are delivery, not acknowledgement or authority. The client decides
+whether and how to surface them, and existing Guide acknowledgement requirements
+remain in effect where an instruction is tracked. On a sessionless Streamable HTTP
+connection, Guide can send a notification only through the owning in-flight request
+stream. If no suitable stream is active or the send fails, Guide retains the
+instruction for that session's next request; it never redirects it to another
+session.
 
 ## Document cache metadata
 

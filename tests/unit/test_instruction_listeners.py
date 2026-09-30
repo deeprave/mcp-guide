@@ -48,6 +48,18 @@ async def test_project_change_delivers_instructions_in_priority_order_without_co
 
 
 @pytest.mark.anyio
+async def test_startup_guidance_is_not_gated_by_a_feature_flag(listener_session):
+    """A synthetic startup template queues on binding without a startup flag."""
+    session, system = listener_session
+    (system / "_startup.mustache").write_text("---\ntype: agent/instruction\n---\nLocal workflow guidance")
+
+    await StartupInstructionListener().on_project_changed(session, "old", session.project_name)
+
+    delivered = await session.task_manager.process_result(Result.ok())
+    assert delivered.additional_agent_instructions == "Local workflow guidance"
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("kind", ["guide", "startup"])
 @pytest.mark.parametrize(
     "content", ["   ", "---\nrequires-never-enabled: true\n---\nHidden"], ids=["blank", "filtered"]

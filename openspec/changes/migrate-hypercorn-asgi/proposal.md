@@ -29,6 +29,9 @@ None.
 
 - Affected code: `src/mcp_guide/transports/http.py`, optional dependencies,
   CLI-facing HTTP documentation, and transport tests.
-- Dependency change: replace the optional `uvicorn` dependency with Hypercorn.
+- Dependency change: replace mcp-guide's direct optional `uvicorn` dependency
+  with Hypercorn. Uvicorn remains a transitive dependency of the current
+  FastMCP/MCP stack, so this change does not claim to remove it from installed
+  environments.
 - Deployment change: direct TLS deployments may negotiate HTTP/2; no MCP API,
   URI, session-handle, or project-configuration format changes are intended.

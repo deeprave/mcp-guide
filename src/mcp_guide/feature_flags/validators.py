@@ -441,7 +441,7 @@ def validate_flag_with_registered(flag_name: str, value: FeatureValueLike | None
 
     # Validate value
     validator = _FLAG_VALIDATORS.get(flag_name, validate_boolean_or_string_flag)
-    if validator and not validator(value, is_project):
+    if validator is not None and not validator(value, is_project):
         flag_type = "project" if is_project else "feature"
         raise FlagValidationError(f"Invalid {flag_type} flag `{flag_name}` value: {value}")
 

@@ -64,9 +64,12 @@ async def tool_result(
         >>> result = Result.ok(value={"data": "example"})
         >>> return await tool_result("my_tool", result)
     """
+    instruction_dispatched = False
     try:
         if session is not None:
-            result = await session.task_manager.process_result(result)
+            from mcp_guide.mcp_instruction_notifications import process_result_for_response
+
+            result, instruction_dispatched = await process_result_for_response(result, session=session)
     except Exception as e:
         logger.error(f"TaskManager processing failed for tool {tool_name}: {e}")
 
@@ -74,7 +77,12 @@ async def tool_result(
 
     continuation_id = session_id if session_id is not None else (session.session_id if session is not None else None)
     response_protocol_type = session.protocol_type if session is not None else protocol_type
-    return tool_response(result, session_id=continuation_id, protocol_type=response_protocol_type)
+    return tool_response(
+        result,
+        session_id=continuation_id,
+        protocol_type=response_protocol_type,
+        instruction_dispatched=instruction_dispatched,
+    )
 
 
 async def prompt_result(
@@ -104,13 +112,21 @@ async def prompt_result(
         >>> result = Result.ok(value={"data": "example"})
         >>> return await prompt_result("my_prompt", result)
     """
+    instruction_dispatched = False
     try:
         if session is not None:
-            result = await session.task_manager.process_result(result)
+            from mcp_guide.mcp_instruction_notifications import process_result_for_response
+
+            result, instruction_dispatched = await process_result_for_response(result, session=session)
     except Exception as e:
         logger.error(f"TaskManager processing failed for prompt {prompt_name}: {e}")
 
     logger.trace(f"Prompt '{prompt_name}' result: {result.to_json()}")
 
     response_protocol_type = session.protocol_type if session is not None else protocol_type
-    return prompt_response(result, session_id=session_id, protocol_type=response_protocol_type)
+    return prompt_response(
+        result,
+        session_id=session_id,
+        protocol_type=response_protocol_type,
+        instruction_dispatched=instruction_dispatched,
+    )
