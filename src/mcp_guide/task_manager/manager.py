@@ -1112,7 +1112,15 @@ class TaskManager(SessionListener):
         return instruction
 
     async def confirm_instruction(self, instruction: QueuedInstruction) -> None:
-        """Confirm successful delivery and run its one-shot dispatch callback."""
+        """Confirm successful delivery and run its one-shot dispatch callback.
+
+        Project lifecycle cleanup may retire a reservation while a transport
+        notification is in flight.  In that case delivery has either already
+        completed or the retired instruction must stay discarded; it must not
+        turn response handling into an error or revive stale task state.
+        """
+        if instruction not in self._reserved_instructions:
+            return
         self._reserved_instructions.remove(instruction)
         tracked = self._tracked_instructions.get(instruction.tracking_id) if instruction.tracking_id else None
         if tracked is not None and tracked.on_dispatch is not None:
@@ -1121,7 +1129,13 @@ class TaskManager(SessionListener):
                 await on_dispatch()
 
     async def release_instruction(self, instruction: QueuedInstruction) -> None:
-        """Return an unsent reservation to the head of its owning queue."""
+        """Return an unsent reservation to the head of its owning queue.
+
+        A lifecycle-retired reservation is intentionally not requeued: it may
+        refer to a project configuration that is no longer active.
+        """
+        if instruction not in self._reserved_instructions:
+            return
         self._reserved_instructions.remove(instruction)
         self._pending_instructions.insert(0, instruction)
 

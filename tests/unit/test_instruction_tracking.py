@@ -60,6 +60,21 @@ async def test_confirmation_runs_a_tracked_instruction_callback_once(task_manage
 
 
 @pytest.mark.anyio
+async def test_lifecycle_retired_reservation_is_not_confirmed_or_requeued(task_manager):
+    """Lifecycle cleanup wins over a notification send that was already in flight."""
+    await task_manager.queue_instruction("Read the file")
+    reserved = await task_manager.reserve_instruction()
+
+    assert reserved is not None
+    task_manager._clear_queued_instructions()
+
+    await task_manager.confirm_instruction(reserved)
+    await task_manager.release_instruction(reserved)
+
+    assert task_manager.is_queue_empty()
+
+
+@pytest.mark.anyio
 async def test_retry_delay_urgency_and_original_limit(task_manager, monkeypatch):
     now = 100.0
     monkeypatch.setattr("mcp_guide.task_manager.manager.time.time", lambda: now)
