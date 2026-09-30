@@ -5,11 +5,90 @@ usage: "guide://_workflow/review"
 aliases:
   - review
 category: "project-workflow"
-instruction: Perform a review of project changes.
+instruction: Perform a review of project changes in the current repository.
 includes:
   - ../_partials/client-info
+elicitation:
+  review-target:
+    message: Choose what to review in this repository.
+    fallback: render
+    schema:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [uncommitted, current-branch, branch, pull-request]
+          description: Uncommitted work against HEAD, the current branch against the default branch, a named branch against the default branch, or a pull request in this repository.
+      required: [mode]
+  branch-name:
+    message: Enter the branch to compare with the default branch.
+    when:
+      mode: branch
+    fallback: render
+    schema:
+      type: object
+      properties:
+        branch:
+          type: string
+          pattern: '^(?!-)(?!.*\.\.)(?!.*//)(?!.*(?:^|/)\.)(?!.*[/.]$)(?!.*\.lock$)[A-Za-z0-9._/-]+$'
+      required: [branch]
+  pull-request-number:
+    message: Enter the pull-request number in this repository.
+    when:
+      mode: pull-request
+    fallback: render
+    schema:
+      type: object
+      properties:
+        pull_request_number:
+          type: integer
+          minimum: 1
+      required: [pull_request_number]
 ---
 {{h1}}Code Review
+
+{{h2}}Review target
+
+{{#kwargs.mode}}
+{{#equals}}uncommitted{{kwargs.mode}}
+Review the complete working tree against `HEAD`.
+{{/equals}}
+{{#equals}}current-branch{{kwargs.mode}}
+Review the current branch against the repository default branch.
+{{/equals}}
+{{#equals}}branch{{kwargs.mode}}
+{{#kwargs.branch}}
+Review branch `{{kwargs.branch}}` against the repository default branch.
+{{/kwargs.branch}}
+{{^kwargs.branch}}
+Ask for the branch name, then review that branch against the repository default branch. Do not start the review until the branch is named.
+{{/kwargs.branch}}
+{{/equals}}
+{{#equals}}pull-request{{kwargs.mode}}
+{{#kwargs.pull_request_number}}
+Review pull request `#{{kwargs.pull_request_number}}` in this repository.
+{{/kwargs.pull_request_number}}
+{{^kwargs.pull_request_number}}
+Ask for the pull-request number in this repository. Do not start the review until the number is given.
+{{/kwargs.pull_request_number}}
+{{/equals}}
+{{#notequals}}uncommitted{{kwargs.mode}}
+{{#notequals}}current-branch{{kwargs.mode}}
+{{#notequals}}branch{{kwargs.mode}}
+{{#notequals}}pull-request{{kwargs.mode}}
+Ask the user to choose a supported review target before reviewing. Do not infer a target.
+{{/notequals}}
+{{/notequals}}
+{{/notequals}}
+{{/notequals}}
+{{/kwargs.mode}}
+{{^kwargs.mode}}
+Ask the user to choose one target before reviewing. Do not infer a target.
+- Uncommitted work compared with `HEAD`
+- The current branch compared with the repository default branch
+- A named branch compared with the default branch
+- A pull request number in this repository
+{{/kwargs.mode}}
 
 {{h2}}General Guidance
 
@@ -38,7 +117,7 @@ You MUST transition to REVIEW phase and read `{{workflow.file}}` to understand t
     {{b}}This review must be done with a fresh look without consideration of previous work, including any fixes and tests.{{b}}
   — Use {{#resource}}code-review{{/resource}} to access code review guidelines.
   — Read {{workflow.file}} to understand the current issue context {{#workflow.issue}}(issue: {{workflow.issue}}).{{/workflow.issue}}
-  — Analyse changes against HEAD and create or update review artifact in `{{#workflow.issue}}{{path.documents}}{{workflow.issue}}-review.md{{/workflow.issue}}{{^workflow.issue}}{{path.documents}}{{/workflow.issue}}`
+  — Analyse the selected review target and create or update the review artifact in `{{#workflow.issue}}{{path.documents}}{{workflow.issue}}-review.md{{/workflow.issue}}{{^workflow.issue}}{{path.documents}}{{/workflow.issue}}`
 
 {{#openspec}}{{b}}NOTE{{b}} Review artifacts are NEVER to be created in the openspec changes directory{{/openspec}}
 {{/agent.class}}

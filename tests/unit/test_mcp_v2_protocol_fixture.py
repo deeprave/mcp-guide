@@ -1,25 +1,27 @@
-"""Contract-fixture shape tests for the MCP v2 compatibility spike."""
+"""MCP v2 compatibility behaviour tests."""
 
 import json
-from pathlib import Path
 
 import pytest
 
-FIXTURE_PATH = Path(__file__).parents[1] / "fixtures" / "mcp_protocol" / "2026-07-28.json"
-
 
 @pytest.mark.anyio
-async def test_mcp_v2_fixture_arguments_execute_against_the_modern_fastmcp_surface(tmp_path, monkeypatch) -> None:
-    """The fixture's nested arguments bind and resume one modern interaction."""
+async def test_mcp_v2_arguments_execute_against_the_modern_fastmcp_surface(tmp_path, monkeypatch) -> None:
+    """Nested arguments bind and resume one modern interaction."""
     from fastmcp import Client
     from fastmcp.exceptions import ToolError
 
     from mcp_guide.cli import ServerConfig
     from mcp_guide.server import create_application
 
-    fixture = json.loads(FIXTURE_PATH.read_text(encoding="utf-8"))
-    initial = fixture["cases"]["modern_request_state"]["initialRequest"]["params"]
-    continuation = fixture["cases"]["modern_request_state"]["continuationRequest"]["params"]
+    initial = {
+        "name": "set_project",
+        "arguments": {"args": {"path": str(tmp_path / "fixture-project")}},
+    }
+    continuation = {
+        "name": "get_project",
+        "arguments": {"args": {"session_id": "<fastmcp-session-id>"}},
+    }
     project_root = tmp_path / "fixture-project"
     project_root.mkdir()
     initial["arguments"]["args"]["path"] = str(project_root)

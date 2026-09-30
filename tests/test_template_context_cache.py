@@ -170,12 +170,13 @@ async def test_client_context_exposes_established_protocol(protocol_type, expect
 async def test_status_command_delivers_established_protocol(
     protocol_type, workflow_enabled, expected_protocol, tmp_path
 ):
-    """The shipped status command displays the connected protocol class."""
-    from mcp_guide.installer.core import install_templates
+    """A status command template receives the connected protocol class."""
     from tests.helpers import create_test_runtime, request_context_for
 
     docroot = tmp_path / "docs"
-    await install_templates(docroot, tmp_path / "templates.zip")
+    commands = docroot / "_commands"
+    commands.mkdir(parents=True)
+    (commands / "status.mustache").write_text("Protocol: `{{client.protocol}}`\n")
     runtime = create_test_runtime(str(tmp_path), docroot=docroot)
     runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
     try:

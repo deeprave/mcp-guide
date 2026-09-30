@@ -92,12 +92,18 @@ Requests return to discussion mode, optionally switch to a different issue if sp
 
 **`guide://_workflow/reset`** _(:reset)_
 Marks the current issue as complete and resets to discussion (shortcut).
-Certain conditions must be met:
-  - there are no staged/uncommitted changes
-  - the current branch must be `main`
+The calling agent checks the repository in its own checkout before making any
+workflow-file change. It does nothing on the repository default branch. On a
+non-default branch, it verifies completion first; a dirty worktree requires the
+user to approve stashing and restoring all changes before reset. A declined
+stash leaves the workflow unchanged. `reset/<issue-id>` follows the same guards.
 
 **`guide://_workflow/phase`** _(:phase)_
-Requests transition to a specific provided workflow phase
+Requests transition to a specific provided workflow phase. Without a supplied
+phase it offers the enabled phases other than the active one; clients without
+elicitation receive the same available choices as instructions. A supplied phase
+is accepted only when it is configured, while naming the already-active phase
+leaves the workflow file unchanged.
 
 **`guide://_workflow/check`** _(:check)_
 Run all code checks for changes according to test and code quality checks for the project.
@@ -105,6 +111,9 @@ Run all code checks for changes according to test and code quality checks for th
 **`guide://_workflow/review`** _(:review)_
 Delegate a review to a guide-review agent.
 If delegates are not supported by the agent, then `guide://code-review` will do the same thing in the foreground.
+Without a target it offers uncommitted work, the current branch, a named branch,
+or a pull request number in the current repository. A named branch is checked as
+a repository identifier before it is used.
 
 **`guide://_workflow/implement`** _(:implement)_
 Explicitly requests commencement of the implementation phase.

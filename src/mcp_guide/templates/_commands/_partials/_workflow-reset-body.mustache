@@ -1,0 +1,33 @@
+{{#args.0.value}}
+{{h2}}Reset with specific issue: `{{args.0.value}}`
+
+{{h3}}Reset Workflow
+1. Update workflow file `{{workflow.file}}`:
+   - Set `Issue:` to `{{args.0.value}}`
+   - Clear the `Plan:` field (if present)
+   - Clear the `Track:` field (if present)
+   - Remove `{{args.0.value}}` from the queue if it exists
+2. Change current phase to discussion
+3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
+
+{{b}}Note:{{b}} Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.
+{{/args.0.value}}
+{{^args.0.value}}
+{{#workflow.issue}}
+{{h3}}Reset Workflow
+1. Update workflow file `{{workflow.file}}`:
+   - Clear the `Issue:` field
+   - Clear the `Plan:` field (if present)
+   - Clear the `Track:` field (if present)
+{{#workflow.queue}}
+   - Move first queue item to the `Issue:` field
+{{/workflow.queue}}
+2. Change current phase to discussion
+3. Send updated workflow file using {{tool_prefix}}send_file_content with path `{{workflow.file}}`
+
+{{b}}Note:{{b}} Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.
+{{/workflow.issue}}
+{{^workflow.issue}}
+No current issue to reset. Workflow is already in a clean state.
+{{/workflow.issue}}
+{{/args.0.value}}

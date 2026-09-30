@@ -8,147 +8,136 @@ import pytest
 from mcp_guide.discovery.files import FileInfo, discover_document_files
 
 
-@pytest.mark.anyio
-async def test_content_loader_returning_none():
-    """Test that content_loader returning None is handled."""
+class TestFileInfoContent:
+    @pytest.mark.anyio
+    async def test_content_loader_returning_none(self):
+        """Test that content_loader returning None is handled."""
 
-    async def loader() -> str | None:
-        return None
+        async def loader() -> str | None:
+            return None
 
-    fi = FileInfo(
-        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
-    )
-    result = await fi.get_content()
-    assert result is None
+        fi = FileInfo(
+            path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
+        )
+        result = await fi.get_content()
+        assert result is None
 
+    @pytest.mark.anyio
+    async def test_content_loader_error_propagates(self):
+        """Test that content_loader errors propagate directly."""
 
-@pytest.mark.anyio
-async def test_content_loader_error_propagates():
-    """Test that content_loader errors propagate directly."""
+        async def loader() -> str | None:
+            raise RuntimeError("store unavailable")
 
-    async def loader() -> str | None:
-        raise RuntimeError("store unavailable")
+        fi = FileInfo(
+            path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
+        )
+        with pytest.raises(RuntimeError, match="store unavailable"):
+            await fi.get_content()
 
-    fi = FileInfo(
-        path=Path("test.md"), size=0, content_size=0, mtime=datetime.now(), name="test.md", content_loader=loader
-    )
-    with pytest.raises(RuntimeError, match="store unavailable"):
-        await fi.get_content()
+    @pytest.mark.anyio
+    async def test_filesystem_load_error_cleared_on_retry(self, tmp_path):
+        """Test that _load_error is cleared when a retry succeeds after initial failure."""
+        test_file = tmp_path / "test.md"
 
+        fi = FileInfo(path=test_file, size=0, content_size=0, mtime=datetime.now(), name="test.md")
+        with pytest.raises(OSError):
+            await fi.get_content()
 
-@pytest.mark.anyio
-async def test_filesystem_load_error_cleared_on_retry(tmp_path):
-    """Test that _load_error is cleared when a retry succeeds after initial failure."""
-    test_file = tmp_path / "test.md"
+        test_file.write_text("# Retry success")
 
-    fi = FileInfo(path=test_file, size=0, content_size=0, mtime=datetime.now(), name="test.md")
-    # First call fails — file doesn't exist
-    with pytest.raises(OSError):
-        await fi.get_content()
+        result = await fi.get_content()
+        assert result == "# Retry success"
 
-    # Creating the missing file is sufficient for a public retry.
-    test_file.write_text("# Retry success")
+    @pytest.mark.anyio
+    async def test_content_loader_takes_precedence_over_filesystem(self, tmp_path):
+        """Test that content_loader is preferred over filesystem when both are available."""
+        test_file = tmp_path / "test.md"
+        test_file.write_text("# From disk")
 
-    result = await fi.get_content()
-    assert result == "# Retry success"
+        async def loader() -> str | None:
+            return "# From loader"
 
+        fi = FileInfo(
+            path=test_file,
+            size=0,
+            content_size=0,
+            mtime=datetime.now(),
+            name="test.md",
+            content_loader=loader,
+        )
+        result = await fi.get_content()
+        assert result == "# From loader"
+        assert fi.size == len("# From loader")
 
-@pytest.mark.anyio
-async def test_content_loader_takes_precedence_over_filesystem(tmp_path):
-    """Test that content_loader is preferred over filesystem when both are available."""
-    test_file = tmp_path / "test.md"
-    test_file.write_text("# From disk")
-
-    async def loader() -> str | None:
-        return "# From loader"
-
-    fi = FileInfo(
-        path=test_file,
-        size=0,
-        content_size=0,
-        mtime=datetime.now(),
-        name="test.md",
-        content_loader=loader,
-    )
-    result = await fi.get_content()
-    assert result == "# From loader"
-    assert fi.size == len("# From loader")
-
-
-@pytest.mark.anyio
-async def test_directory_not_found():
-    """Test that missing directory raises FileNotFoundError."""
-    non_existent = Path("/non/existent/directory")
-    with pytest.raises(FileNotFoundError):
-        await discover_document_files(non_existent, ["*.txt"])
+    @pytest.mark.anyio
+    async def test_directory_not_found(self):
+        """Test that missing directory raises FileNotFoundError."""
+        non_existent = Path("/non/existent/directory")
+        with pytest.raises(FileNotFoundError):
+            await discover_document_files(non_existent, ["*.txt"])
 
 
-@pytest.mark.anyio
-async def test_relative_base_dir_is_resolved_against_cwd(tmp_path, monkeypatch):
-    """A relative configured path is resolved at use time, not rejected."""
-    docs = tmp_path / "docs"
-    docs.mkdir()
-    (docs / "note.md").write_text("hello\n", encoding="utf-8")
-    monkeypatch.chdir(tmp_path)
+class TestDocumentDiscoveryBasics:
+    @pytest.mark.anyio
+    async def test_relative_base_dir_is_resolved_against_cwd(self, tmp_path, monkeypatch):
+        """A relative configured path is resolved at use time, not rejected."""
+        docs = tmp_path / "docs"
+        docs.mkdir()
+        (docs / "note.md").write_text("hello\n", encoding="utf-8")
+        monkeypatch.chdir(tmp_path)
 
-    found = await discover_document_files(Path("docs"), ["*.md"])
-    assert [info.path.name for info in found] == ["note.md"]
+        found = await discover_document_files(Path("docs"), ["*.md"])
+        assert [info.path.name for info in found] == ["note.md"]
 
+    @pytest.mark.anyio
+    async def test_tilde_base_dir_is_resolved_before_the_absolute_check(self, tmp_path, monkeypatch):
+        """A configured ``~/...`` path is host-absolute after LazyPath.resolve()."""
+        home = tmp_path / "home"
+        commands = home / "docs" / "_commands"
+        commands.mkdir(parents=True)
+        (commands / "help.mustache").write_text("hello\n", encoding="utf-8")
+        monkeypatch.setenv("HOME", str(home))
 
-@pytest.mark.anyio
-async def test_tilde_base_dir_is_resolved_before_the_absolute_check(tmp_path, monkeypatch):
-    """A configured ``~/...`` path is host-absolute after LazyPath.resolve()."""
-    home = tmp_path / "home"
-    commands = home / "docs" / "_commands"
-    commands.mkdir(parents=True)
-    (commands / "help.mustache").write_text("hello\n", encoding="utf-8")
-    monkeypatch.setenv("HOME", str(home))
+        found = await discover_document_files(Path("~/docs/../docs/_commands"), ["help"])
+        assert [info.path.name for info in found] == ["help.mustache"]
 
-    found = await discover_document_files(Path("~/docs/../docs/_commands"), ["help"])
-    assert [info.path.name for info in found] == ["help.mustache"]
+    @pytest.mark.anyio
+    async def test_template_extension_patterns_raise_error(self, tmp_path):
+        """Test that patterns with template extensions raise ValueError."""
+        for ext in [".mustache", ".hbs", ".handlebars", ".chevron"]:
+            with pytest.raises(ValueError, match="should not include template extensions"):
+                await discover_document_files(tmp_path, [f"*.md{ext}"])
 
+    @pytest.mark.anyio
+    async def test_no_matches_returns_empty_list(self, tmp_path):
+        """Test that no matches returns empty list."""
+        result = await discover_document_files(tmp_path, ["*.txt"])
+        assert result == []
 
-@pytest.mark.anyio
-async def test_template_extension_patterns_raise_error(tmp_path):
-    """Test that patterns with template extensions raise ValueError."""
-    template_extensions = [".mustache", ".hbs", ".handlebars", ".chevron"]
+    @pytest.mark.anyio
+    async def test_multiple_patterns(self, tmp_path):
+        """Test multiple patterns."""
+        (tmp_path / "doc.md").write_text("# Doc")
+        (tmp_path / "data.yaml").write_text("key: value")
 
-    for ext in template_extensions:
-        with pytest.raises(ValueError, match="should not include template extensions"):
-            await discover_document_files(tmp_path, [f"*.md{ext}"])
+        result = await discover_document_files(tmp_path, ["*.md", "*.yaml"])
 
+        assert len(result) == 2
+        paths = {f.path for f in result}
+        assert Path("doc.md") in paths
+        assert Path("data.yaml") in paths
 
-@pytest.mark.anyio
-async def test_no_matches_returns_empty_list(tmp_path):
-    """Test that no matches returns empty list."""
-    result = await discover_document_files(tmp_path, ["*.txt"])
-    assert result == []
+    @pytest.mark.anyio
+    async def test_discover_template_file(self, tmp_path):
+        """Test discovering template file."""
+        (tmp_path / "doc.md.mustache").write_text("# Template")
 
+        result = await discover_document_files(tmp_path, ["*.md"])
 
-@pytest.mark.anyio
-async def test_multiple_patterns(tmp_path):
-    """Test multiple patterns."""
-    (tmp_path / "doc.md").write_text("# Doc")
-    (tmp_path / "data.yaml").write_text("key: value")
-
-    result = await discover_document_files(tmp_path, ["*.md", "*.yaml"])
-
-    assert len(result) == 2
-    paths = {f.path for f in result}
-    assert Path("doc.md") in paths
-    assert Path("data.yaml") in paths
-
-
-@pytest.mark.anyio
-async def test_discover_template_file(tmp_path):
-    """Test discovering template file."""
-    (tmp_path / "doc.md.mustache").write_text("# Template")
-
-    result = await discover_document_files(tmp_path, ["*.md"])
-
-    assert len(result) == 1
-    assert result[0].path == Path("doc.md.mustache")
-    assert result[0].name == "doc.md"
+        assert len(result) == 1
+        assert result[0].path == Path("doc.md.mustache")
+        assert result[0].name == "doc.md"
 
 
 @pytest.mark.anyio

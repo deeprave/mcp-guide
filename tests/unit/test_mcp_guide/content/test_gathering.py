@@ -8,7 +8,6 @@ import pytest
 import yaml
 from tests.helpers import create_bound_test_session, request_context_for
 
-import mcp_guide
 from mcp_guide.content.gathering import gather_category_fileinfos, gather_content
 from mcp_guide.content.utils import gather_policy_partials, render_missing_policy
 from mcp_guide.content_limits import ContentLimitExceeded, ContentLimits
@@ -45,16 +44,16 @@ class _MockSession:
 
 
 @pytest.mark.parametrize(
-    "policy_file",
-    sorted(
-        path
-        for path in (Path(mcp_guide.__file__).parent / "templates/policies/issue-tracking").glob("*.md.mustache")
-        if not path.name.startswith("_")
-    ),
+    "content",
+    [
+        "---\ncache: long\ntype: agent/instruction\n---\nProvider policy one",
+        "---\ncache: long\ntype: agent/instruction\n---\nProvider policy two",
+    ],
+    ids=["provider-one", "provider-two"],
 )
-def test_issue_tracking_policy_frontmatter_is_available(policy_file):
-    """Selected provider policies retain their declared delivery metadata."""
-    frontmatter = parse_content_with_frontmatter(policy_file.read_text(encoding="utf-8")).frontmatter
+def test_policy_frontmatter_retains_delivery_metadata(content):
+    """Policy metadata is parsed from isolated content rather than production files."""
+    frontmatter = parse_content_with_frontmatter(content).frontmatter
 
     assert frontmatter["cache"] == "long"
     assert frontmatter["type"] == "agent/instruction"

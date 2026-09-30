@@ -90,35 +90,31 @@ class TestCommandPrecedence:
         """Prompt-style raw query aliases should retain their parsed defaults."""
         commands = [
             {
-                "name": "handoff",
-                "aliases": ["save-context?write"],
-                "alias_metadata": [
-                    {"raw": "save-context?write", "path": "save-context", "implied_kwargs": {"write": True}}
-                ],
+                "name": "project",
+                "aliases": ["project?verbose"],
+                "alias_metadata": [{"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}}],
             }
         ]
 
-        result = _resolve_command_alias("save-context?write", commands)
+        result = _resolve_command_alias("project?verbose", commands)
 
-        assert result.command_path == "handoff"
-        assert result.implied_kwargs == {"write": True}
+        assert result.command_path == "project"
+        assert result.implied_kwargs == {"verbose": True}
 
     def test_resolve_command_alias_allows_additional_query_kwargs(self):
         """Prompt aliases should match by path and preserve extra query kwargs."""
         commands = [
             {
-                "name": "handoff",
-                "aliases": ["save-context?write"],
-                "alias_metadata": [
-                    {"raw": "save-context?write", "path": "save-context", "implied_kwargs": {"write": True}}
-                ],
+                "name": "project",
+                "aliases": ["project?verbose"],
+                "alias_metadata": [{"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}}],
             }
         ]
 
-        result = _resolve_command_alias("save-context?write&force", commands)
+        result = _resolve_command_alias("project?verbose&force", commands)
 
-        assert result.command_path == "handoff"
-        assert result.implied_kwargs == {"write": True, "force": True}
+        assert result.command_path == "project"
+        assert result.implied_kwargs == {"verbose": True, "force": True}
 
     def test_resolve_command_alias_handles_missing_aliases_field(self):
         """Test that _resolve_command_alias handles commands without aliases field."""

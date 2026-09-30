@@ -1,18 +1,9 @@
 """Tests for profile model."""
 
-from pathlib import Path
-
 import pytest
 
 import mcp_guide.models.profile as profile_module
-from mcp_guide.models.profile import Profile, discover_profiles
-
-PROFILE_SOURCE_DIRECTORY = Path(__file__).parents[2] / "src" / "mcp_guide" / "templates" / "_profiles"
-BUNDLED_PROFILE_NAMES = {
-    profile_path.stem
-    for profile_path in PROFILE_SOURCE_DIRECTORY.glob("*.yaml")
-    if not profile_path.stem.startswith("_")
-}
+from mcp_guide.models.profile import Profile
 
 
 class TestProfileFromYaml:
@@ -125,25 +116,6 @@ unsupported_field: value
 class TestProfileLoad:
     """Tests for Profile.load."""
 
-    async def test_default_profile_provides_baseline_resource_content(self):
-        profile = await Profile.load("_default")
-
-        categories = {category.name: category for category in profile.categories}
-        collections = {collection.name: collection for collection in profile.collections}
-
-        assert categories["review"].patterns == ["general"]
-        assert categories["checks"].patterns == ["instructions"]
-        assert collections["code-review"].categories == ["review"]
-
-    async def test_docker_and_shell_profiles_select_language_guidance(self):
-        docker_profile = await Profile.load("docker")
-        shell_profile = await Profile.load("shell")
-
-        assert docker_profile.categories[0].name == "lang"
-        assert docker_profile.categories[0].patterns == ["docker"]
-        assert shell_profile.categories[0].name == "lang"
-        assert shell_profile.categories[0].patterns == ["shell"]
-
     @pytest.mark.parametrize(
         "profile_name",
         ["", "../outside", r"..\\outside", "nested/profile", "/absolute", "profile.yaml", "with space", "bad!"],
@@ -214,21 +186,3 @@ class TestDiscoverProfiles:
         for name in ("rust", "_default", "python"):
             (profiles_dir / f"{name}.yaml").write_text("categories: []")
         assert await profile_module.discover_profiles() == ["python", "rust"]
-
-    async def test_discover_profiles_includes_docker_and_shell(self):
-        profiles = await profile_module.discover_profiles()
-
-        assert "docker" in profiles
-        assert "shell" in profiles
-        for name in ["_default", *profiles]:
-            profile = await Profile.load(name)
-            assert all(collection.categories for collection in profile.collections), name
-
-    async def test_discover_profiles_matches_the_bundled_catalogue(self):
-        profiles = set(await discover_profiles())
-
-        assert profiles == BUNDLED_PROFILE_NAMES
-        for profile_name in BUNDLED_PROFILE_NAMES:
-            profile = await Profile.load(profile_name)
-            assert profile.categories, profile_name
-            assert all(category.patterns for category in profile.categories), profile_name

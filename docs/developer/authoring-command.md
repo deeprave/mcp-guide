@@ -88,6 +88,9 @@ When a flag is declared in `argrequired`:
 
 Commands use the shared elicitation contract. See [Elicitation Authoring](authoring-elicitation.md)
 for the complete declaration reference, branching behaviour, protocol differences, and examples.
+Commands may additionally use the command-only `source: workflow-phases` property marker described
+there; Guide resolves it from the active workflow before asking the client. Do not use that marker
+in skill frontmatter.
 
 ## Template Context
 

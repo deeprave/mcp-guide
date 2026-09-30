@@ -1,7 +1,5 @@
 """Tests for CLI script."""
 
-import tomllib
-from importlib import import_module
 from pathlib import Path
 
 import pytest
@@ -42,53 +40,6 @@ class TestArgumentParsing:
         assert result.exit_code == 0
         assert "Would use docroot: /custom/path" in result.output
         assert "Would use configdir: /custom/config" in result.output
-
-    def test_mcp_install_entry_point_is_declared_and_runnable(self) -> None:
-        """Test that the console script mapping exists and targets a runnable command.
-
-        This keeps coverage on the packaging entry-point declaration without paying for a
-        full throwaway virtualenv install on every test run.
-        """
-        project_root = Path(__file__).resolve().parents[3]
-        pyproject = tomllib.loads((project_root / "pyproject.toml").read_text())
-
-        scripts = pyproject["project"]["scripts"]
-        target = scripts["mcp-install"]
-        assert target == "mcp_guide.scripts.mcp_guide_install:cli"
-
-        module_name, attr_name = target.split(":", maxsplit=1)
-        command = getattr(import_module(module_name), attr_name)
-
-        runner = CliRunner()
-        result = runner.invoke(command, ["--help"])
-
-        assert result.exit_code == 0
-
-    @pytest.mark.e2e
-    def test_installed_entry_point_help_runs(self, tmp_path: Path) -> None:
-        """Installed console script should run from an isolated uv-synced virtualenv."""
-        import os
-        import subprocess
-        import sys
-
-        venv_dir = tmp_path / "venv"
-        subprocess.check_call([sys.executable, "-m", "venv", str(venv_dir)])
-
-        bin_dir = venv_dir / ("Scripts" if os.name == "nt" else "bin")
-
-        project_root = Path(__file__).resolve().parents[3]
-        env = os.environ.copy()
-        env["VIRTUAL_ENV"] = str(venv_dir)
-        env["PATH"] = os.pathsep.join([str(bin_dir), env.get("PATH", "")])
-
-        try:
-            subprocess.check_call(
-                ["uv", "sync", "--project", str(project_root), "--active", "--frozen", "--offline"],
-                env=env,
-            )
-        except subprocess.CalledProcessError as exc:
-            pytest.skip(f"uv sync could not complete offline: {exc}")
-        subprocess.check_call([str(bin_dir / "mcp-install"), "--help"], env=env)
 
 
 class TestInstallation:

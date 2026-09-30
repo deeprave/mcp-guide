@@ -112,7 +112,9 @@ The command parser SHALL accept `argrequired` list from frontmatter to determine
 #### Scenario: Empty argrequired list
 - **WHEN** `parse_command_arguments()` is called with `argrequired=[]`
 - **THEN** parser SHALL treat all flags as boolean
-- **AND** behavior matches current implementation### Requirement: Alias-Implied Command Arguments
+- **AND** behavior matches current implementation
+
+### Requirement: Alias-Implied Command Arguments
 
 Command frontmatter aliases SHALL support query strings whose parsed parameters
 are merged into the canonical command kwargs when the alias is invoked.
@@ -145,20 +147,6 @@ are merged into the canonical command kwargs when the alias is invoked.
 - **WHEN** any command defines an alias with query parameters
 - **THEN** alias query propagation SHALL be available without adding
   command-specific parsing or resolution rules
-
-#### Scenario: Save-context alias implies handoff write mode
-- **WHEN** the handoff command defines an alias `save-context?write`
-- **AND** the user invokes `:save-context handoff.md`
-- **THEN** the command SHALL normalize to the canonical handoff command
-- **AND** the normalized invocation SHALL include `kwargs["write"] = True`
-- **AND** the target path SHALL remain `handoff.md`
-
-#### Scenario: Restore-context alias implies handoff read mode
-- **WHEN** the handoff command defines an alias `restore-context?read`
-- **AND** the user invokes `:restore-context handoff.md`
-- **THEN** the command SHALL normalize to the canonical handoff command
-- **AND** the normalized invocation SHALL include `kwargs["read"] = True`
-- **AND** the target path SHALL remain `handoff.md`
 
 ### Requirement: Request-Scoped Prompt Invocation
 The prompt registration layer SHALL resolve project, client, and agent data through

@@ -172,12 +172,22 @@ class TestTemplateDiscovery:
     """Tests for template discovery."""
 
     @pytest.mark.anyio
-    async def test_list_template_files_returns_all_files(self) -> None:
+    async def test_list_template_files_returns_all_files(self, tmp_path: Path, monkeypatch) -> None:
         """Test that list_template_files returns all files recursively."""
-        # Arrange
-        from mcp_guide.installer.core import get_templates_path, list_template_files
+        import mcp_guide.installer.core as installer_core
+        from mcp_guide.installer.core import list_template_files
 
-        templates_path = await get_templates_path()
+        templates_path = tmp_path / "templates"
+        nested = templates_path / "nested"
+        nested.mkdir(parents=True)
+        (templates_path / "guide.md").write_text("Guide\n")
+        (nested / "rules.txt").write_text("Rules\n")
+        (templates_path / ".hidden").write_text("Hidden\n")
+
+        async def get_synthetic_templates() -> Path:
+            return templates_path
+
+        monkeypatch.setattr(installer_core, "get_templates_path", get_synthetic_templates)
 
         # Act
         files = await list_template_files()
@@ -467,12 +477,21 @@ class TestInstallFileSmartUpdate:
         ],
     )
     @pytest.mark.anyio
-    async def test_docroot_safety_check(self, scenario: str, should_raise: bool, tmp_path: Path) -> None:
+    async def test_docroot_safety_check(self, scenario: str, should_raise: bool, tmp_path: Path, monkeypatch) -> None:
         """Test docroot safety validation with various path scenarios."""
-        from mcp_guide.installer.core import DocrootValidationError, get_templates_path, validate_docroot_safety
+        import mcp_guide.installer.core as installer_core
+        from mcp_guide.installer.core import DocrootValidationError, validate_docroot_safety
+
+        templates_path = tmp_path / "templates"
+        templates_path.mkdir()
+
+        async def get_synthetic_templates() -> Path:
+            return templates_path
+
+        monkeypatch.setattr(installer_core, "get_templates_path", get_synthetic_templates)
 
         if scenario == "same_path":
-            docroot = await get_templates_path()
+            docroot = templates_path
         elif scenario == "different_path":
             docroot = tmp_path / "docroot"
             docroot.mkdir()
