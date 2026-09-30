@@ -1,11 +1,19 @@
 """Tests for minargs frontmatter feature in _execute_command."""
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-from tests.helpers import create_unbound_test_session, request_context_for, runtime_config_dir
+from mcp_types import InputRequiredResult
+from tests.helpers import (
+    create_bound_test_session,
+    create_unbound_test_session,
+    request_context_for,
+    runtime_config_dir,
+)
 
 from mcp_guide.prompts.guide_prompt import _execute_command
+from mcp_guide.workflow.schema import WorkflowState
 
 
 @pytest.fixture
@@ -55,3 +63,51 @@ async def test_minargs_allows_sufficient_args(cmd_docroot, minargs, args):
     result = await _run(session, docroot, args, minargs)
     assert result.success, result.error
     assert result.value.strip() == "ok"
+
+
+@pytest.mark.anyio
+async def test_execute_command_specialises_workflow_phase_choices(cmd_docroot, runtime):
+    """Command execution derives dynamic phase choices before requesting input."""
+    _, docroot = cmd_docroot
+    session = await create_bound_test_session(runtime, "workflow-input")
+    await session.project_flags().set("workflow", True)
+    session.task_manager.set_cached_data("workflow_state", WorkflowState(phase="planning"))
+    (docroot / "_commands/test.mustache").write_text(
+        "---\n"
+        "requires-workflow: true\n"
+        "elicitation:\n"
+        "  workflow-phase:\n"
+        "    message: Choose a phase.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        phase:\n"
+        "          type: string\n"
+        "          source: workflow-phases\n"
+        "      required: [phase]\n"
+        "---\n"
+        "Phase={{kwargs.phase}}\n"
+    )
+    context = SimpleNamespace(
+        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
+        input_responses=None,
+        request_context=SimpleNamespace(protocol_version="2026-07-28"),
+    )
+
+    result = await _execute_command(
+        "test",
+        {},
+        [],
+        await request_context_for(session),
+        argv=[":test"],
+        mcp_context=context,
+    )
+
+    assert isinstance(result, InputRequiredResult)
+    assert result.input_requests["workflow-phase"].params.requested_schema["properties"]["phase"]["enum"] == [
+        "discussion",
+        "exploration",
+        "implementation",
+        "check",
+        "review",
+    ]

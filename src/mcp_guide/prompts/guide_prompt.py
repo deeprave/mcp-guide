@@ -56,6 +56,7 @@ from mcp_guide.result_constants import (
 from mcp_guide.runtime import RequestContext
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.uri_parser import parse_query_kwargs
+from mcp_guide.workflow.command_input import prepare_command_input
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
@@ -486,8 +487,10 @@ async def _execute_command(
                 error_type=ERROR_FILE_ERROR,
                 disposition=AGENT_ERROR,
             )
+        forms = interactive_properties.elicitation.forms
+        forms = prepare_command_input(forms, command_context, args, kwargs)
         resolved_kwargs = await resolve_elicitations(
-            {"elicitation": interactive_properties.elicitation.forms},
+            {"elicitation": forms},
             kwargs,
             mcp_context,
             entrypoint=f"command:{entrypoint_path}",

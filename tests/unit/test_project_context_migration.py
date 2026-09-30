@@ -23,78 +23,78 @@ def runtime_for_config(config_dir: str | Path) -> GuideRuntime[Session]:
     return create_test_runtime(str(config_dir))
 
 
-@pytest.mark.anyio
-async def test_binding_is_initial_only_and_name_switches_keep_root(tmp_path: Path) -> None:
-    """Initial binding is immutable while name-only switching keeps its root."""
-    runtime = runtime_for_config(tmp_path)
-    session = runtime.resolve_session(OwnerKey("root-project"))
-    root = "/client/workspace/root-project"
+class TestProjectBindingSelection:
+    @pytest.mark.anyio
+    async def test_binding_is_initial_only_and_name_switches_keep_root(self, tmp_path: Path) -> None:
+        """Initial binding is immutable while name-only switching keeps its root."""
+        runtime = runtime_for_config(tmp_path)
+        session = runtime.resolve_session(OwnerKey("root-project"))
+        root = "/client/workspace/root-project"
 
-    await session.bind_project_path(root)
-    initial_identity = session.active_configuration_identity
-    session = await session.switch_project("review")
+        await session.bind_project_path(root)
+        initial_identity = session.active_configuration_identity
+        session = await session.switch_project("review")
 
-    assert session.bound_root_path == Path(root)
-    assert session.project_name == "review"
-    assert session.active_configuration_identity is not None
-    assert session.active_configuration_identity[1] == initial_identity[1]
+        assert session.bound_root_path == Path(root)
+        assert session.project_name == "review"
+        assert session.active_configuration_identity is not None
+        assert session.active_configuration_identity[1] == initial_identity[1]
 
-    with pytest.raises(ValueError, match="already bound"):
-        await session.bind_project_path("/client/workspace/other-project")
+        with pytest.raises(ValueError, match="already bound"):
+            await session.bind_project_path("/client/workspace/other-project")
 
-    await session.cleanup()
+        await session.cleanup()
 
+    @pytest.mark.anyio
+    @pytest.mark.parametrize(
+        ("path", "expected_root"),
+        [
+            ("file:///client/workspace/uri-project", Path("/client/workspace/uri-project")),
+            ("file:///client/workspace/uri%2Dencoded", Path("/client/workspace/uri-encoded")),
+            ("FILE:///client/workspace/case-variant", Path("/client/workspace/case-variant")),
+            ("file://LOCALHOST/client/workspace/local-host", Path("/client/workspace/local-host")),
+        ],
+    )
+    async def test_binding_accepts_percent_encoded_local_file_uris(
+        self, tmp_path: Path, path: str, expected_root: Path
+    ) -> None:
+        """Initial binding decodes a local file URI without resolving client paths."""
+        runtime = runtime_for_config(tmp_path)
+        session = runtime.resolve_session(OwnerKey("file-uri-root"))
 
-@pytest.mark.anyio
-@pytest.mark.parametrize(
-    ("path", "expected_root"),
-    [
-        ("file:///client/workspace/uri-project", Path("/client/workspace/uri-project")),
-        ("file:///client/workspace/uri%2Dencoded", Path("/client/workspace/uri-encoded")),
-        ("FILE:///client/workspace/case-variant", Path("/client/workspace/case-variant")),
-        ("file://LOCALHOST/client/workspace/local-host", Path("/client/workspace/local-host")),
-    ],
-)
-async def test_binding_accepts_percent_encoded_local_file_uris(tmp_path: Path, path: str, expected_root: Path) -> None:
-    """Initial binding decodes a local file URI without resolving client paths."""
-    runtime = runtime_for_config(tmp_path)
-    session = runtime.resolve_session(OwnerKey("file-uri-root"))
+        await session.bind_project_path(path)
 
-    await session.bind_project_path(path)
+        assert session.bound_root_path == expected_root
+        assert session.project_name == expected_root.name
+        await session.cleanup()
 
-    assert session.bound_root_path == expected_root
-    assert session.project_name == expected_root.name
-    await session.cleanup()
+    @pytest.mark.anyio
+    async def test_switch_project_requires_a_name_or_path_at_the_session_boundary(self, tmp_path: Path) -> None:
+        """Direct Session callers cannot bypass the public selection requirement."""
+        runtime = runtime_for_config(tmp_path)
+        session = runtime.resolve_session(OwnerKey("missing-switch-selection"))
+        await session.bind_project_path("/client/workspace/current")
 
+        with pytest.raises(InvalidProjectNameError, match="requires a name or path"):
+            await session.switch_project()
 
-@pytest.mark.anyio
-async def test_switch_project_requires_a_name_or_path_at_the_session_boundary(tmp_path: Path) -> None:
-    """Direct Session callers cannot bypass the public selection requirement."""
-    runtime = runtime_for_config(tmp_path)
-    session = runtime.resolve_session(OwnerKey("missing-switch-selection"))
-    await session.bind_project_path("/client/workspace/current")
+        assert session.bound_root_path == Path("/client/workspace/current")
+        await session.cleanup()
 
-    with pytest.raises(InvalidProjectNameError, match="requires a name or path"):
-        await session.switch_project()
+    @pytest.mark.anyio
+    @pytest.mark.parametrize("path", ["", "   "])
+    async def test_switch_project_rejects_blank_path_selectors(self, tmp_path: Path, path: str) -> None:
+        """Blank paths are not valid root-rebinding selectors."""
+        runtime = runtime_for_config(tmp_path)
+        session = runtime.resolve_session(OwnerKey("blank-switch-path"))
+        await session.bind_project_path("/client/workspace/current")
 
-    assert session.bound_root_path == Path("/client/workspace/current")
-    await session.cleanup()
+        with pytest.raises(ValueError, match="requires a name or path"):
+            SwitchProjectArgs(path=path)
+        with pytest.raises(InvalidProjectNameError, match="requires a name or path"):
+            await session.switch_project(path=path)
 
-
-@pytest.mark.anyio
-@pytest.mark.parametrize("path", ["", "   "])
-async def test_switch_project_rejects_blank_path_selectors(tmp_path: Path, path: str) -> None:
-    """Blank paths are not valid root-rebinding selectors."""
-    runtime = runtime_for_config(tmp_path)
-    session = runtime.resolve_session(OwnerKey("blank-switch-path"))
-    await session.bind_project_path("/client/workspace/current")
-
-    with pytest.raises(ValueError, match="requires a name or path"):
-        SwitchProjectArgs(path=path)
-    with pytest.raises(InvalidProjectNameError, match="requires a name or path"):
-        await session.switch_project(path=path)
-
-    await session.cleanup()
+        await session.cleanup()
 
 
 @pytest.mark.anyio

@@ -10,6 +10,7 @@ from mcp_guide.core.prompt_decorator import get_prompt_name
 from mcp_guide.core.tool_decorator import get_tool_prefix
 from mcp_guide.feature_flags.constants import FLAG_COMMAND, FLAG_RESOURCE
 from mcp_guide.render.recommendations import Recommendation, parse_recommendation
+from mcp_guide.workflow.command_input import workflow_phase_names
 
 logger = get_logger(__name__)
 _MISSING = object()
@@ -152,23 +153,7 @@ class TemplateFunctions:
         if workflow is _MISSING or not isinstance(workflow, dict):
             return set()
 
-        phase_list = workflow.get("phase_list")
-        if isinstance(phase_list, list):
-            phases: set[str] = set()
-            for item in phase_list:
-                if isinstance(item, dict):
-                    value = item.get("value")
-                    if isinstance(value, str):
-                        phases.add(value)
-                elif isinstance(item, str):
-                    phases.add(item)
-            if phases:
-                return phases
-
-        phases_dict = workflow.get("phases")
-        if isinstance(phases_dict, dict):
-            return {key for key in phases_dict.keys() if isinstance(key, str)}
-        return set()
+        return set(workflow_phase_names(workflow))
 
     def format_date(self, text: str, render: Callable[[str], str] | None = None) -> str:
         """Format dates: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}"""

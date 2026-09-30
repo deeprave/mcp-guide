@@ -24,6 +24,7 @@ elicitation:
       properties:
         branch:
           type: string
+          pattern: '^(?!-)(?!.*\.\.)(?!.*//)(?!.*(?:^|/)\.)(?!.*[/.]$)(?!.*\.lock$)[A-Za-z0-9._/-]+$'
       required: [branch]
   pull-request-reference:
     message: Enter a pull-request URL or owner/repo/#number reference.
@@ -44,6 +45,7 @@ elicitation:
       properties:
         pull_request_number:
           type: integer
+          minimum: 1
       required: [pull_request_number]
 ---
 # Code Review

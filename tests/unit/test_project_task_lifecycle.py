@@ -2,8 +2,8 @@
 
 import asyncio
 from contextlib import nullcontext
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
-from unittest.mock import Mock
 
 import pytest
 
@@ -39,6 +39,20 @@ class _ProjectSession:
 
     def __init__(self, name: str) -> None:
         self.name = name
+
+
+class _TaskManagerSession:
+    """Minimal real session boundary needed by TaskManager lifecycle tests."""
+
+    class _TemplateCache:
+        def invalidate(self) -> None:
+            pass
+
+    template_cache = _TemplateCache()
+
+    @staticmethod
+    def work():
+        return nullcontext()
 
 
 def _session(name: str) -> "Session":
@@ -170,7 +184,7 @@ class TestProjectTaskLifecycle:
         from mcp_guide.decorators import task_register
 
         task_register(_ProjectTask)
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
 
         await task_manager.restart_project_tasks(_session("alpha"))
         task = task_manager.get_task_by_type(_ProjectTask)
@@ -206,7 +220,7 @@ class TestProjectTaskLifecycle:
                 return None
 
         task_register(ActivationOnlyTask)
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
 
         await task_manager.start_project_tasks(_session("alpha"))
 
@@ -280,8 +294,13 @@ class TestProjectTaskLifecycle:
 
         await task_manager.restart_project_tasks(session)
         first = task_manager.get_task_by_type(_ProjectTask)
-        update = Mock()
-        update.changes.resolved_flags = {"command"}
+        update = SimpleNamespace(
+            changes=SimpleNamespace(
+                project_entry_changed=False,
+                resolved_flags={"command"},
+                project_flags=frozenset(),
+            )
+        )
         await task_manager.on_configuration_changed(session, update)
         second = task_manager.get_task_by_type(_ProjectTask)
 
@@ -467,7 +486,7 @@ class TestProjectTaskLifecycle:
     @pytest.mark.anyio
     async def test_restart_clears_project_scoped_cache_entries(self) -> None:
         """Lifecycle restart clears volatile cache values from the previous project."""
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
         task_manager.set_cached_data("workflow_state", {"phase": "discussion"})
         task_manager.set_cached_data("openspec_version", "1.2.3")
         task_manager.set_cached_data("client_os_info", {"os": "test"})
@@ -552,7 +571,7 @@ class TestProjectTaskLifecycle:
         """An event started before a restart cannot write into its replacement state."""
         from mcp_guide.decorators import task_register
 
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
         handler_started = asyncio.Event()
         release_handler = asyncio.Event()
 
@@ -582,7 +601,7 @@ class TestProjectTaskLifecycle:
         """A timer callback resumed after replacement cannot restore old task state."""
         from mcp_guide.decorators import task_register
 
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
         timer_started = asyncio.Event()
         release_timer = asyncio.Event()
 
@@ -627,7 +646,7 @@ class TestProjectTaskLifecycle:
                 self.activation.set_cached_data("workflow_state", {"phase": "retired"})
 
         task_register(StateWritingStopTask)
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
 
         await task_manager.restart_project_tasks(_session("alpha"))
         await task_manager.restart_project_tasks(_session("beta"))
@@ -648,7 +667,7 @@ class TestProjectTaskLifecycle:
                 await self.activation.queue_instruction(f"instruction for {self.session_name}")
 
         task_register(ToolStateTask)
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
 
         await task_manager.restart_project_tasks(_session("alpha"))
         await task_manager.on_tool()
@@ -677,7 +696,7 @@ class TestProjectTaskLifecycle:
                 self.activation.set_cached_data("workflow_state", {"phase": "old"})
 
         task_register(BlockingToolTask)
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
 
         await task_manager.restart_project_tasks(_session("alpha"))
         tool_callback = asyncio.create_task(task_manager.on_tool())
@@ -709,7 +728,7 @@ class TestProjectTaskLifecycle:
                 return False
 
         task_register(DelayedStartTask)
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
 
         starting = asyncio.create_task(task_manager.start_project_tasks(_session("old")))
         await start_started.wait()
@@ -737,7 +756,7 @@ class TestProjectTaskLifecycle:
                 return False
 
         task_register(DeclinedStartTask)
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
 
         await task_manager.start_project_tasks(_session("alpha"))
 
@@ -770,7 +789,7 @@ class TestProjectTaskLifecycle:
                 return True
 
         task_register(DispatchCallbackTask)
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
 
         await task_manager.start_project_tasks(_session("old"))
         delivering = asyncio.create_task(task_manager.process_result(Result.ok("unchanged")))
@@ -789,7 +808,7 @@ class TestProjectTaskLifecycle:
         """Retirement removes activation-owned subscriptions before another event."""
         from mcp_guide.decorators import task_register
 
-        task_manager = TaskManager(session=Mock(template_cache=Mock(), work=nullcontext))
+        task_manager = TaskManager(session=_TaskManagerSession())
 
         class OldTask(_ProjectTask):
             async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> EventResult | None:
@@ -990,11 +1009,14 @@ class TestProjectTaskLifecycle:
         task_manager = TaskManager()
         session = _session("alpha")
         await task_manager.start_project_tasks(session)
-        update = Mock()
-        update.current_project = None
-        update.changes.project_entry_changed = True
-        update.changes.resolved_flags = frozenset()
-        update.changes.project_flags = frozenset()
+        update = SimpleNamespace(
+            current_project=None,
+            changes=SimpleNamespace(
+                project_entry_changed=True,
+                resolved_flags=frozenset(),
+                project_flags=frozenset(),
+            ),
+        )
 
         await task_manager.on_configuration_changed(session, update)
 
@@ -1009,11 +1031,14 @@ class TestProjectTaskLifecycle:
         task_register(_ProjectTask)
         task_manager = TaskManager()
         session = _session("alpha")
-        update = Mock()
-        update.current_project = object()
-        update.changes.project_entry_changed = True
-        update.changes.resolved_flags = frozenset()
-        update.changes.project_flags = frozenset()
+        update = SimpleNamespace(
+            current_project=object(),
+            changes=SimpleNamespace(
+                project_entry_changed=True,
+                resolved_flags=frozenset(),
+                project_flags=frozenset(),
+            ),
+        )
 
         await task_manager.on_configuration_changed(session, update)
 

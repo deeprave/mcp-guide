@@ -136,6 +136,97 @@ def test_legacy_model_preserves_enum_bounds_and_help_metadata() -> None:
         model(attempts=4)
 
 
+def test_string_pattern_is_exposed_to_legacy_clients_and_rejects_invalid_values() -> None:
+    """String patterns constrain both the legacy schema and submitted values."""
+    frontmatter = {
+        "elicitation": {
+            "branch": {
+                "message": "Choose a branch.",
+                "schema": {
+                    "type": "object",
+                    "properties": {"branch": {"type": "string", "pattern": r"^[A-Za-z0-9._/-]+$"}},
+                    "required": ["branch"],
+                },
+            }
+        }
+    }
+
+    parsed = parse_elicitations(frontmatter)
+    assert isinstance(parsed, tuple)
+    model = _legacy_model(parsed[0])
+    assert model.model_json_schema()["properties"]["branch"]["pattern"] == r"^[A-Za-z0-9._/-]+$"
+    with pytest.raises(Exception):
+        model(branch="feature name")
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("branch", ["feature/name", "release-1.2", "main"])
+async def test_string_pattern_accepts_safe_uri_values(branch: str) -> None:
+    """Safe branch names pass pattern validation before rendering."""
+    result = await resolve_elicitations(
+        {
+            "elicitation": {
+                "branch": {
+                    "message": "Choose a branch.",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"branch": {"type": "string", "pattern": r"^[A-Za-z0-9._/-]+$"}},
+                        "required": ["branch"],
+                    },
+                }
+            }
+        },
+        {"branch": branch},
+        None,
+    )
+
+    assert result == {"branch": branch}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("branch", ["feature name", "feature;git reset --hard", "../main"])
+async def test_string_pattern_rejects_unsafe_uri_values(branch: str) -> None:
+    """Unsafe branch names are rejected as invalid URI keywords."""
+    result = await resolve_elicitations(
+        {
+            "elicitation": {
+                "branch": {
+                    "message": "Choose a branch.",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"branch": {"type": "string", "pattern": r"^(?!\.\.)[A-Za-z0-9._/-]+$"}},
+                        "required": ["branch"],
+                    },
+                }
+            }
+        },
+        {"branch": branch},
+        None,
+    )
+
+    assert getattr(result, "error_type", None) == "validation_error"
+
+
+def test_invalid_string_pattern_is_rejected() -> None:
+    """Malformed or non-string patterns cannot enter the resolver."""
+    result = parse_elicitations(
+        {
+            "elicitation": {
+                "branch": {
+                    "message": "Choose a branch.",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"branch": {"type": "integer", "pattern": "["}},
+                        "required": ["branch"],
+                    },
+                }
+            }
+        }
+    )
+
+    assert getattr(result, "success", None) is False
+
+
 @pytest.mark.anyio
 async def test_overflowing_numeric_uri_value_is_a_validation_failure() -> None:
     """An unrepresentable numeric URI value must not escape as an exception."""
@@ -544,6 +635,76 @@ async def test_modern_cancelled_render_fallback_renders_without_values() -> None
 
     assert result == {}
     assert getattr(result, "defaulted_forms") == frozenset({"optional"})
+
+
+@pytest.mark.anyio
+async def test_defaulted_supplier_does_not_fail_unresolved_conditional_form() -> None:
+    """A rendered supplier leaves conditional follow-ups inapplicable until it has a value."""
+    result = await resolve_elicitations(
+        {
+            "elicitation": {
+                "target": {
+                    "message": "Choose a target.",
+                    "fallback": "render",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"mode": {"type": "string", "enum": ["branch", "uncommitted"]}},
+                        "required": ["mode"],
+                    },
+                },
+                "branch": {
+                    "message": "Name the branch.",
+                    "when": {"mode": "branch"},
+                    "schema": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}},
+                        "required": ["name"],
+                    },
+                },
+            }
+        },
+        {},
+        None,
+    )
+
+    assert result == {}
+    assert getattr(result, "defaulted_forms") == frozenset({"target"})
+
+
+@pytest.mark.anyio
+async def test_cancelled_supplier_does_not_fail_unresolved_conditional_form(modern_elicitation_context) -> None:
+    """A cancelled render fallback leaves dependent forms inapplicable until a mode is supplied."""
+    context = modern_elicitation_context(input_responses={"target": SimpleNamespace(action="cancel", content=None)})
+
+    result = await resolve_elicitations(
+        {
+            "elicitation": {
+                "target": {
+                    "message": "Choose a target.",
+                    "fallback": "render",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"mode": {"type": "string", "enum": ["branch", "uncommitted"]}},
+                        "required": ["mode"],
+                    },
+                },
+                "branch": {
+                    "message": "Name the branch.",
+                    "when": {"mode": "branch"},
+                    "schema": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string"}},
+                        "required": ["name"],
+                    },
+                },
+            }
+        },
+        {},
+        context,
+    )
+
+    assert result == {}
+    assert getattr(result, "defaulted_forms") == frozenset({"target"})
 
 
 @pytest.mark.anyio

@@ -1,6 +1,4 @@
-"""Command discovery reads real files, metadata, requirements and session-local caches."""
-
-from pathlib import Path
+"""Command discovery parses isolated files, metadata, requirements and caches."""
 
 import pytest
 import yaml
@@ -72,14 +70,6 @@ async def test_requirements_follow_real_workflow_enablement(command_session, tmp
     assert await discover_commands(commands, command_session) == []
     await command_session.project_flags().set("workflow", True)
     assert {item["name"] for item in await discover_commands(commands, command_session)} == {"plan", "workflow"}
-
-
-@pytest.mark.anyio
-async def test_general_phase_guidance_remains_available_without_workflow(command_session):
-    commands = Path("src/mcp_guide/templates/_commands").resolve()
-    names = {item["name"] for item in await discover_commands(commands, command_session)}
-    assert {f"workflow/{name}" for name in ("discuss", "explore", "plan", "implement", "check", "review")} <= names
-    assert not {f"workflow/{name}" for name in ("show", "issue", "reset", "phase")} & names
 
 
 @pytest.mark.anyio

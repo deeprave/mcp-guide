@@ -2,6 +2,7 @@
 
 import json
 import math
+import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Annotated, Any, Literal, cast
@@ -78,6 +79,9 @@ def _is_valid_field_value(definition: Mapping[str, Any], value: object) -> bool:
     enum = definition.get("enum")
     if not valid or (enum is not None and value not in enum):
         return False
+    pattern = definition.get("pattern")
+    if pattern is not None and (not isinstance(value, str) or re.fullmatch(pattern, value) is None):
+        return False
     minimum = definition.get("minimum")
     if minimum is not None and cast(float | int, value) < minimum:
         return False
@@ -137,6 +141,16 @@ def _validate_schema(identifier: str, value: object) -> Elicitation | Result[Any
                 or isinstance(definition[constraint], bool)
             ):
                 return _failure(f"'{identifier}.schema.properties.{field}.{constraint}' must be a numeric constraint")
+        pattern = definition.get("pattern")
+        if pattern is not None:
+            if definition["type"] != "string" or not isinstance(pattern, str) or not pattern:
+                return _failure(
+                    f"'{identifier}.schema.properties.{field}.pattern' must be a non-empty string constraint"
+                )
+            try:
+                re.compile(pattern)
+            except re.error:
+                return _failure(f"'{identifier}.schema.properties.{field}.pattern' must be a valid regular expression")
         if "minimum" in definition and "maximum" in definition and definition["minimum"] > definition["maximum"]:
             return _failure(f"'{identifier}.schema.properties.{field}.minimum' must not exceed maximum")
         normalised_definition = dict(definition)
@@ -375,7 +389,10 @@ def _unresolved_input_fields(
 
 
 def _completed_form_missing_condition_value(
-    elicitations: Sequence[Elicitation], values: Mapping[str, Any], completed_forms: set[str]
+    elicitations: Sequence[Elicitation],
+    values: Mapping[str, Any],
+    completed_forms: set[str],
+    defaulted_forms: set[str],
 ) -> Result[Any] | None:
     """Reject a completed supplier that left a dependent condition unresolved."""
     suppliers = {
@@ -388,7 +405,7 @@ def _completed_form_missing_condition_value(
             continue
         for field in elicitation.when or {}:
             supplier = suppliers[field]
-            if supplier in completed_forms and _is_missing_value(values, field):
+            if supplier in completed_forms and supplier not in defaulted_forms and _is_missing_value(values, field):
                 return Result.failure(
                     f"Input form '{supplier}' did not provide condition field '{field}' required by "
                     f"'{elicitation.identifier}'.",
@@ -551,7 +568,9 @@ def _legacy_model(elicitation: Elicitation) -> type[BaseModel]:
         annotation: Any = _PRIMITIVE_TYPES[cast(str, definition["type"])]
         if enum := definition.get("enum"):
             annotation = cast(Any, Literal.__getitem__(tuple(cast(list[Primitive], enum))))
-        field_kwargs = {key: definition[key] for key in ("description", "minimum", "maximum") if key in definition}
+        field_kwargs = {
+            key: definition[key] for key in ("description", "minimum", "maximum", "pattern") if key in definition
+        }
         if "minimum" in field_kwargs:
             field_kwargs["ge"] = field_kwargs.pop("minimum")
         if "maximum" in field_kwargs:
@@ -628,7 +647,7 @@ async def resolve_elicitations(
             known.update({key: value for key, value in selection.items() if key not in normalised_kwargs})
             completed_forms.add(elicitation.identifier)
 
-    incomplete_condition = _completed_form_missing_condition_value(parsed, known, completed_forms)
+    incomplete_condition = _completed_form_missing_condition_value(parsed, known, completed_forms, defaulted_forms)
     if incomplete_condition is not None:
         return incomplete_condition
     missing = _pending_forms(parsed, known, completed_forms)
@@ -649,7 +668,9 @@ async def resolve_elicitations(
                     completed_forms.add(elicitation.identifier)
                     resolved_any = True
             missing = _pending_forms(parsed, known, completed_forms)
-            incomplete_condition = _completed_form_missing_condition_value(parsed, known, completed_forms)
+            incomplete_condition = _completed_form_missing_condition_value(
+                parsed, known, completed_forms, defaulted_forms
+            )
             if incomplete_condition is not None:
                 return incomplete_condition
             if not missing:
@@ -699,7 +720,7 @@ async def resolve_elicitations(
             return selection
         values.update({key: value for key, value in selection.items() if key not in normalised_kwargs})
         completed_forms.add(elicitation.identifier)
-        incomplete_condition = _completed_form_missing_condition_value(parsed, values, completed_forms)
+        incomplete_condition = _completed_form_missing_condition_value(parsed, values, completed_forms, defaulted_forms)
         if incomplete_condition is not None:
             return incomplete_condition
         pending = list(_pending_forms(parsed, values, completed_forms))

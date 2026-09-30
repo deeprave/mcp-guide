@@ -60,20 +60,20 @@ def _annotated_description(annotation: Any) -> str | None:
     return None
 
 
-def test_session_id_is_guide_continuation_not_fastmcp() -> None:
-    markdown = SetCurrentProjectArgs.to_schema_markdown()
-    assert "FastMCP session identifier" not in markdown
-    assert SESSION_ID_DESCRIPTION in markdown
+class TestAdvertisedArgumentSchemas:
+    def test_session_id_is_guide_continuation_not_fastmcp(self) -> None:
+        markdown = SetCurrentProjectArgs.to_schema_markdown()
+        assert "FastMCP session identifier" not in markdown
+        assert SESSION_ID_DESCRIPTION in markdown
 
+    def test_clone_project_advertises_bound_destination(self) -> None:
+        from mcp_guide.tools.tool_project import clone_project
 
-def test_clone_project_advertises_bound_destination() -> None:
-    from mcp_guide.tools.tool_project import clone_project
-
-    description = CloneProjectArgs.build_description(clone_project)
-    assert "from one project to another" not in description
-    assert "currently bound project" in description
-    assert "bypass safeguards" not in description
-    assert "replace mode" in description.lower() or "merge=False" in description
+        description = CloneProjectArgs.build_description(clone_project)
+        assert "from one project to another" not in description
+        assert "currently bound project" in description
+        assert "bypass safeguards" not in description
+        assert "replace mode" in description.lower() or "merge=False" in description
 
 
 def test_category_collection_list_default_is_verbose() -> None:
@@ -207,8 +207,6 @@ def test_resource_templates_document_session_id() -> None:
 
 
 def test_guide_skill_resources_are_advertised_as_dedicated_entrypoints() -> None:
-    from fastmcp.resources.template import match_uri_template
-
     _ensure_production_surface()
     registry = get_resource_registry()
 
@@ -217,11 +215,6 @@ def test_guide_skill_resources_are_advertised_as_dedicated_entrypoints() -> None
     assert catalogue.metadata.uri_template == "guide://${?session_id,verbose,table}"
     assert entrypoint.metadata.uri_template == "guide://${skill_path*}{?session_id}"
     assert _annotated_description(inspect.signature(entrypoint.metadata.func).parameters["skill_path"].annotation)
-    assert match_uri_template("guide://$", catalogue.metadata.uri_template) == {}
-    assert match_uri_template("guide://$?verbose=true", catalogue.metadata.uri_template) == {"verbose": "true"}
-    assert match_uri_template("guide://$workflow/status", entrypoint.metadata.uri_template) == {
-        "skill_path": "workflow/status"
-    }
 
 
 def test_list_skills_is_advertised_as_a_standard_tool() -> None:

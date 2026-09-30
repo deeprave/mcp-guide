@@ -45,8 +45,17 @@ elicitation:
 
 Supported property types are `string`, `integer`, `number`, and `boolean`. `enum` values and
 defaults must use the declared primitive type. `required` must name properties in that same form.
-The MCP client receives the schema unchanged, so descriptive property metadata such as a title or
-description may improve the UI when the client supports it.
+The MCP client receives the schema unchanged, apart from command-only dynamic properties described
+below, so descriptive property metadata such as a title or description may improve the UI when the
+client supports it.
+
+### Command-only dynamic sources
+
+Commands may use `source: workflow-phases` on a string property to derive an enum from the enabled
+workflow phases before the form is delivered. The active phase is omitted from an interactive choice,
+while an explicit positional or URI phase remains available for normal command validation. Guide
+removes this command-only `source` marker before delivery. Skills do not perform command
+specialisation and therefore must not use it.
 
 An `enum` is the portable way to express a simple choice. A client may display it as a select,
 radio group, or another suitable control; the precise visual presentation is client-specific and is
@@ -77,7 +86,10 @@ elicitation:
 ```
 
 Guide normalises supplied primitive values to the declared type and validates enums, numeric
-`minimum`/`maximum` constraints, and defaults.
+`minimum`/`maximum` constraints, string `pattern` constraints, and defaults. A `pattern` is a
+regular expression applied to the complete string value (Guide uses a full match); it is useful
+for constraining free-text identifiers such as branch names. Patterns must be valid, non-empty
+regular expressions and may only be declared on string properties.
 For URI input, text is normalised only against the declared field: a string field can therefore
 receive the literal text `true` or `false`, while a boolean field receives a boolean value.
 

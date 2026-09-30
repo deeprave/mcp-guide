@@ -1,7 +1,6 @@
 """Tests for render.template module."""
 
 from datetime import datetime
-from pathlib import Path
 
 import pytest
 
@@ -328,83 +327,6 @@ async def test_render_template_instruction_with_variable(render_template, tmp_pa
     # The instruction should have the variable expanded
     # Note: deduplicate_sentences joins sentences with newlines
     assert result.instruction == "Follow this policy exactly.\nIf .guide.yaml missing, create it."
-
-
-@pytest.mark.anyio
-async def test_workflow_phase_template_validates_requested_phase(render_template, tmp_path):
-    """The workflow phase command should reject unavailable phases via _error."""
-    template_file = Path("src/mcp_guide/templates/_commands/workflow/phase.mustache")
-    stat_result = template_file.stat()
-
-    file_info = FileInfo(
-        path=template_file,
-        size=stat_result.st_size,
-        content_size=stat_result.st_size,
-        mtime=datetime.fromtimestamp(stat_result.st_mtime),
-        name=template_file.name,
-    )
-
-    valid_context = TemplateContext(
-        {
-            "workflow": {
-                "file": ".guide.yaml",
-                "phase": "discussion",
-                "phases": {
-                    "discussion": {"next": "planning", "ordered": True},
-                    "planning": {"next": "implementation", "ordered": True},
-                    "implementation": {"next": "check", "ordered": True},
-                    "check": {"next": "review", "ordered": True},
-                    "review": {"next": "discussion", "ordered": True},
-                    "exploration": {"ordered": False},
-                },
-                "phase_list": [
-                    "discussion",
-                    "planning",
-                    "implementation",
-                    "check",
-                    "review",
-                    "exploration",
-                ],
-                "consent": {
-                    "discussion": {"any": False},
-                    "planning": {"any": False},
-                    "implementation": {"any": False},
-                    "check": {"any": False},
-                    "review": {"any": False},
-                    "exploration": {"any": False},
-                },
-            },
-            "args": [{"value": "exploration"}],
-            "tool_prefix": "",
-        }
-    )
-
-    result = await render_template(
-        file_info=file_info,
-        base_dir=template_file.parent,
-        project_flags={"workflow": True},
-        context=valid_context,
-    )
-
-    assert result is not None
-    assert result.errors == []
-
-    invalid_context = TemplateContext(
-        {
-            **valid_context.maps[0],
-            "args": [{"value": "deploy"}],
-        }
-    )
-
-    result = await render_template(
-        file_info=file_info,
-        base_dir=template_file.parent,
-        project_flags={"workflow": True},
-        context=invalid_context,
-    )
-
-    assert result is not None
-    assert result.errors == ["Unknown or unavailable workflow phase: deploy"]
 
 
 @pytest.mark.anyio

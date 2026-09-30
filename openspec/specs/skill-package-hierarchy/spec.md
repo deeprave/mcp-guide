@@ -176,8 +176,11 @@ packages using their declared public names without requiring a migration.
 The `triage-items` skill SHALL process a complete, stable inventory one item at
 a time. It SHALL select an explicit user target first and otherwise derive the
 most relevant available inventory from context. It SHALL preserve source
-evidence, record explicit dispositions, and keep implementation or external
-actions separate until the user explicitly authorises them.
+evidence, record explicit dispositions including deferred decisions, and keep
+implementation or external actions separate until the user explicitly
+authorises them. A deferred decision SHALL record its rationale and any revisit
+condition, and SHALL remain outside the pending inventory unless the user
+explicitly requests a revisit.
 
 When an existing canonical decision inventory applies, the skill SHALL update
 it. When persistence is requested without such an inventory, it SHALL use a
@@ -191,6 +194,14 @@ does not require a workflow issue.
   `Reviews/<issue>.json`
 - **AND** it SHALL keep the result conversational unless an existing decision
   record applies or the user requests persistence
+
+#### Scenario: Exclude a deferred item from later triage
+
+- **WHEN** the user defers an item during `triage-items`
+- **THEN** the decision record SHALL preserve the deferred decision and its
+  rationale
+- **AND** a later triage run SHALL not present that item as pending unless the
+  user explicitly requests a revisit
 
 ### Requirement: Pull-request author triage
 
@@ -218,6 +229,11 @@ user explicitly requests a full historical re-collation. The skill SHALL not
 assume that reports created during the current review are the complete source
 set.
 
+The skill SHALL preserve declined and deferred decisions in the canonical
+inventory. Matching deferred findings SHALL remain excluded from subsequent
+triage unless the user explicitly requests a revisit or full historical
+re-collation.
+
 #### Scenario: Collate reports beyond the current agent's output
 
 - **WHEN** an initial workflow review collation has source records from
@@ -233,7 +249,14 @@ set.
 - **AND** it SHALL consider only source records newer than that inventory or
   updated after its cutoff
 - **AND** it SHALL present only pending and newly collated findings for a new
-  decision, retaining resolved findings as history
+  decision, retaining resolved and deferred findings as history
+
+#### Scenario: Add deferred findings to the handoff context
+
+- **WHEN** the effective `handoff-context` flag is enabled and triage records
+  one or more deferred findings
+- **THEN** the rendered `triage-review` guidance SHALL instruct the agent to add
+  each deferred finding and its rationale to the handoff context
 
 ### Requirement: Workflow review source identity
 

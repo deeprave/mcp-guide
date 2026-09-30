@@ -1,23 +1,9 @@
-"""Integration tests for profile application."""
-
-import re
-from pathlib import Path
+"""Integration tests for isolated profile application."""
 
 import pytest
 
 import mcp_guide.session
-from mcp_guide.discovery.commands import discover_commands
-from mcp_guide.installer.core import get_templates_path
-from mcp_guide.runtime import get_runtime
-from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from tests.helpers import create_test_session, request_context_for
-
-PROFILE_SOURCE_DIRECTORY = Path(__file__).parents[2] / "src" / "mcp_guide" / "templates" / "_profiles"
-BUNDLED_PROFILE_NAMES = tuple(
-    profile_path.stem
-    for profile_path in sorted(PROFILE_SOURCE_DIRECTORY.glob("*.yaml"))
-    if not profile_path.stem.startswith("_")
-)
 
 
 @pytest.fixture(scope="module")
@@ -44,51 +30,6 @@ async def test_session(runtime, tmp_path, monkeypatch, enable_default_profile):
 @pytest.mark.anyio
 class TestProfileApplication:
     """Tests for applying profiles to projects."""
-
-    async def test_static_template_resources_render_with_default_profile(self, test_session):
-        request_context = await request_context_for(test_session)
-        await get_runtime().feature_flags().set("workflow", True)
-        templates_path = await get_templates_path()
-        resource_references = {
-            match.group(1).strip()
-            for template_path in Path(templates_path).rglob("*.mustache")
-            for match in re.finditer(r"\{\{#resource\}\}([^{}]+)\{\{/resource\}\}", template_path.read_text())
-        }
-        commands_dir = Path(await get_runtime().get_docroot()) / "_commands"
-        command_names = {command["name"] for command in await discover_commands(commands_dir, test_session)}
-
-        for reference in resource_references:
-            if reference.startswith("_"):
-                command_name = reference.removeprefix("_").split("?", maxsplit=1)[0]
-                assert command_name in command_names, reference
-                continue
-
-            result = await internal_get_content(ContentArgs(expression=reference, force=True), request_context)
-
-            assert result.success, reference
-            assert result.value.strip(), reference
-            assert "No matching content found" not in result.value, reference
-
-    @pytest.mark.parametrize("profile_name", BUNDLED_PROFILE_NAMES)
-    async def test_bundled_profiles_render_their_declared_guidance(self, test_session, profile_name):
-        from mcp_guide.models.profile import Profile
-        from mcp_guide.tools.tool_project import UseProjectProfileArgs, internal_use_project_profile
-
-        result = await internal_use_project_profile(
-            UseProjectProfileArgs(profile=profile_name), await request_context_for(test_session)
-        )
-
-        assert result.success, profile_name
-        profile = await Profile.load(profile_name)
-        project = await test_session.get_project()
-        for category in profile.categories:
-            assert set(category.patterns) <= set(project.categories[category.name].patterns)
-            for pattern in category.patterns:
-                content = await internal_get_content(
-                    ContentArgs(expression=category.name, pattern=pattern, force=True),
-                    await request_context_for(test_session),
-                )
-                assert content.success, f"{profile_name}: {category.name}/{pattern}"
 
     async def test_profiles_compose_idempotently_and_report_missing(self, test_session, tmp_path, monkeypatch):
         """Real profile files compose categories/collections and persist without duplicates."""

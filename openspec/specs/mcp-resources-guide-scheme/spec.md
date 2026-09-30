@@ -399,22 +399,6 @@ into the canonical command invocation.
 - **THEN** guide:// alias resolution SHALL merge the parsed alias query
   parameters into the canonical command kwargs without command-specific rules
 
-#### Scenario: Save-context URI implies write mode through handoff alias metadata
-- **WHEN** the handoff command defines an alias `save-context?write`
-- **AND** the agent reads `guide://_save-context/handoff.md`
-- **THEN** the normalized command invocation SHALL resolve through the canonical
-  handoff command
-- **AND** it SHALL include `write=true`
-- **AND** it SHALL preserve the target path `handoff.md`
-
-#### Scenario: Restore-context URI implies read mode through handoff alias metadata
-- **WHEN** the handoff command defines an alias `restore-context?read`
-- **AND** the agent reads `guide://_restore-context/handoff.md`
-- **THEN** the normalized command invocation SHALL resolve through the canonical
-  handoff command
-- **AND** it SHALL include `read=true`
-- **AND** it SHALL preserve the target path `handoff.md`
-
 ### Requirement: Request-Scoped Guide URI Resolution
 
 The server SHALL obtain the requested `guide://` URI through the framework-neutral
@@ -485,3 +469,42 @@ The metadata SHALL describe the policy as Guide-specific information and SHALL N
 #### Scenario: Default resource policy
 - **WHEN** a `guide://` resource resolves to content without a cache declaration
 - **THEN** its result does not advertise a cache policy
+
+### Requirement: Interactive command resource continuation
+
+The Guide command URI resource path SHALL support an incomplete interactive command
+result and a subsequent retry of the same command request. It SHALL preserve the
+command path, positional arguments, URI keywords, and previously accepted form
+values across the interaction. A command response that needs input SHALL retain the
+normal MCP input-result contract rather than serialising it as ordinary command
+content.
+
+#### Scenario: Native command resource needs input
+
+- **WHEN** a native `guide://_...` command resource has an applicable unresolved
+  elicitation form
+- **THEN** its response SHALL be an MCP input-required result
+- **AND** its retry SHALL re-enter the same command URI resolution path with the
+  accepted values
+
+#### Scenario: Tool-backed command resource needs input
+
+- **WHEN** the `read_resource` tool resolves a `guide://_...` command with an
+  applicable unresolved elicitation form
+- **THEN** its response SHALL preserve the same MCP input-required result
+- **AND** SHALL not adapt it into a normal successful or failed command result
+
+#### Scenario: Prompt command needs input
+
+- **WHEN** the Guide prompt dispatches an underscore-prefixed command with an
+  applicable unresolved elicitation form
+- **THEN** it SHALL use the same shared command interaction path
+- **AND** SHALL preserve the prompt's existing project-binding and command
+  argument semantics
+
+#### Scenario: Prompt shorthand command needs input
+
+- **WHEN** the Guide prompt dispatches a colon- or semicolon-prefixed command
+  with an applicable unresolved elicitation form
+- **THEN** it SHALL preserve the same MCP input-required result and retry
+  contract as an underscore-prefixed command

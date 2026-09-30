@@ -8,8 +8,24 @@ import pytest
 class TestInstallAndCreateConfig:
     """Tests for install_and_create_config function."""
 
+    @pytest.fixture
+    def synthetic_templates(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        """Provide a minimal template source owned entirely by this test."""
+        templates = tmp_path / "templates"
+        commands = templates / "_commands"
+        commands.mkdir(parents=True)
+        (commands / "example.mustache").write_text("Example command\n")
+
+        async def get_synthetic_templates() -> Path:
+            return templates
+
+        monkeypatch.setattr("mcp_guide.installer.core.get_templates_path", get_synthetic_templates)
+        return templates
+
     @pytest.mark.anyio
-    async def test_install_and_create_config_creates_templates_and_config(self, tmp_path: Path) -> None:
+    async def test_install_and_create_config_creates_templates_and_config(
+        self, tmp_path: Path, synthetic_templates: Path
+    ) -> None:
         """Test that install_and_create_config creates templates and config file."""
         # Arrange
         from mcp_guide.installer.integration import install_and_create_config
@@ -31,13 +47,13 @@ class TestInstallAndCreateConfig:
         data = yaml.safe_load(content)
         docroot = Path(data["docroot"])
         assert data["projects"] == {}
-        assert (docroot / "_commands").is_dir()
+        assert (docroot / "_commands" / "example.mustache").is_file()
         assert (docroot / ORIGINAL_ARCHIVE).is_file()
         assert (docroot / VERSION_FILE).read_text().strip()
 
     @pytest.mark.anyio
     async def test_install_and_create_config_persists_supplied_docroot(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, synthetic_templates: Path
     ) -> None:
         """Resolve a supplied docroot for install only; persist the given value."""
         import yaml
@@ -56,7 +72,7 @@ class TestInstallAndCreateConfig:
 
     @pytest.mark.anyio
     async def test_install_and_create_config_persists_tilde_and_env_docroot(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, synthetic_templates: Path
     ) -> None:
         """Persist ~/ and $VAR docroot strings; expand only for the install tree."""
         import yaml
@@ -81,7 +97,7 @@ class TestInstallAndCreateConfig:
 
     @pytest.mark.anyio
     async def test_install_and_create_config_round_trips_yaml_special_docroot(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, synthetic_templates: Path
     ) -> None:
         """Persist YAML-significant docroot strings so later loads keep them as written."""
         import yaml

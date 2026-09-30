@@ -11,12 +11,17 @@ cache: short, private
 - Read `{{workflow-file}}` to identify the current issue. If its required `issue` field is empty, report that there is no active workflow issue and do not begin triage.
 - Locate every valid source record in `{{path.documents}}Reviews/<issue>/`; do not assume reports created in the immediate context are the complete set.
 - For an initial collation, when `{{path.documents}}Reviews/<issue>.json` does not exist, read every valid source record irrespective of its agent or session origin. If none exist, report that there is nothing to triage and stop.
-- For an incremental re-triage, record the canonical inventory's modification time before reading sources. Read only source records strictly newer than that cutoff, preserving the existing canonical findings and their relevant decisions. Do not re-collate older source material unless the user explicitly requests historical re-collation. Present only pending and newly collated findings; resolved findings remain history.
+- For an incremental re-triage, record the canonical inventory's modification time before reading sources. Read only source records strictly newer than that cutoff, preserving the existing canonical findings and their relevant decisions. Do not re-collate older source material unless the user explicitly requests historical re-collation. Present only pending and newly collated findings; resolved and deferred findings remain history.
+- A deferred finding is a recorded decision, not pending work: preserve its rationale and any revisit condition, exclude it from subsequent triage, and reconsider it only when the user explicitly requests a revisit or full historical re-collation.
 - If no source record is newer during incremental re-triage, retain the existing unresolved findings; if none remain, report that there is nothing to triage and stop.
 - Build or update one complete, stable canonical inventory at `{{path.documents}}Reviews/<issue>.json`: preserve existing source report references, versions, targets, scopes, and decisions, then add eligible source material; deduplicate only findings that describe the same underlying defect, and retain the strongest evidence for each unique finding.
-- Use the combined inventory format below. New findings begin with a pending triage object. If a canonical inventory already has recorded triage decisions, preserve its decision, variation, rationale, action, and completion state for matching findings
+- Use the combined inventory format below. New findings begin with a pending triage object. If a canonical inventory already has recorded triage decisions, preserve its decision, variation, rationale, action, and completion state for matching findings.
+- The triage decision may be pending, accepted, declined, deferred, or varied. A matching deferred finding keeps its deferred decision even when a newer source report mentions the same underlying issue.
 - When the reviewed work is a pull request, inspect existing pull-request comments only after collation. Mark matching combined findings as already flagged or add useful context in the combined inventory; do not modify source reports
 - Report the created or updated canonical inventory path, then use {{#recommend}}skill:triage-items{{/recommend}} to walk through every unique finding. Do not implement, format, commit, push, discard changes, or take external action during triage unless the user later explicitly authorises the specific follow-up.
+{{#flags.handoff-context}}
+- If any findings are deferred, add a concise note to the handoff context naming each deferred finding and its rationale before ending triage.
+{{/flags.handoff-context}}
 
 ## Combined inventory format
 

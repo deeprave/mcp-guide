@@ -9,7 +9,19 @@ includes:
   - "../_partials/workflow-status"
   - "../_partials/phase-transitions"
 instruction: >
-  {{#args.0.value}}Update the phase field in {{workflow.file}} according to the instructions provided to `{{args.0.value}}`.{{/args.0.value}}{{^args.0.value}}Display the current value of the phase field in {{workflow.file}}.{{/args.0.value}}
+  {{#args.0.value}}Update the phase field in {{workflow.file}} according to the instructions provided to `{{args.0.value}}`.{{/args.0.value}}{{^args.0.value}}{{#kwargs.phase}}Update the phase field in {{workflow.file}} according to the instructions provided to `{{kwargs.phase}}`.{{/kwargs.phase}}{{^kwargs.phase}}Display the current value of the phase field in {{workflow.file}}.{{/kwargs.phase}}{{/args.0.value}}
+elicitation:
+  workflow-phase:
+    message: "{{#workflow.phase}}The current phase is `{{workflow.phase}}`. {{/workflow.phase}}Choose the phase to enter."
+    fallback: render
+    schema:
+      type: object
+      properties:
+        phase:
+          type: string
+          description: A phase enabled for this project, other than the current phase.
+          source: workflow-phases
+      required: [phase]
 ---
 {{>workflow-status}}
 {{#args.0.value}}
@@ -25,5 +37,35 @@ the complete updated file using {{tool_prefix}}send_file_content with path
 {{#workflow.notcontains}}{{args.0.value}}
 {{#_error}}Unknown or unavailable workflow phase: {{args.0.value}}{{/_error}}
 {{/workflow.notcontains}}
+{{/args.0.value}}
+{{^args.0.value}}
+{{#kwargs.phase}}
+{{#equals}}{{workflow.phase}}{{kwargs.phase}}
+`{{kwargs.phase}}` is already the active phase. Leave `{{workflow.file}}` unchanged.
+{{/equals}}
+{{#notequals}}{{workflow.phase}}{{kwargs.phase}}
+{{#workflow.contains}}{{kwargs.phase}}
+
+{{h2}}Requested Phase
+`{{kwargs.phase}}` is available in the configured workflow.
+
+Update `{{workflow.file}}` by setting `Phase:` to `{{kwargs.phase}}`, then send
+the complete updated file using {{tool_prefix}}send_file_content with path
+`{{workflow.file}}`.
+{{/workflow.contains}}
+{{#workflow.notcontains}}{{kwargs.phase}}
+{{#_error}}Unknown or unavailable workflow phase: {{kwargs.phase}}{{/_error}}
+{{/workflow.notcontains}}
+{{/notequals}}
+{{/kwargs.phase}}
+{{^kwargs.phase}}
+{{h2}}Choose a phase
+Ask the user to select one enabled phase other than the current phase, then rerun this command with that phase.
+{{#workflow.phase_list}}
+{{#notequals}}{{workflow.phase}}{{.}}
+- `{{.}}`
+{{/notequals}}
+{{/workflow.phase_list}}
+{{/kwargs.phase}}
 {{/args.0.value}}
 {{>phase-transitions}}

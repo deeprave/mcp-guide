@@ -29,8 +29,9 @@ cache: short, private
 ```
 
 - Display `target` and `scope` only when both are unambiguous. Do not infer substitutes for absent or ambiguous values.
-- Treat the user's reply as a decision for the current item: accept, decline, discuss, vary, skip, or next. For discussion, answer the question and keep the same item current until the user decides the outcome.
+- Treat the user's reply as a decision for the current item: accept, decline, defer, discuss, vary, skip, or next. For discussion, answer the question and keep the same item current until the user decides the outcome.
 - Accepted or varied items must record a concrete verb-led follow-up and constraints; declined items must record that they will not be actioned.
+- Deferred items must record the reason for deferral and any proposed revisit condition or follow-up, and must not be returned to the pending inventory by a later triage run unless the user explicitly asks to revisit them.
 - Do not change code, tests, configuration, review artefacts, or external systems while any item remains undecided, except to record its triage decision. An item's source does not determine who is responsible for its follow-up.
 - After every item has a decision, present the complete decision summary and the accepted follow-up list. Follow-up may be local implementation, a report, pull-request feedback or disposition, transfer to another responsible party, or no further action.
 - Perform a local change or an external action only after the user explicitly authorises that specific follow-up. Do not assume the current codebase is the target.
