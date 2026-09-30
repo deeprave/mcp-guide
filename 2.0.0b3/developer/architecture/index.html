@@ -949,6 +949,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -965,6 +983,36 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#instruction-delivery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instruction delivery
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1026,6 +1074,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#instruction-delivery" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Instruction delivery
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1056,6 +1123,19 @@ where required, invokes <code>TaskManager.on_tool()</code>, and normalizes the r
 native <code>ToolResult</code>.  Individual tool implementations then use the Session for
 project configuration, client metadata, or task-event dispatch as indicated
 above.</p>
+<h2 id="instruction-delivery">Instruction delivery<a class="headerlink" href="#instruction-delivery" title="Permanent link">&para;</a></h2>
+<p><code>TaskManager</code> owns queued additional agent instructions. At an outgoing response
+boundary, retained clients receive the established structured result field. A
+modern client that has negotiated <code>io.uniquode/mcp-guide-instructions</code> receives a
+typed <code>notifications/instructions/dispatch</code> notification on the current FastMCP
+request stream instead. The boundary reserves the queue item, confirms it only
+after <code>send_notification()</code> succeeds, and releases it back to the owning Session
+when the stream is unavailable or sending fails.</p>
+<p>Modern clients that have not negotiated the extension retain the
+<code>_meta["mcp-guide"]["instructions"]</code> fallback. Result adapters only serialise the
+already-selected delivery representation; they do not access FastMCP transport
+state. Notification delivery is not client acknowledgement or authorisation, and
+the delivery helper never routes an instruction to a different Guide Session.</p>
 
 
 

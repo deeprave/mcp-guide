@@ -1289,13 +1289,24 @@ keeps response handling consistent for the life of that interaction, including a
 a project switch. A Session cannot change protocol type later.</p>
 <p>Retained clients continue to receive task-generated guidance in the existing
 <code>additional_agent_instructions</code> field of the structured Guide result. MCP
-<code>2026-07-28</code> clients receive the same single queued instruction in response metadata
-at <code>_meta["mcp-guide"]["instructions"]</code>; that field is omitted from their structured
+<code>2026-07-28</code> clients can negotiate the
+<code>io.uniquode/mcp-guide-instructions</code> extension. Guide then sends one queued
+instruction as a separate <code>notifications/instructions/dispatch</code> notification,
+containing the instruction text and, when relevant, an opaque tracking identifier.
+The requested tool, prompt, or resource response does not include that instruction
+in its structured content or <code>mcp-guide</code> metadata.</p>
+<p>A modern client that does not negotiate this extension continues to receive the
+single queued instruction in response metadata at
+<code>_meta["mcp-guide"]["instructions"]</code>; that field is omitted from its structured
 Guide result. When no instruction is queued, Guide emits neither the <code>mcp-guide</code>
 metadata namespace nor its <code>instructions</code> key.</p>
-<p>This is a compatibility-preserving response representation change. Clients using the
-modern protocol should inspect the response <code>_meta</code> block as well as structured
-content.</p>
+<p>Notifications are delivery, not acknowledgement or authority. The client decides
+whether and how to surface them, and existing Guide acknowledgement requirements
+remain in effect where an instruction is tracked. On a sessionless Streamable HTTP
+connection, Guide can send a notification only through the owning in-flight request
+stream. If no suitable stream is active or the send fails, Guide retains the
+instruction for that session's next request; it never redirects it to another
+session.</p>
 <h2 id="document-cache-metadata">Document cache metadata<a class="headerlink" href="#document-cache-metadata" title="Permanent link">&para;</a></h2>
 <p>When a document resolves to a cache policy, <code>get_content</code>, category-content
 retrieval, and non-command <code>guide://</code> resources include it in response metadata as
