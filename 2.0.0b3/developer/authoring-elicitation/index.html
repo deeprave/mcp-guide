@@ -911,6 +911,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#command-only-dynamic-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command-only dynamic sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#typed-fields-and-defaults" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1176,6 +1187,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#command-only-dynamic-sources" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command-only dynamic sources
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#typed-fields-and-defaults" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1292,8 +1314,15 @@ non-empty <code>message</code> and an object JSON Schema with a non-empty <code>
 
 <p>Supported property types are <code>string</code>, <code>integer</code>, <code>number</code>, and <code>boolean</code>. <code>enum</code> values and
 defaults must use the declared primitive type. <code>required</code> must name properties in that same form.
-The MCP client receives the schema unchanged, so descriptive property metadata such as a title or
-description may improve the UI when the client supports it.</p>
+The MCP client receives the schema unchanged, apart from command-only dynamic properties described
+below, so descriptive property metadata such as a title or description may improve the UI when the
+client supports it.</p>
+<h3 id="command-only-dynamic-sources">Command-only dynamic sources<a class="headerlink" href="#command-only-dynamic-sources" title="Permanent link">&para;</a></h3>
+<p>Commands may use <code>source: workflow-phases</code> on a string property to derive an enum from the enabled
+workflow phases before the form is delivered. The active phase is omitted from an interactive choice,
+while an explicit positional or URI phase remains available for normal command validation. Guide
+removes this command-only <code>source</code> marker before delivery. Skills do not perform command
+specialisation and therefore must not use it.</p>
 <p>An <code>enum</code> is the portable way to express a simple choice. A client may display it as a select,
 radio group, or another suitable control; the precise visual presentation is client-specific and is
 not a Guide contract. A free-text string remains a text field.</p>
@@ -1320,7 +1349,10 @@ not a Guide contract. A free-text string remains a text field.</p>
 </code></pre></div>
 
 <p>Guide normalises supplied primitive values to the declared type and validates enums, numeric
-<code>minimum</code>/<code>maximum</code> constraints, and defaults.
+<code>minimum</code>/<code>maximum</code> constraints, string <code>pattern</code> constraints, and defaults. A <code>pattern</code> is a
+regular expression applied to the complete string value (Guide uses a full match); it is useful
+for constraining free-text identifiers such as branch names. Patterns must be valid, non-empty
+regular expressions and may only be declared on string properties.
 For URI input, text is normalised only against the declared field: a string field can therefore
 receive the literal text <code>true</code> or <code>false</code>, while a boolean field receives a boolean value.</p>
 <p>URI keywords take precedence over elicited answers. <code>false</code> and <code>0</code> are values, not missing input;

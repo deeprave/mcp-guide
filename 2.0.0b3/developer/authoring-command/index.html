@@ -1595,7 +1595,10 @@ Your Mustache template content here...
 - <code>--threshold=-5</code> ✓ (works correctly)</p>
 <h2 id="elicitation">Elicitation<a class="headerlink" href="#elicitation" title="Permanent link">&para;</a></h2>
 <p>Commands use the shared elicitation contract. See <a href="../authoring-elicitation/">Elicitation Authoring</a>
-for the complete declaration reference, branching behaviour, protocol differences, and examples.</p>
+for the complete declaration reference, branching behaviour, protocol differences, and examples.
+Commands may additionally use the command-only <code>source: workflow-phases</code> property marker described
+there; Guide resolves it from the active workflow before asking the client. Do not use that marker
+in skill frontmatter.</p>
 <h2 id="template-context">Template Context<a class="headerlink" href="#template-context" title="Permanent link">&para;</a></h2>
 <p>Commands have access to these template variables:</p>
 <h3 id="command-data">Command Data<a class="headerlink" href="#command-data" title="Permanent link">&para;</a></h3>
