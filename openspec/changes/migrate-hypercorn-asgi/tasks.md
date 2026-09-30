@@ -1,6 +1,6 @@
 ## 1. Dependency and transport migration
 
-- [ ] 1.1 Replace the optional Uvicorn dependency with Hypercorn and regenerate the lock file; verify `uv sync --extra http` installs the HTTP transport dependencies.
+- [ ] 1.1 Replace mcp-guide's direct optional Uvicorn dependency with Hypercorn and regenerate the lock file; verify `uv sync --extra http` installs the HTTP transport dependencies and record that Uvicorn remains transitive through the current FastMCP/MCP stack.
 - [ ] 1.2 Refactor `HttpTransport` to serve FastMCP's ASGI application through Hypercorn's asynchronous API with explicit shutdown; verify focused transport lifecycle tests pass.
 - [ ] 1.3 Preserve host, port, TLS certificate, TLS key, endpoint-path, logging, startup-error, and awaited-shutdown behaviour; verify focused unit tests cover each configuration path.
 

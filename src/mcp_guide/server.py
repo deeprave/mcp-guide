@@ -216,6 +216,13 @@ def create_application(config: "ServerConfig") -> GuideApplication:
         lifespan=lambda _server: runtime.lifespan(),
         experimental_capabilities=experimental_capabilities,
     )
+    from mcp_guide.mcp_instruction_notifications import (
+        GuideInstructionExtension,
+        limit_instruction_extension_to_modern_protocols,
+    )
+
+    mcp.add_extension(GuideInstructionExtension())
+    limit_instruction_extension_to_modern_protocols(mcp._mcp_server)
     if mcp_skills_enabled:
         from mcp_guide.mcp_skills_extension import GuideSkillsExtension
 

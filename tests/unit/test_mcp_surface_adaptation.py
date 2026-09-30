@@ -1,6 +1,7 @@
 """Regression coverage for native Guide MCP public-surface adapters."""
 
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 import yaml
@@ -55,16 +56,29 @@ async def test_tool_and_prompt_boundaries_preserve_agent_directed_result_fields(
 
 
 @pytest.mark.anyio
-async def test_modern_tool_and_prompt_boundaries_use_response_metadata(runtime) -> None:
+async def test_modern_tool_and_prompt_boundaries_use_response_metadata(task_manager) -> None:
     """Modern Session protocol type reaches both non-resource response adapters."""
     import json
 
-    session = await create_bound_test_session(runtime, "modern-surface")
-    session.establish_protocol_type(SessionProtocolType.MCP_2026_07_28)
-    await _drain_pending_instructions(session)
+    import mcp_guide.mcp_instruction_notifications as notification_module
 
-    tool = await tool_result("surface-test", _rich_result(), session=session)
-    prompt = await prompt_result("surface-test", _rich_result(), session=session)
+    class NonNegotiatingMcpContext:
+        def client_extension_settings(self, _identifier: str) -> None:
+            return None
+
+        def client_supports_extension(self, _identifier: str) -> bool:
+            return False
+
+    session = SimpleNamespace(
+        session_id="modern-surface",
+        protocol_type=SessionProtocolType.MCP_2026_07_28,
+        task_manager=task_manager,
+    )
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(notification_module, "get_context", NonNegotiatingMcpContext)
+        tool = await tool_result("surface-test", _rich_result(), session=session)
+        prompt = await prompt_result("surface-test", _rich_result(), session=session)
 
     assert tool.meta == {"mcp-guide": {"instructions": "Use only the bound project."}}
     assert "additional_agent_instructions" not in tool.structured_content
@@ -73,17 +87,29 @@ async def test_modern_tool_and_prompt_boundaries_use_response_metadata(runtime) 
 
 
 @pytest.mark.anyio
-async def test_switch_project_uses_modern_response_metadata(runtime, monkeypatch) -> None:
+async def test_switch_project_uses_modern_response_metadata(task_manager, monkeypatch) -> None:
     """A modern switch response moves queued guidance into its metadata."""
-    session = await create_bound_test_session(runtime, "modern-switch")
-    session.establish_protocol_type(SessionProtocolType.MCP_2026_07_28)
-    context = await request_context_for(session, "bound-session")
+    session = SimpleNamespace(
+        session_id="modern-switch",
+        protocol_type=SessionProtocolType.MCP_2026_07_28,
+        task_manager=task_manager,
+    )
+    context = SimpleNamespace(session=session, session_id="bound-session")
 
     async def switch_with_guidance(_args, _request_context):
-        return _rich_result()
+        return _rich_result(), session
 
-    monkeypatch.setattr("mcp_guide.tools.tool_project.internal_switch_project", switch_with_guidance)
+    monkeypatch.setattr("mcp_guide.tools.tool_project._switch_project_result", switch_with_guidance)
+    import mcp_guide.mcp_instruction_notifications as notification_module
 
+    class NonNegotiatingMcpContext:
+        def client_extension_settings(self, _identifier: str) -> None:
+            return None
+
+        def client_supports_extension(self, _identifier: str) -> bool:
+            return False
+
+    monkeypatch.setattr(notification_module, "get_context", NonNegotiatingMcpContext)
     response = await switch_project.__wrapped__(SwitchProjectArgs(name="review"), request_context=context)
 
     assert response.meta == {"mcp-guide": {"instructions": "Use only the bound project."}}
@@ -101,6 +127,13 @@ async def test_resource_boundary_uses_the_session_response_contract(runtime, tmp
     import json
 
     from mcp_guide.resources import guide_resource
+
+    class NonNegotiatingMcpContext:
+        def client_extension_settings(self, _identifier: str) -> None:
+            return None
+
+        def client_supports_extension(self, _identifier: str) -> bool:
+            return False
 
     docroot = tmp_path / "docs"
     content_dir = docroot / "guidance"
@@ -120,7 +153,12 @@ async def test_resource_boundary_uses_the_session_response_contract(runtime, tmp
     await session.task_manager.queue_instruction("Use only the bound project.")
     context = await request_context_for(session, "bound-session")
     resource = await guide_resource.__wrapped__(
-        "docs", "overview", session_id="bound-session", request_context=context, request_uri=None
+        "docs",
+        "overview",
+        session_id="bound-session",
+        request_context=context,
+        request_uri=None,
+        mcp_context=NonNegotiatingMcpContext() if protocol_type is SessionProtocolType.MCP_2026_07_28 else None,
     )
     payload = json.loads(resource.contents[0].content)
     assert payload["success"] is True
