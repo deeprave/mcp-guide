@@ -1,11 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Feature-flag mutation authorisation
-For HTTP(S) callers, global feature-flag mutation SHALL require the `admin`
-scope and project feature-flag mutation SHALL require the `user` scope. Reading
-or listing flags SHALL retain its existing access behaviour unless a separate
-requirement classifies it as protected. Stdio callers SHALL retain unrestricted
-feature-flag access.
+When provider-backed policy is active for a remote caller, global feature-flag
+mutation SHALL require the `admin` scope and project feature-flag mutation
+SHALL require the `user` scope. Reading or listing flags SHALL retain its
+existing access behaviour unless a separate requirement classifies it as
+protected. When no provider is selected, remote callers SHALL retain existing
+behaviour. Stdio callers SHALL retain unrestricted feature-flag access.
 
 #### Scenario: Admin mutates a global feature flag
 - **WHEN** an `admin`-scoped caller sets or removes a global feature flag

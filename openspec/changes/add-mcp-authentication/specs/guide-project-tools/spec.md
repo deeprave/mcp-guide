@@ -1,11 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Project-administration authorisation
-For HTTP(S) callers, project binding, project selection, project cloning, and
-persisted project configuration mutation SHALL require the `user` scope.
-Project reads and unprotected discovery operations SHALL retain their existing
-access behaviour. Stdio callers SHALL retain unrestricted project
-administration.
+When provider-backed policy is active for a remote caller, project binding,
+project selection, project cloning, and persisted project configuration
+mutation SHALL require the `user` scope. Project reads and unprotected
+discovery operations SHALL retain their existing access behaviour. When no
+provider is selected, remote callers SHALL retain existing behaviour. Stdio
+callers SHALL retain unrestricted project administration.
 
 #### Scenario: User binds or selects a project
 - **WHEN** a `user`-scoped caller invokes `set_project` or `switch_project`

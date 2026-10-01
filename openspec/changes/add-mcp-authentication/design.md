@@ -1,135 +1,137 @@
 ## Context
 
-HTTP(S) currently creates FastMCP's ASGI application without a Guide-owned
-caller identity, while the tool decorator resolves a session before invoking a
-handler. `RequestContext` is the explicit application boundary and deliberately
-does not retain raw FastMCP objects. See [proposal.md](proposal.md) for the
-motivation and the specification deltas for externally observable behaviour.
-
-Stdio is a local, trusted transport. This change must not change its tool
-availability, session handling, or require credentials.
+Guide's remote transport creates FastMCP's ASGI application, while its public
+operation wrappers resolve sessions and enter `RequestContext`. The latter is
+the application boundary and must not retain raw ASGI requests or credentials.
+Stdio is local and trusted. The existing project hash is a hash of a
+client-supplied path and disambiguates local configuration only; it is not a
+remote repository or tenancy identity.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Add an opt-in HTTP(S) authentication provider that maps a verified caller to
-  a stable identifier and `user`/`admin` scopes.
-- Enforce a central, auditable protected-operation inventory before any
-  protected tool can create a Session, bind a project, or cause its side effect.
-- Carry only credential-free authorisation facts into `RequestContext`.
-- Preserve all existing stdio behaviour and unprotected HTTP(S) operations.
+- Load an optional, server-administrator-selected authentication provider for
+  remote ingress using CLI configuration.
+- Give that provider an asynchronous lifecycle, request authorisation hook,
+  optional authentication handoff, and policy/revocation notification channel.
+- Keep all credential formats and validation details outside Guide's
+  application model.
+- Enforce registered scopes centrally at tools, resources, and prompts before
+  session creation or an operation's effect.
+- Support both direct TLS and explicitly trusted proxy ingress without trusting
+  caller-controlled forwarded headers.
 
 **Non-Goals:**
 
-- User account management, self-service credential issuance, OAuth discovery,
-  or a web login flow.
-- Requiring authentication for read-only or unprotected MCP operations.
-- Treating MCP session IDs, project roots, or client metadata as identity.
-- Changing document-root semantics beyond preventing unauthorised
-  `update_documents` execution.
+- Guide-managed accounts, passwords, API-token issuance, OAuth discovery, or
+  a Guide-hosted login page.
+- A built-in credential provider or credential persistence in project/global
+  feature-flag configuration.
+- Treating FastMCP session IDs, client paths, project hashes, or client
+  metadata as caller identity.
+- Shared multi-user project hosting, server-generated project identifiers, or
+  per-project ACLs.
 
 ## Decisions
 
-### 1. Use a server-owned authentication provider only for HTTP(S)
+### 1. CLI-selected provider is the enablement boundary
 
-`ServerConfig` will resolve an optional, server-owned authentication provider
-at startup. Its provider contract accepts HTTP(S) credentials and returns a
-stable principal identifier plus immutable scopes, or a non-revealing rejection.
-The initial provider will use configured bearer credentials; the configuration
-surface must accept secret references rather than placing credential values in
-project configuration or feature flags.
+`--auth-provider <entry-point>` selects a trusted server-side provider module;
+omitting it disables provider-backed policy and preserves present transport
+behaviour. `--auth-provider-config <reference>` passes an opaque configuration
+or secret reference to that module. Guide neither interprets the reference nor
+persists its resolved value. A separate global feature flag is unnecessary.
 
-When no provider is configured, HTTP(S) remains unauthenticated. The transport
-will identify that state explicitly rather than treating an absent credential as
-a `user` or `admin` identity. Stdio is marked trusted by its transport and
-never invokes the provider.
+The remote transport constructs and starts the provider when it starts, and
+stops it during transport shutdown. Startup fails closed when an enabled
+provider cannot initialise. The provider is never constructed for stdio.
 
-Alternatives considered:
+### 2. Authenticate lazily at a protected-operation boundary
 
-- **Require authentication for every HTTP(S) deployment:** rejected because the
-  requested deployment model retains a useful public, unprotected surface.
-- **Use project configuration for credentials:** rejected because credentials
-  are server secrets and project configuration is mutable by the very callers
-  this change restricts.
-- **Add OAuth now:** rejected as disproportionate to scoped server access and
-  because it adds account and discovery flows outside this change.
+The operation registry declares a `kind`, name, optional required scope, and
+optional validated-argument predicate. After FastMCP validates arguments but
+before `request_context_scope`, the boundary looks up the policy. An operation
+without a required scope proceeds normally. A protected operation invokes the
+provider with ephemeral request authentication evidence and its operation
+descriptor.
 
-### 2. Declare required scope on tool registration
+The provider returns one of:
 
-Extend the tool registration metadata with an optional required scope. The
-registry will provide the authoritative inventory of protected operations:
+- authorised, with a stable principal identifier and immutable scopes;
+- unauthenticated, optionally with an opaque HTTPS handoff/challenge; or
+- forbidden.
 
-| Scope | Initial operations |
-| --- | --- |
-| `user` | Project binding, selection, cloning, all persisted project-configuration mutation (including project feature flags), and `send_file_content` calls that request SQLite document ingestion. |
-| `admin` | Global feature-flag mutation, `update_documents`, and `export_content`. |
+Guide maps these to stable MCP-compatible results without disclosing token or
+provider details. It must not automatically redirect an MCP invocation to a
+browser. A provider that needs interactive authentication owns its HTTPS
+callback/login routes and returns a handoff that a capable client can follow
+before retrying the operation.
 
-The wrapper will authorise a protected tool after argument validation but before
-entering `request_context_scope`. Scope metadata may include a small
-validated-argument predicate: `send_file_content` requires `user` only when
-its document-ingestion metadata requests the SQLite write. This prevents an
-unauthorised `set_project` request from minting a session or binding a root,
-without breaking unprotected file-content callbacks. `admin` implies `user`;
-no other scope hierarchy exists in this change. Adding a protected operation
-will require an explicit registry declaration and a test, rather than relying
-on `requires_project=False` or handler-local checks.
+`admin` satisfies `user`; no other hierarchy exists. Initial requirements are
+`user` for project administration and conditional SQLite ingestion, and
+`admin` for global feature-flag mutation, installed-document updates, and
+content export. No existing resource or prompt is initially protected, but the
+same registry and boundary apply if one is declared protected later.
 
-Alternatives considered:
+### 3. Provider contract and asynchronous notifications
 
-- **Authorise inside each handler:** rejected because it is easy to omit, and
-  some handlers have effects before their current internal validation path.
-- **Infer privilege from `requires_project`:** rejected because bound-project
-  reads and unbound discovery operations are not equivalent to administration.
+The provider contract has asynchronous `start`, `authorise`, notification, and
+`stop` operations. It may keep a connection to an organisation identity or
+policy service, receive signing-key rotation or revocation notifications, and
+request that Guide invalidate only provider-approved cached decisions.
 
-### 3. Propagate authorisation facts without credentials
+Guide must obtain a current decision for every protected operation unless the
+provider explicitly grants a short-lived cache entry. A notification channel is
+therefore an optimisation and revocation aid, not the sole access check.
+Provider code is trusted server code; selecting it is deployment-administrator
+authority.
 
-The HTTP(S) ASGI boundary will use supported FastMCP/ASGI extension points to
-validate credentials before MCP dispatch. It will attach only a small immutable
-authorisation record—transport kind, principal identifier when authenticated,
-and scopes—to the request passed into Guide's request adapter. The adapter will
-copy that record into `RequestContext`; no handler will receive headers, bearer
-tokens, or a raw ASGI request.
+### 4. Direct TLS and trusted proxy are explicit ingress modes
 
-The standard error result will distinguish authentication-required from
-insufficient-scope without identifying the expected credential, token state, or
-available privileged operations. Authorisation failures are logged with a
-redacted principal/transport outcome suitable for operations diagnostics.
+For direct TLS, the provider receives the request's authentication evidence
+from Guide's HTTPS ASGI boundary. For proxy termination, Guide may run HTTP
+behind Nginx only in explicitly configured trusted-proxy mode. Nginx must be
+the only reachable upstream, strip all caller-supplied identity headers, and
+either forward original credentials or emit an assertion the provider can
+verify. `X-Forwarded-Proto`, `X-User`, and similar headers alone are never
+proof of identity.
 
-### 4. Preserve compatibility by making policy transport-aware
+This defines an HTTPS remote boundary even when the Guide process sees HTTP;
+it does not authorise a publicly reachable plain HTTP server to trust forwarded
+identity headers.
 
-The authorisation helper receives an explicit transport classification. For
-stdio it immediately permits all operations. For HTTP(S), an operation with no
-required scope is permitted regardless of caller authentication; an operation
-with a required scope needs a validated principal whose scopes satisfy that
-requirement. This makes the stdio exemption a single, testable rule rather than
-a set of exemptions scattered through tools.
+### 5. Scope is not project tenancy
+
+Authentication establishes who calls Guide and a coarse global scope. It does
+not prove that a caller owns a client path or may administer a particular
+project. The current project hash is `SHA-256(normalised client path)`, so it
+can distinguish path strings but cannot identify a repository across hosts or
+prevent different clients claiming the same path.
+
+A future shared-hosting design must introduce a server-generated project ID,
+server-managed project registration, and principal-to-project roles. Client
+paths should remain session-local file coordinates, not persisted authority.
 
 ## Risks / Trade-offs
 
-- **A tool may be omitted from the protected-operation inventory** → make
-  required scope visible in registry metadata and add a regression test that
-  asserts the complete initial scope map.
-- **Credential configuration is accidentally logged or persisted** → keep raw
-  credentials outside project configuration and redact values in parsing,
-  diagnostic, and error paths.
-- **FastMCP request integration changes between versions** → use only supported
-  HTTP/ASGI hooks and cover the boundary with real HTTP integration tests.
-- **A reverse proxy already authenticates callers** → document the supported
-  provider boundary so deployments can map trusted proxy identity without
-  forwarding an unchecked caller-controlled header.
-- **Existing remote clients rely on privileged unauthenticated calls** →
-  authentication is disabled by default; enabling it is an explicit deployment
-  change with a documented rollback path.
+- **Untrusted proxy headers** → require explicit proxy mode, private/mTLS
+  upstream reachability, header stripping, and verifiable assertions.
+- **Provider outage or bad startup configuration** → fail remote transport
+  startup rather than serve an endpoint that appears protected.
+- **Provider cache retains revoked access** → provider-controlled short TTLs
+  plus revocation notifications; protected operations still ask the provider.
+- **Interactive handoff is unsupported by a client** → return an
+  MCP-compatible authentication-required result rather than redirecting.
+- **Scopes are mistaken for project membership** → document the limitation and
+  retain multi-tenant project ACLs as a separate change.
 
 ## Migration Plan
 
-1. Release with authentication disabled by default and no project-config
-   migration.
-2. Document server credential configuration, scope assignment, and the
-   protected-operation inventory for HTTP(S) deployments.
-3. Deployers enable the provider, assign at least one recovery `admin`
-   principal, and verify an unprotected request, a `user` project mutation, and
-   an `admin` server mutation before relying on the boundary.
-4. To roll back, remove the provider configuration and restart the HTTP(S)
-   server; no persisted project data or stdio clients require migration.
+1. Release without `--auth-provider`; remote behaviour is unchanged.
+2. Deployers select and configure a trusted provider, then start Guide in
+   direct-TLS or trusted-proxy mode.
+3. Verify an unprotected request, a `user` project mutation, and an `admin`
+   server mutation using the provider's own principals.
+4. Remove `--auth-provider` and restart to roll back; no Guide credentials,
+   accounts, or project migration exist to undo.

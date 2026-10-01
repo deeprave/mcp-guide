@@ -1,10 +1,12 @@
 ## ADDED Requirements
 
 ### Requirement: Export authorisation
-For HTTP(S) callers, the `export_content` tool SHALL require the `admin` scope
-before it reads and returns exported document content. Stdio callers SHALL
-retain unrestricted export access. Existing exported frontmatter and rendering
-behaviour SHALL remain unchanged for authorised callers.
+When provider-backed policy is active for a remote caller, the
+`export_content` tool SHALL require the `admin` scope before it reads and
+returns exported document content. When no provider is selected, remote callers
+SHALL retain existing behaviour. Stdio callers SHALL retain unrestricted export
+access. Existing exported frontmatter and rendering behaviour SHALL remain
+unchanged for authorised callers.
 
 #### Scenario: Admin exports content
 - **WHEN** an `admin`-scoped caller invokes `export_content`

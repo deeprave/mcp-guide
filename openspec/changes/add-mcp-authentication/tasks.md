@@ -2,26 +2,27 @@
 
 - [ ] 1.1 Repair the pre-existing structural delta header in `openspec/specs/knowledge-export/spec.md` so the export-authorisation delta can archive; verify strict OpenSpec validation reports no target-spec archive blocker.
 
-## 2. Authentication configuration and policy
+## 2. Provider contract and policy
 
-- [ ] 2.1 Add HTTP(S)-only server authentication configuration and a bearer-credential provider that resolves a redacted principal and immutable `user`/`admin` scopes from secret references; verify configuration parsing never serialises or logs credentials and disabled authentication leaves unprotected HTTP(S) calls available.
-- [ ] 2.2 Implement transport-aware authorisation types, stable authentication-required and insufficient-scope results, and the `admin`-implies-`user` hierarchy; verify unit tests cover every scope decision, absent credentials, invalid credentials, and trusted stdio.
-- [ ] 2.3 Define the complete tool-registration scope map, including every persisted project-configuration mutation and SQLite document-ingestion callback as `user`, plus global flags, document updates, and exports as `admin`; verify a registry-level regression test fails if the expected protected-operation map changes.
+- [ ] 2.1 Add CLI configuration that selects an authentication-provider entry point and passes it an opaque configuration reference; verify no provider is constructed when the option is absent and no credential/reference value is serialised or logged.
+- [ ] 2.2 Define asynchronous provider lifecycle, authorisation decision, optional handoff/challenge, and policy/revocation notification contracts; verify provider fixtures cover authorised, unauthenticated, forbidden, startup failure, key/policy change, and shutdown paths.
+- [ ] 2.3 Define the complete protected-operation registry for tools, resources, and prompts: project configuration and conditional SQLite ingestion as `user`; global flags, document updates, and exports as `admin`; verify registry-level regression tests fail if the initial protected map changes.
 
-## 3. HTTP(S) and request-context boundary
+## 3. Remote ingress and request-context boundary
 
-- [ ] 3.1 Integrate the configured provider through supported FastMCP/ASGI HTTP(S) extension points before protected application dispatch; verify HTTP integration tests cover valid credentials, missing/invalid credentials, insufficient scope, and an unprotected request without credentials.
-- [ ] 3.2 Propagate only immutable transport kind, principal identifier, and scopes into `RequestContext`; verify request-context tests prove raw credential material and transport request objects are unavailable to application handlers.
-- [ ] 3.3 Enforce registered required scopes in the tool wrapper after argument validation but before session creation, project binding, or handler execution, including the conditional SQLite-ingestion branch of `send_file_content`; verify an unauthorised `set_project` call cannot mint a session or persist a binding and a non-ingestion callback remains unprotected.
+- [ ] 3.1 Start and stop the selected provider with direct-TLS or explicitly configured trusted-proxy remote ingress; verify direct TLS passes ephemeral evidence to the provider and proxy mode rejects unverified/caller-controlled identity headers.
+- [ ] 3.2 Integrate provider decisions before protected application dispatch without redirecting MCP requests; verify an unauthenticated protected operation receives a stable MCP-compatible result and preserves an opaque provider handoff where supplied.
+- [ ] 3.3 Propagate only immutable transport kind, principal identifier, and scopes into `RequestContext`; verify raw credential material, provider internals, and transport request objects are unavailable to application handlers.
+- [ ] 3.4 Enforce registered scope after argument validation but before session creation, project binding, sensitive resource/prompt reads, or handler execution; verify an unauthorised `set_project` cannot mint a session or persist a binding and a non-ingestion `send_file_content` callback remains unprotected.
 
-## 4. Apply the protected-operation policy
+## 4. Apply the initial protected-operation policy
 
-- [ ] 4.1 Apply `user` scope metadata to project binding, selection, cloning, project feature flags, categories, collections, permission paths, exports configuration, every other persisted project-configuration mutation, and `send_file_content` when it requests SQLite document ingestion; verify parameterised tool tests distinguish HTTP(S) unauthenticated, `user`, and `admin` callers while stdio remains unrestricted.
-- [ ] 4.2 Apply `admin` scope metadata to global feature-flag mutation, `update_documents`, and `export_content`; verify each rejected HTTP(S) invocation returns no mutated configuration, docroot write, or exported content.
-- [ ] 4.3 Preserve unauthenticated access to the explicitly unprotected HTTP(S) MCP surface; verify discovery and selected read-only operations retain their current responses without credentials.
+- [ ] 4.1 Apply `user` scope metadata to project binding, selection, cloning, project feature flags, categories, collections, permission paths, exports configuration, every other persisted project-configuration mutation, and `send_file_content` when it requests SQLite ingestion; verify provider-backed remote tests distinguish anonymous, `user`, and `admin` callers while stdio remains unrestricted.
+- [ ] 4.2 Apply `admin` scope metadata to global feature-flag mutation, `update_documents`, and `export_content`; verify every rejected remote invocation leaves configuration, document root, and exported content unchanged.
+- [ ] 4.3 Preserve all existing remote operation responses when no provider is configured, and retain unprotected access when provider-backed policy is active; verify discovery and selected read-only operations retain their current responses.
 
 ## 5. Documentation and full verification
 
-- [ ] 5.1 Document HTTP(S) authentication enablement, secret-reference handling, scope assignment, protected-operation inventory, and rollback; verify installation guidance states that stdio never requires authentication.
-- [ ] 5.2 Add end-to-end transport tests for the complete HTTP(S) and stdio authorisation matrix, including an authenticated `user` project mutation and an authenticated `admin` server mutation; verify all cases run against the actual ASGI server.
-- [ ] 5.3 Run the targeted authentication, transport, request-context, and protected-tool tests, then the repository quality checks required by the change; verify all commands pass and no credentials appear in test output or fixtures.
+- [ ] 5.1 Document provider installation and CLI selection, direct-TLS and trusted-proxy requirements, handoff limits, secret/reference handling, scope inventory, rollback, and the absence of project-tenancy guarantees; verify documentation states that stdio never invokes a provider.
+- [ ] 5.2 Add end-to-end transport tests against the actual ASGI server for direct TLS and trusted-proxy provider fixtures, including an authenticated `user` project mutation, authenticated `admin` server mutation, unauthenticated handoff, and unchanged stdio behaviour.
+- [ ] 5.3 Run targeted provider, transport, request-context, and protected-operation tests, then the repository quality checks required by the change; verify all commands pass and no credentials or opaque references appear in test output or fixtures.

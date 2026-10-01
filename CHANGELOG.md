@@ -2,7 +2,7 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [2.0.0b3] - 2026-09-29
+## [2.0.0b3] - 2026-10-01
 
 ### Added
 - Commands now support declarative frontmatter elicitation, shared with Guide
