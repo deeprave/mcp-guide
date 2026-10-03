@@ -503,6 +503,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#optional-remote-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional remote authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1420,6 +1431,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#optional-remote-authentication" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Optional remote authentication
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1757,8 +1779,41 @@ Both configurations require uvicorn for serving HTTP requests.</p>
 
 <p>For production, use certificates obtained from a trusted CA (Let's Encrypt, DigiCert, etc.).
 Alternatively, use a reverse proxy like nginx or Apache to handle SSL termination and forward requests to mcp-guide over HTTP.
-Note that no confidential information is transferred between mcp and agent - there are no login credentials or other secrets.
-HTTPS transport is recommended when accessing the server from another host, however.</p>
+For remote access, use direct HTTPS or HTTP behind a TLS-terminating reverse
+proxy. HTTPS encrypts traffic; it does not authenticate callers.</p>
+<p>Bare <code>http</code> and <code>https</code>, and transport URLs without a host, bind to <code>localhost</code>.
+To listen on another interface, supply its address explicitly in the transport
+URL. For example, <code>https://0.0.0.0:8443</code> listens on all IPv4 interfaces and
+requires the usual certificate options. No separate bind flag is needed.</p>
+<h4 id="optional-remote-authentication">Optional remote authentication<a class="headerlink" href="#optional-remote-authentication" title="Permanent link">&para;</a></h4>
+<p>Remote HTTP(S) deployments can protect selected operations with an installed
+provider:</p>
+<div class="codehilite"><pre><span></span><code>mcp-guide https --auth-provider &lt;provider-name&gt; ...
+</code></pre></div>
+
+<p><code>&lt;provider-name&gt;</code> is an entry point supplied by the provider package. Guide does
+not implement login, issue tokens, or interpret credentials. The provider
+receives request evidence and returns <code>UserAuthorisation</code> with opaque access
+scopes. Guide uses <code>user</code> for ordinary protected operations and <code>admin</code> for
+administrative operations. An unauthenticated result may include an opaque HTTPS
+handoff that a capable client can complete before retrying.
+Guide represents missing or invalid authentication with <code>not_authorised</code> (HTTP
+401 semantics), and insufficient authenticated access with <code>forbidden</code> (HTTP
+403 semantics). These are Result codes within MCP responses, not HTTP transport
+status codes or authentication challenges. These authentication failure results
+do not expose tokens, principals, claims, or credential data.
+Authentication identifies access to operations, not a tenant or project owner:
+remote project paths and checksums are not tenancy controls.</p>
+<p>Authentication is available for either HTTP or HTTPS when a provider is
+selected. The transport does not prescribe TLS or reverse-proxy policy: that is
+the deployment administrator's responsibility. Direct HTTPS, or HTTP behind a
+TLS-terminating reverse proxy, are the recommended remote deployments. Stdio
+does not support <code>--auth-provider</code>; Guide rejects that configuration.</p>
+<p>Without a provider, operations remain available without authentication,
+including tools that mutate project configuration, flags, permission settings
+and documents. Before exposing Guide to untrusted callers, configure a provider
+or restrict access through network or reverse-proxy controls. TLS alone is not
+an access-control boundary.</p>
 <h2 id="docker-compose">Docker Compose<a class="headerlink" href="#docker-compose" title="Permanent link">&para;</a></h2>
 <p>mcp-guide provides docker compose support for containerised deployments. Use the <code>--profile</code> flag to select which service to run (e.g., <code>docker compose --profile http up</code>).</p>
 <p>Docker compose configuration:</p>
@@ -1768,7 +1823,7 @@ HTTPS transport is recommended when accessing the server from another host, howe
 <span class="w">    </span><span class="nt">profiles</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">http</span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"8080:8080"</span>
-<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"http"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--host"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"0.0.0.0"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--port"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"8080"</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"http://0.0.0.0:8080"</span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MG_LOG_LEVEL=${MG_LOG_LEVEL:-info}</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MG_LOG_JSON=${MG_LOG_JSON:-1}</span>
@@ -1777,11 +1832,11 @@ HTTPS transport is recommended when accessing the server from another host, howe
 <span class="w">    </span><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">dlnugent/mcp-guide:latest</span>
 <span class="w">    </span><span class="nt">profiles</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">https</span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="nt">ports</span><span class="p">:</span>
-<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"443:443"</span>
+<span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="s">"443:8443"</span>
 <span class="w">    </span><span class="nt">volumes</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./cert.pem:/home/mcp/certs/cert.pem:ro</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">./key.pem:/home/mcp/certs/key.pem:ro</span>
-<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"https"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--host"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"0.0.0.0"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--port"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"443"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--ssl-certfile"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"/home/mcp/certs/cert.pem"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--ssl-keyfile"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"/home/mcp/certs/key.pem"</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="s">"https://0.0.0.0:8443"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--ssl-certfile"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"/home/mcp/certs/cert.pem"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"--ssl-keyfile"</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="s">"/home/mcp/certs/key.pem"</span><span class="p p-Indicator">]</span>
 <span class="w">    </span><span class="nt">environment</span><span class="p">:</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MG_LOG_LEVEL=${MG_LOG_LEVEL:-info}</span>
 <span class="w">      </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">MG_LOG_JSON=${MG_LOG_JSON:-1}</span>
@@ -1797,7 +1852,7 @@ HTTPS transport is recommended when accessing the server from another host, howe
 <p>Run with docker:</p>
 <div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>--rm<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>-v<span class="w"> </span>~/.config/mcp-guide:/home/mcp/.config/mcp-guide<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>dlnugent/mcp-guide:latest
+<span class="w">  </span>dlnugent/mcp-guide:latest<span class="w"> </span>stdio
 </code></pre></div>
 
 <h3 id="docker-http-mode">Docker HTTP Mode<a class="headerlink" href="#docker-http-mode" title="Permanent link">&para;</a></h3>
@@ -1819,11 +1874,11 @@ HTTPS transport is recommended when accessing the server from another host, howe
 <p>Run with HTTPS:</p>
 <div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>run<span class="w"> </span>-it<span class="w"> </span>--rm<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>-v<span class="w"> </span>~/.config/mcp-guide:/home/mcp/.config/mcp-guide<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-v<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/cert.pem:/home/mcp/certs/cert.pem<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-v<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/key.pem:/home/mcp/certs/key.pem<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>-p<span class="w"> </span><span class="m">443</span>:443<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-v<span class="w"> </span><span class="s2">"</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">/cert.pem:/home/mcp/certs/cert.pem:ro"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-v<span class="w"> </span><span class="s2">"</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">/key.pem:/home/mcp/certs/key.pem:ro"</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-p<span class="w"> </span><span class="m">443</span>:8443<span class="w"> </span><span class="se">\</span>
 <span class="w">  </span>dlnugent/mcp-guide:latest<span class="w"> </span><span class="se">\</span>
-<span class="w">  </span>https://0.0.0.0:443<span class="w"> </span>--ssl-certfile<span class="w"> </span>/home/mcp/certs/cert.pem<span class="w"> </span>--ssl-keyfile<span class="w"> </span>/home/mcp/certs/key.pem
+<span class="w">  </span>https://0.0.0.0:8443<span class="w"> </span>--ssl-certfile<span class="w"> </span>/home/mcp/certs/cert.pem<span class="w"> </span>--ssl-keyfile<span class="w"> </span>/home/mcp/certs/key.pem
 </code></pre></div>
 
 <p>Access at: <code>https://localhost/mcp</code></p>
