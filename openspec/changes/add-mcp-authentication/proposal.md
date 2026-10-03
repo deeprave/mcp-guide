@@ -38,6 +38,9 @@ remote use unchanged when no provider is selected.
 
 - `http-transport`: load a selected provider for either remote HTTP or HTTPS;
   TLS and proxy topology remain deployment responsibility.
+- `installation`: align HTTPS container requirements with port 8443 and
+  externally managed certificates mounted under `/home/mcp/certs`, without
+  bundled certbot.
 - `feature-flags`: require `admin` for global mutation and `user` for project
   flag mutation.
 - `guide-project-tools`: retain unprotected binding/selection while protecting

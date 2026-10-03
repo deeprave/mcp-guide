@@ -39,8 +39,8 @@ class RecordingMcpServer:
 
 
 @pytest.mark.anyio
-async def test_authentication_middleware_keeps_request_evidence_out_of_handlers() -> None:
-    """The middleware passes request evidence only to the configured provider."""
+async def test_authentication_middleware_passes_request_evidence_to_provider() -> None:
+    """The middleware passes request evidence to the provider and calls the application."""
     observed = []
 
     async def application(scope, receive, send):
