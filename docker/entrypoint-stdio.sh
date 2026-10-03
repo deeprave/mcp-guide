@@ -1,16 +1,9 @@
 #!/bin/sh
 set -e
 
-# Build command as array
-set -- mcp-guide stdio
+# Supply the image's transport only when the caller supplied options or no arguments.
+case "${1:-}" in
+    ""|-*) set -- stdio "$@" ;;
+esac
 
-# Add log configuration from environment
-if [ -n "${LOG_LEVEL}" ]; then
-    set -- "$@" --log-level "${LOG_LEVEL}"
-fi
-
-if [ "$(printf '%s' "${LOG_JSON:-false}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
-    set -- "$@" --log-json
-fi
-
-exec "$@"
+exec mcp-guide "$@"

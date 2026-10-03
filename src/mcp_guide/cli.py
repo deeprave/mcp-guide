@@ -28,7 +28,7 @@ def parse_transport_mode(mode_str: str) -> tuple[str, Optional[str], Optional[in
         return ("http", "localhost", 8080, None)
 
     if mode_str == "https":
-        return ("https", "0.0.0.0", 443, None)  # nosec B104 - intentional for HTTPS external access
+        return ("https", "localhost", 443, None)
 
     # Parse URL format
     if "://" in mode_str:
@@ -41,7 +41,7 @@ def parse_transport_mode(mode_str: str) -> tuple[str, Optional[str], Optional[in
         host = parsed.hostname
         if not host:
             # Empty host (e.g., http://:8080)
-            host = "localhost" if parsed.scheme == "http" else "0.0.0.0"  # nosec B104 - intentional for HTTPS
+            host = "localhost"
 
         # Determine port
         port = parsed.port
@@ -82,6 +82,9 @@ class ServerConfig:
     # SSL configuration for HTTPS
     ssl_certfile: Optional[str] = None
     ssl_keyfile: Optional[str] = None
+
+    # Optional remote authentication provider entry-point name.
+    auth_provider: Optional[str] = None
 
     # Optional stdio inherited-PWD bind; off unless a CLI launch opts in.
     use_pwd: bool = False
@@ -199,6 +202,11 @@ def parse_args() -> ServerConfig:
         help="SSL private key file for HTTPS (env: MG_SSL_KEYFILE)",
     )
     @click.option(
+        "--auth-provider",
+        type=str,
+        help="Authentication provider entry-point name for remote HTTP(S) transport",
+    )
+    @click.option(
         "--use-pwd/--no-use-pwd",
         "use_pwd",
         envvar="MG_USE_PWD",
@@ -215,6 +223,7 @@ def parse_args() -> ServerConfig:
         configdir: Optional[str],
         ssl_certfile: Optional[str],
         ssl_keyfile: Optional[str],
+        auth_provider: Optional[str],
         use_pwd: bool,
     ) -> None:
         """MCP Guide Server."""
@@ -231,6 +240,7 @@ def parse_args() -> ServerConfig:
         config.configdir = configdir
         config.ssl_certfile = ssl_certfile
         config.ssl_keyfile = ssl_keyfile
+        config.auth_provider = auth_provider
         config.use_pwd = use_pwd
 
         # Parse transport mode

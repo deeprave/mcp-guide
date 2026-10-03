@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from pydantic import Field, model_validator
 
+from mcp_guide.auth import AuthScope
 from mcp_guide.core.arguments import Arguments as ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.result import Result
@@ -86,7 +87,7 @@ async def internal_document_update(
     )
 
 
-@toolfunc(DocumentUpdateArgs)
+@toolfunc(DocumentUpdateArgs, auth_scope=AuthScope.USER)
 async def document_update(args: DocumentUpdateArgs, request_context: RequestContext) -> ToolResult:
     """Update a stored document: rename, move between categories, or modify metadata.
 

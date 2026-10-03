@@ -7,6 +7,7 @@ from typing import Optional
 
 from pydantic import Field
 
+from mcp_guide.auth import AuthScope
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.feature_flags.constants import FLAG_ALLOW_CLIENT_INFO
@@ -229,7 +230,7 @@ async def internal_set_project_flag(args: SetFlagArgs, request_context: RequestC
         return Result.failure(f"Failed to set flag: {e}", error_type=ERROR_UNEXPECTED, disposition=UNKNOWN_ERROR)
 
 
-@toolfunc(SetFlagArgs)
+@toolfunc(SetFlagArgs, auth_scope=AuthScope.USER)
 async def set_project_flag(args: SetFlagArgs, request_context: RequestContext) -> ToolResult:
     """Set or remove a project feature flag.
 
@@ -318,7 +319,7 @@ async def internal_set_feature_flag(args: SetFeatureFlagArgs, request_context: R
         return Result.failure(f"Failed to set global flag: {e}", error_type=ERROR_UNEXPECTED, disposition=UNKNOWN_ERROR)
 
 
-@toolfunc(SetFeatureFlagArgs, requires_project=False)
+@toolfunc(SetFeatureFlagArgs, requires_project=False, auth_scope=AuthScope.ADMIN)
 async def set_feature_flag(args: SetFeatureFlagArgs, request_context: RequestContext) -> ToolResult:
     """Set or remove a global feature flag.
 

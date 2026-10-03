@@ -1,28 +1,17 @@
 #!/bin/sh
 set -e
 
-# Default cert paths
-CERT_FILE="${SSL_CERTFILE:-/certs/cert.pem}"
-KEY_FILE="${SSL_KEYFILE:-/certs/key.pem}"
-
-# Build command as array
-set -- mcp-guide https
-
-# Add log configuration from environment
-if [ -n "${LOG_LEVEL}" ]; then
-    set -- "$@" --log-level "${LOG_LEVEL}"
+# The CLI owns MG_* configuration and gives explicit options precedence.
+if [ -z "${MG_SSL_CERTFILE:-}" ] && [ -f /home/mcp/certs/cert.pem ]; then
+    export MG_SSL_CERTFILE=/home/mcp/certs/cert.pem
+fi
+if [ -z "${MG_SSL_KEYFILE:-}" ] && [ -f /home/mcp/certs/key.pem ]; then
+    export MG_SSL_KEYFILE=/home/mcp/certs/key.pem
 fi
 
-if [ "$(printf '%s' "${LOG_JSON:-false}" | tr '[:upper:]' '[:lower:]')" = "true" ]; then
-    set -- "$@" --log-json
-fi
+# Supply the image's transport only when the caller supplied options or no arguments.
+case "${1:-}" in
+    ""|-*) set -- https://0.0.0.0:8443 "$@" ;;
+esac
 
-# Add SSL certificates if present
-if [ -f "$CERT_FILE" ] && [ -f "$KEY_FILE" ]; then
-    set -- "$@" --ssl-certfile "$CERT_FILE" --ssl-keyfile "$KEY_FILE"
-elif [ -f "$CERT_FILE" ]; then
-    # Support combined cert+key bundle in single file
-    set -- "$@" --ssl-certfile "$CERT_FILE"
-fi
-
-exec "$@"
+exec mcp-guide "$@"

@@ -86,6 +86,7 @@ async def async_main(config: ServerConfig) -> None:
     _handle_cli_error(config)
 
     # Create transport and start server
+    transport = None
     try:
         transport = create_transport(
             config.transport_mode,
@@ -98,6 +99,7 @@ async def async_main(config: ServerConfig) -> None:
             config.log_level,
             config.log_json,
             content_limits,
+            application.auth_service,
         )
         await transport.start()
 
@@ -109,6 +111,9 @@ async def async_main(config: ServerConfig) -> None:
     except MissingDependencyError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+    finally:
+        if transport is not None and hasattr(transport, "stop"):
+            await transport.stop()
 
 
 def main() -> None:

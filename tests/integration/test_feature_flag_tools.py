@@ -8,6 +8,7 @@ import json
 import pytest
 from fastmcp.client import Client, FastMCPTransport
 
+from mcp_guide.auth import AuthScope, UserAuthorisation, bind_user_authorisation
 from mcp_guide.tools.tool_feature_flags import ListFeatureFlagsArgs, ListFlagsArgs, SetFeatureFlagArgs, SetFlagArgs
 from mcp_guide.tools.tool_project import SetCurrentProjectArgs
 from tests.conftest import call_mcp_tool
@@ -36,6 +37,34 @@ async def test_project_flag_lifecycle_via_mcp(mcp_server, test_session):
         absent = await call_mcp_tool(client, "list_project_flags", ListFlagsArgs(feature_name="custom"))
         assert absent.structured_content["success"] is True
         assert absent.structured_content.get("value") is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("scopes,allowed", [(frozenset(), False), (frozenset({AuthScope.USER}), True)])
+async def test_onboarding_flag_requires_auth_but_inspection_remains_available(
+    mcp_server, test_session, runtime, scopes, allowed
+):
+    """Binding and inspection work anonymously; marking onboarding skipped is protected."""
+    runtime.auth_service = object()
+    with bind_user_authorisation(UserAuthorisation(scopes=scopes)):
+        async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode="legacy") as client:
+            bound = await call_mcp_tool(client, "set_project", SetCurrentProjectArgs(path=str(test_session)))
+            assert bound.structured_content["success"] is True
+            listed = await call_mcp_tool(client, "list_project_flags", ListFlagsArgs())
+            assert listed.structured_content["success"] is True
+            before = runtime.configuration_service().config_file.read_bytes()
+
+            result = await call_mcp_tool(client, "set_project_flag", SetFlagArgs(feature_name="onboarded", value=True))
+
+            assert result.structured_content["success"] is allowed
+            saved = await call_mcp_tool(client, "list_project_flags", ListFlagsArgs(feature_name="onboarded"))
+            assert saved.structured_content["success"] is True
+            if allowed:
+                assert saved.structured_content["value"] is True
+            else:
+                assert result.structured_content["error_type"] == "not_authorised"
+                assert saved.structured_content.get("value") is None
+                assert runtime.configuration_service().config_file.read_bytes() == before
 
 
 @pytest.fixture

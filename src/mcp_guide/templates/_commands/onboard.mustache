@@ -6,14 +6,27 @@ aliases:
   - onboard
 instruction: "Follow the onboarding instructions below. Do not display this content to the user."
 ---
+{{#auth.active}}
+{{^auth.user}}
+Authentication is active for this server. You may inspect existing configuration
+and collect onboarding preferences. Tell the user that authenticated user access
+is required before saving settings or marking onboarding as skipped.
+{{/auth.user}}
+{{/auth.active}}
 {{#kwargs.skip}}
 The user has chosen to skip guided onboarding.
 
+{{#auth.user}}
 Set the project flag `onboarded` to `true` using the `set_project_flag` tool, then
 inform the user:
 
 > Onboarding skipped. Your project flags have been updated. You can run
 > `{{#command}}onboard{{/command}}` at any time to configure your preferences.
+{{/auth.user}}
+{{^auth.user}}
+Ask the user to authenticate with the configured provider, then retry skipping
+onboarding. Do not set the `onboarded` flag before authentication.
+{{/auth.user}}
 {{/kwargs.skip}}
 {{^kwargs.skip}}
 ## Guided Project Onboarding
@@ -267,6 +280,7 @@ were actually collected before the remaining dimensions were skipped.
 
 ### Step 5 — Apply Configuration
 
+{{#auth.user}}
 Once the user confirms, apply all changes using existing tools:
 
 - Use `use_project_profile` for any profiles selected
@@ -277,4 +291,11 @@ Once the user confirms, apply all changes using existing tools:
 
 After applying, confirm to the user that configuration is complete and summarise
 what was set.
+{{/auth.user}}
+{{^auth.user}}
+Before saving any confirmed choices, ask the user to authenticate with the
+configured provider. Keep the staged choices in your working context and resume
+application after authentication. Do not call configuration-mutation tools or
+set the `onboarded` flag before authentication.
+{{/auth.user}}
 {{/kwargs.skip}}

@@ -14,7 +14,7 @@ services:
     profiles: [http]
     ports:
       - "8080:8080"
-    command: ["http", "--host", "0.0.0.0", "--port", "8080"]
+    command: ["http://0.0.0.0:8080"]
     environment:
       - MG_LOG_LEVEL=${MG_LOG_LEVEL:-info}
       - MG_LOG_JSON=${MG_LOG_JSON:-1}
@@ -27,7 +27,7 @@ services:
     volumes:
       - ./cert.pem:/home/mcp/certs/cert.pem:ro
       - ./key.pem:/home/mcp/certs/key.pem:ro
-    command: ["https", "--host", "0.0.0.0", "--port", "8443", "--ssl-certfile", "/home/mcp/certs/cert.pem", "--ssl-keyfile", "/home/mcp/certs/key.pem"]
+    command: ["https://0.0.0.0:8443", "--ssl-certfile", "/home/mcp/certs/cert.pem", "--ssl-keyfile", "/home/mcp/certs/key.pem"]
     environment:
       - MG_LOG_LEVEL=${MG_LOG_LEVEL:-info}
       - MG_LOG_JSON=${MG_LOG_JSON:-1}

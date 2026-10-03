@@ -182,8 +182,48 @@ openssl req -x509 -newkey rsa:4096 -nodes \
 
 For production, use certificates obtained from a trusted CA (Let's Encrypt, DigiCert, etc.).
 Alternatively, use a reverse proxy like nginx or Apache to handle SSL termination and forward requests to mcp-guide over HTTP.
-Note that no confidential information is transferred between mcp and agent - there are no login credentials or other secrets.
-HTTPS transport is recommended when accessing the server from another host, however.
+For remote access, use direct HTTPS or HTTP behind a TLS-terminating reverse
+proxy. HTTPS encrypts traffic; it does not authenticate callers.
+
+Bare `http` and `https`, and transport URLs without a host, bind to `localhost`.
+To listen on another interface, supply its address explicitly in the transport
+URL. For example, `https://0.0.0.0:8443` listens on all IPv4 interfaces and
+requires the usual certificate options. No separate bind flag is needed.
+
+#### Optional remote authentication
+
+Remote HTTP(S) deployments can protect selected operations with an installed
+provider:
+
+```text
+mcp-guide https --auth-provider <provider-name> ...
+```
+
+`<provider-name>` is an entry point supplied by the provider package. Guide does
+not implement login, issue tokens, or interpret credentials. The provider
+receives request evidence and returns `UserAuthorisation` with opaque access
+scopes. Guide uses `user` for ordinary protected operations and `admin` for
+administrative operations. An unauthenticated result may include an opaque HTTPS
+handoff that a capable client can complete before retrying.
+Guide represents missing or invalid authentication with `not_authorised` (HTTP
+401 semantics), and insufficient authenticated access with `forbidden` (HTTP
+403 semantics). These are Result codes within MCP responses, not HTTP transport
+status codes or authentication challenges. These authentication failure results
+do not expose tokens, principals, claims, or credential data.
+Authentication identifies access to operations, not a tenant or project owner:
+remote project paths and checksums are not tenancy controls.
+
+Authentication is available for either HTTP or HTTPS when a provider is
+selected. The transport does not prescribe TLS or reverse-proxy policy: that is
+the deployment administrator's responsibility. Direct HTTPS, or HTTP behind a
+TLS-terminating reverse proxy, are the recommended remote deployments. Stdio
+does not support `--auth-provider`; Guide rejects that configuration.
+
+Without a provider, operations remain available without authentication,
+including tools that mutate project configuration, flags, permission settings
+and documents. Before exposing Guide to untrusted callers, configure a provider
+or restrict access through network or reverse-proxy controls. TLS alone is not
+an access-control boundary.
 
 
 ## Docker Compose
@@ -199,7 +239,7 @@ services:
     profiles: [http]
     ports:
       - "8080:8080"
-    command: ["http", "--host", "0.0.0.0", "--port", "8080"]
+    command: ["http://0.0.0.0:8080"]
     environment:
       - MG_LOG_LEVEL=${MG_LOG_LEVEL:-info}
       - MG_LOG_JSON=${MG_LOG_JSON:-1}
@@ -208,11 +248,11 @@ services:
     image: dlnugent/mcp-guide:latest
     profiles: [https]
     ports:
-      - "443:443"
+      - "443:8443"
     volumes:
       - ./cert.pem:/home/mcp/certs/cert.pem:ro
       - ./key.pem:/home/mcp/certs/key.pem:ro
-    command: ["https", "--host", "0.0.0.0", "--port", "443", "--ssl-certfile", "/home/mcp/certs/cert.pem", "--ssl-keyfile", "/home/mcp/certs/key.pem"]
+    command: ["https://0.0.0.0:8443", "--ssl-certfile", "/home/mcp/certs/cert.pem", "--ssl-keyfile", "/home/mcp/certs/key.pem"]
     environment:
       - MG_LOG_LEVEL=${MG_LOG_LEVEL:-info}
       - MG_LOG_JSON=${MG_LOG_JSON:-1}
@@ -235,7 +275,7 @@ Run with docker:
 ```bash
 docker run -it --rm \
   -v ~/.config/mcp-guide:/home/mcp/.config/mcp-guide \
-  dlnugent/mcp-guide:latest
+  dlnugent/mcp-guide:latest stdio
 ```
 
 ### Docker HTTP Mode
@@ -266,11 +306,11 @@ Run with HTTPS:
 ```bash
 docker run -it --rm \
   -v ~/.config/mcp-guide:/home/mcp/.config/mcp-guide \
-  -v $(pwd)/cert.pem:/home/mcp/certs/cert.pem \
-  -v $(pwd)/key.pem:/home/mcp/certs/key.pem \
-  -p 443:443 \
+  -v "$(pwd)/cert.pem:/home/mcp/certs/cert.pem:ro" \
+  -v "$(pwd)/key.pem:/home/mcp/certs/key.pem:ro" \
+  -p 443:8443 \
   dlnugent/mcp-guide:latest \
-  https://0.0.0.0:443 --ssl-certfile /home/mcp/certs/cert.pem --ssl-keyfile /home/mcp/certs/key.pem
+  https://0.0.0.0:8443 --ssl-certfile /home/mcp/certs/cert.pem --ssl-keyfile /home/mcp/certs/key.pem
 ```
 
 Access at: `https://localhost/mcp`

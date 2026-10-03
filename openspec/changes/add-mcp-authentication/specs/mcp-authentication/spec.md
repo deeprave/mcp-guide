@@ -1,27 +1,26 @@
 ## Purpose
 
-Define pluggable, provider-backed authentication and scope-based authorisation
-for Guide's remote MCP operations without making Guide an identity provider.
+Define optional, pluggable authentication for remote Guide MCP operations
+without making Guide an identity provider or interpreting credentials.
 
 ## ADDED Requirements
 
 ### Requirement: Pluggable remote authentication provider
-The system SHALL enable provider-backed remote authorisation only when the
-server administrator selects an authentication provider through CLI
-configuration. The selected provider SHALL receive only an opaque configuration
-reference from Guide and SHALL own credential parsing, validation, external
-identity interaction, and scope determination. Guide SHALL NOT issue
-credentials, manage accounts, persist credentials, or interpret credential
-format or contents.
+The system SHALL select at most one authentication provider with
+`--auth-provider <provider>`, resolving the name from the
+`mcp_guide.auth_providers` entry-point group. Provider-specific deployment
+configuration SHALL be owned by that provider, including its own environment,
+files, or external services. Guide SHALL NOT offer a provider-config CLI
+argument.
 
-The remote transport SHALL start and stop the selected provider with its own
-lifecycle. Provider startup failure SHALL prevent the enabled remote transport
-from serving. When no provider is selected, the system SHALL preserve existing
-remote operation behaviour. Stdio SHALL remain trusted and SHALL NOT construct
-or invoke an authentication provider.
+The selected provider SHALL start and stop with a remote HTTP(S) transport.
+Provider startup failure SHALL prevent that remote transport from serving.
+Stdio SHALL reject `--auth-provider`. Guide
+SHALL NOT issue credentials, manage accounts, persist credentials, or parse
+credential formats or contents.
 
 #### Scenario: No provider is selected
-- **WHEN** a server starts without an authentication-provider CLI option
+- **WHEN** a server starts without `--auth-provider`
 - **THEN** it SHALL not construct a provider
 - **AND** remote operations SHALL retain their existing access behaviour
 
@@ -35,84 +34,68 @@ or invoke an authentication provider.
 - **THEN** the remote transport SHALL fail to start
 - **AND** it SHALL not serve an endpoint that appears provider-protected
 
-### Requirement: Provider authorisation decisions and handoff
-For a protected operation, the system SHALL ask the provider for an
-authorisation decision using ephemeral request authentication evidence and an
-operation descriptor. The provider SHALL return either an authorised stable
-principal with immutable scopes, an unauthenticated decision that may include
-an opaque HTTPS handoff/challenge, or a forbidden decision.
+### Requirement: Opaque request authorisation and handoff
+For each remote request, Guide SHALL supply the provider with ephemeral request
+evidence. The provider SHALL return `UserAuthorisation`: a set of scope names
+and an optional opaque HTTPS authentication handoff. Guide SHALL use `user` for
+ordinary protected operations and `admin` for administrative operations;
+`admin` SHALL also satisfy `user` operations.
 
-Guide SHALL map unauthenticated and forbidden decisions to stable
-MCP-compatible results without exposing credential, provider, or policy
-details. Guide SHALL NOT redirect an MCP invocation to an interactive login
-flow. A provider that needs an interactive flow SHALL own its HTTPS callback or
-login routes; a capable client MAY follow its returned handoff before retrying.
+Authenticated state SHALL mean the presence of `user` or `admin`, with
+unauthenticated state its complement. Future capability scopes SHALL require
+`user` alongside them unless `admin` is present.
 
-#### Scenario: Provider authorises a protected operation
-- **WHEN** the provider returns an authorised principal whose scopes satisfy
-  the operation requirement
-- **THEN** the system SHALL dispatch the operation subject to its existing
-  validation and behaviour
+Guide SHALL map absence of both `user` and `admin` to `not_authorised` (HTTP 401
+semantics), and insufficient required scope to `forbidden` (HTTP 403 semantics),
+without exposing tokens, principals, provider
+details, or credential data. Guide SHALL NOT redirect an MCP invocation to an
+interactive login flow. A provider requiring interactive authentication SHALL
+own its HTTPS callback or login routes; a capable client MAY follow the returned
+handoff before retrying.
+These codes SHALL be returned inside MCP Result payloads; this mapping SHALL NOT
+change HTTP transport status codes or introduce HTTP authentication challenges.
+
+#### Scenario: Provider supplies user access
+- **WHEN** the provider returns `UserAuthorisation` containing `user`
+- **THEN** the system SHALL dispatch a user-protected operation subject to its
+  existing validation and behaviour
 
 #### Scenario: Provider requires authentication
-- **WHEN** the provider returns an unauthenticated decision for a protected
-  operation
-- **THEN** the system SHALL return an authentication-required result
-- **AND** it SHALL preserve an opaque handoff when the provider supplied one
-- **AND** it SHALL not start an interactive redirect or perform the operation
+- **WHEN** the provider returns neither `user` nor `admin` for a protected operation
+- **THEN** the system SHALL return a `not_authorised` authentication-required result
+- **AND** it SHALL preserve an opaque handoff when supplied
+- **AND** it SHALL not redirect or perform the operation
 
-#### Scenario: Provider denies a scope
-- **WHEN** the provider returns a principal without the required scope or a
-  forbidden decision
-- **THEN** the system SHALL return an insufficient-authorisation result
+#### Scenario: User lacks an administrative scope
+- **WHEN** a user-scoped caller invokes an admin-protected operation
+- **THEN** the system SHALL return a `forbidden` insufficient-authorisation result
 - **AND** it SHALL not perform the operation
 
-### Requirement: Scope-based operation policy
-The system SHALL retain an explicit protected-operation classification for
-tools, resources, and prompts. A registration SHALL declare operation kind,
-name, optional required scope, and any validated-argument predicate needed for
-conditional protection. Operations absent from the classification SHALL retain
-their existing behaviour.
+### Requirement: Direct protected-operation scopes
+Each protected tool, resource, or prompt SHALL declare its required `AuthScope`
+string-enum value directly. The initial values are `user` and `admin`; `admin`
+SHALL satisfy every protected-operation scope. A later change MAY introduce
+additional scopes or configurable policy.
 
-- `user` SHALL authorise project administration, including project binding,
-  project selection, cloning, and mutation of persisted project configuration,
-  plus SQLite document ingestion.
-- `admin` SHALL authorise server-wide administration, global feature-flag
-  mutation, installed-document updates, and document export.
-- `admin` SHALL satisfy a `user` scope requirement.
+Operations without a declared scope SHALL retain existing access behaviour.
+The classification SHALL apply only while a provider-backed remote policy is
+active and SHALL be enforced after argument validation and before an operation
+has an effect. Later protected resources and prompts SHALL use this same
+boundary.
 
-The classification SHALL apply only while provider-backed policy is active.
-It SHALL be enforced after argument validation and before a Session is
-created, a project is bound, protected content is read, or an operation has an
-effect. The initial protected inventory need not contain a resource or prompt,
-but later protected resources and prompts SHALL use this same boundary.
+#### Scenario: A protected operation is registered
+- **WHEN** a tool, resource, or prompt is protected
+- **THEN** its registration SHALL identify its required scope enum value
+- **AND** that scope requirement SHALL be applied at the request boundary
 
-#### Scenario: Admin invokes a user operation
-- **WHEN** a provider authorises a caller with the `admin` scope for a
-  `user`-protected operation
-- **THEN** the system SHALL treat the caller as authorised
-
-#### Scenario: Unprotected operation is called with provider active
-- **WHEN** a caller invokes an operation absent from the protected
-  classification while provider-backed policy is active
+#### Scenario: An unprotected operation is called with provider active
+- **WHEN** a caller invokes an operation without a declared protected scope
 - **THEN** the system SHALL preserve that operation's existing access and
   result behaviour
 
-#### Scenario: Unauthenticated caller invokes a protected operation
-- **WHEN** an unauthenticated caller invokes a protected operation while
-  provider-backed policy is active
-- **THEN** the system SHALL not mint a session, bind a project, persist
-  configuration, write documents, read protected content, or emit exports
-
-### Requirement: Provider updates do not replace authorisation checks
-The provider MAY asynchronously notify Guide of policy, signing-key, or
-revocation changes. The system SHALL apply only provider-approved invalidation
-to any cached decisions and SHALL obtain a current provider decision for every
-protected operation unless the provider explicitly grants a bounded cache
-entry.
-
-#### Scenario: Provider reports a revocation
-- **WHEN** the provider notifies the system that an authorisation decision is
-  no longer valid
-- **THEN** the system SHALL not reuse that decision for a later protected
-  operation
+#### Scenario: Export metadata is persisted
+- **WHEN** `export_content` or `remove_export` would create or remove persisted
+  export metadata while an authentication provider is active
+- **THEN** the operation SHALL require the `user` scope
+- **AND** it SHALL not change project configuration when authentication is
+  required or insufficient

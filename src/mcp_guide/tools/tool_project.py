@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal, Optional
 
 from pydantic import ConfigDict, Field, model_validator
 
+from mcp_guide.auth import AuthScope
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
@@ -482,7 +483,7 @@ async def internal_clone_project(args: CloneProjectArgs, request_context: Reques
     return Result.ok(result_dict, message=f"Cloned project '{args.from_project}' to '{target_name}'")
 
 
-@toolfunc(CloneProjectArgs)
+@toolfunc(CloneProjectArgs, auth_scope=AuthScope.ADMIN)
 async def clone_project(args: CloneProjectArgs, request_context: RequestContext) -> ToolResult:
     """Copy transferable configuration into the currently bound project.
 
@@ -621,7 +622,7 @@ async def internal_use_project_profile(args: UseProjectProfileArgs, request_cont
     return Result.ok(f"Applied profile '{args.profile}' to project '{project.name}'")
 
 
-@toolfunc(UseProjectProfileArgs)
+@toolfunc(UseProjectProfileArgs, auth_scope=AuthScope.USER)
 async def use_project_profile(args: UseProjectProfileArgs, request_context: RequestContext) -> ToolResult:
     """Apply a profile to the current project.
 
@@ -852,7 +853,7 @@ async def internal_remove_permission_path(args: RemovePermissionPathArgs, reques
         return Result.ok(f"Path '{args.path}' not in read permissions")
 
 
-@toolfunc(AddPermissionPathArgs)
+@toolfunc(AddPermissionPathArgs, auth_scope=AuthScope.ADMIN)
 async def add_permission_path(args: AddPermissionPathArgs, request_context: RequestContext) -> ToolResult:
     """Add path to project permissions.
 
@@ -863,7 +864,7 @@ async def add_permission_path(args: AddPermissionPathArgs, request_context: Requ
     return await tool_result("add_permission_path", result, session=request_context.session, session_id=args.session_id)
 
 
-@toolfunc(RemovePermissionPathArgs)
+@toolfunc(RemovePermissionPathArgs, auth_scope=AuthScope.ADMIN)
 async def remove_permission_path(args: RemovePermissionPathArgs, request_context: RequestContext) -> ToolResult:
     """Remove path from project permissions.
 

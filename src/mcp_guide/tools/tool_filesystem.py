@@ -4,6 +4,7 @@ from typing import Any, Dict, Literal, Optional
 
 from pydantic import Field
 
+from mcp_guide.auth import AuthScope
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.filesystem.tools import send_command_location as fs_send_command_location
@@ -141,7 +142,11 @@ async def internal_send_working_directory(
         return Result.failure(error=f"Error processing working directory: {str(e)}", error_type=ERROR_UNEXPECTED)
 
 
-@toolfunc(SendFileContentArgs)
+@toolfunc(
+    SendFileContentArgs,
+    auth_scope=AuthScope.USER,
+    auth_required=lambda args: args.category is not None,
+)
 async def send_file_content(args: SendFileContentArgs, request_context: RequestContext) -> ToolResult:
     """Send file content from agent filesystem to server.
 
