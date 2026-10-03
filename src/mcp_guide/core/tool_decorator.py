@@ -23,11 +23,12 @@ from mcp_guide.result_constants import (
     make_no_project_result,
     make_unmintable_session_result,
 )
-from mcp_guide.runtime import RequestContext
+from mcp_guide.runtime import RequestContext, get_runtime
 from mcp_guide.session import InvalidGuideSessionError, UnmintableGuideSessionError
 from mcp_guide.validation import InvalidProjectNameError
 
 if TYPE_CHECKING:
+    from mcp_guide.auth import AuthScope
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
@@ -44,6 +45,8 @@ class ToolMetadata:
     args_class: Optional[type]
     prefix: Optional[str]
     wrapped_func: Callable[..., Any]
+    auth_scope: "AuthScope | None" = None
+    auth_required: Callable[[Any], bool] | None = None
 
 
 @dataclass
@@ -100,6 +103,21 @@ async def _check_project_bound(request_context: RequestContext) -> Optional[obje
     return None
 
 
+async def _authorise_tool(request_context: RequestContext, required_scope: "AuthScope") -> Result[Any] | None:
+    """Apply the request's already-resolved authorisation scopes."""
+    from mcp_guide.auth import UserAuthorisation, scope_authorisation_result
+
+    # Provider configuration enables enforcement, even without a request decision.
+    scope_enforcement_enabled = get_runtime().auth_service is not None
+    if not scope_enforcement_enabled:
+        return None
+    authorisation = request_context.authorisation
+    return scope_authorisation_result(
+        authorisation if isinstance(authorisation, UserAuthorisation) else None,
+        required_scope,
+    )
+
+
 def _transport_signature(func: Callable[..., Any]) -> inspect.Signature:
     """Expose FastMCP's injected ``ctx`` while keeping it out of application code."""
     parameters = []
@@ -150,6 +168,8 @@ def toolfunc(
     prefix: Optional[str] = None,
     requires_project: bool = True,
     binds_project: bool = False,
+    auth_scope: "AuthScope | None" = None,
+    auth_required: Callable[[Any], bool] | None = None,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for deferred tool registration.
 
@@ -195,6 +215,15 @@ def toolfunc(
                     session = request_context.session
                     if hasattr(args, "session_id") and getattr(args, "session_id", None) is None:
                         args.session_id = request_context.session_id
+                    if auth_scope is not None and (auth_required is None or auth_required(args)):
+                        authorisation = await _authorise_tool(request_context, auth_scope)
+                        if authorisation is not None:
+                            return await _normalize_tool_output(
+                                authorisation,
+                                tool_name,
+                                request_context.session_id,
+                                session=session,
+                            )
                     if not binds_project:
                         await _call_on_tool(tool_name, request_context)
                     if requires_project:
@@ -242,6 +271,8 @@ def toolfunc(
             description=final_description,
             args_class=args_class,
             prefix=tool_prefix,
+            auth_scope=auth_scope,
+            auth_required=auth_required,
             wrapped_func=wrapped,
         )
         _TOOL_REGISTRY[tool_name] = ToolRegistration(metadata=metadata)

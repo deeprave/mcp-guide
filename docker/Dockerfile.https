@@ -1,15 +1,8 @@
 FROM mcp-guide:base AS final
 
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends certbot && \
-    rm -rf /var/lib/apt/lists/*
+COPY --chmod=755 entrypoint-https.sh /entrypoint.sh
 
-COPY entrypoint-https.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Create certs directory
-RUN mkdir -p /certs && chmod 755 /certs
-
-EXPOSE 8080 443
+EXPOSE 8443
 
 ENTRYPOINT ["/entrypoint.sh"]
+CMD []

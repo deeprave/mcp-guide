@@ -30,6 +30,8 @@ ERROR_CACHE = "cache_failure"
 ERROR_CONFIG_WRITE = "config_write_error"
 ERROR_SECURITY = "security_error"
 ERROR_INVALID_SESSION = "invalid_session"
+ERROR_FORBIDDEN = "forbidden"
+ERROR_NOT_AUTHORISED = "not_authorised"
 
 # Error instructions
 INSTRUCTION_NOTFOUND_ERROR = "Present this error as-is to the user. Do NOT attempt to correct."

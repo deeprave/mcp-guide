@@ -9,6 +9,7 @@ import yaml
 from fastmcp import FastMCP
 
 if TYPE_CHECKING:
+    from mcp_guide.auth import AuthService
     from mcp_guide.cli import ServerConfig
     from mcp_guide.session import Session
 
@@ -55,6 +56,7 @@ class GuideApplication:
 
     server: FastMCP
     runtime: GuideRuntime["Session"]
+    auth_service: "AuthService | None"
 
 
 def _initialize_runtime_tasks() -> None:
@@ -170,6 +172,8 @@ def create_application(config: "ServerConfig") -> GuideApplication:
         Unstarted FastMCP surface and its explicit runtime lifecycle
     """
     global mcp
+    if config.auth_provider is not None and config.transport_mode not in {"http", "https"}:
+        raise ValueError("--auth-provider is only valid for remote HTTP(S) transports")
 
     async def start_runtime() -> None:
         """Apply process-level Guide configuration before serving begins."""
@@ -203,6 +207,10 @@ def create_application(config: "ServerConfig") -> GuideApplication:
         docroot=config.docroot,
         on_start=start_runtime,
     )
+    if config.auth_provider is not None and config.transport_mode in {"http", "https"}:
+        from mcp_guide.auth import auth_service_for
+
+        runtime.auth_service = auth_service_for(config.auth_provider)
 
     # Use MCP_GUIDE_NAME env var if set, otherwise use generic name
     server_name = os.getenv("MCP_GUIDE_NAME", "guide")
@@ -247,7 +255,7 @@ def create_application(config: "ServerConfig") -> GuideApplication:
     register_prompts(mcp)
     register_resources(mcp)
 
-    return GuideApplication(server=mcp, runtime=runtime)
+    return GuideApplication(server=mcp, runtime=runtime, auth_service=runtime.auth_service)
 
 
 def create_server(config: "ServerConfig") -> FastMCP:

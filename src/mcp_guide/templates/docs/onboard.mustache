@@ -5,6 +5,14 @@ description: Onboarding notification shown when project preferences have not bee
 ---
 **mcp-guide: Project Setup**
 
+{{#auth.active}}
+{{^auth.user}}
+You can inspect existing configuration and review onboarding preferences now.
+Authenticate with the server's configured provider before saving settings or
+marking onboarding as skipped.
+{{/auth.user}}
+{{/auth.active}}
+
 Your project preferences are not configured. Guided onboarding takes a few
 minutes and covers:
 
@@ -23,6 +31,7 @@ To get started, run:
 
 Or use {{#resource}}_onboard{{/resource}}
 
+{{#auth.user}}
 To skip and configure manually instead:
 
 ```
@@ -30,3 +39,4 @@ To skip and configure manually instead:
 ```
 
 Or use {{#resource}}_onboard?skip{{/resource}}
+{{/auth.user}}

@@ -58,5 +58,6 @@ ENV PATH="/app/.venv/bin:$PATH"
 # Switch to non-root user
 USER mcp
 
-# Default command (override in specific Dockerfiles)
-CMD ["mcp-guide", "--help"]
+# Container commands are Guide CLI arguments.
+ENTRYPOINT ["mcp-guide"]
+CMD ["--help"]

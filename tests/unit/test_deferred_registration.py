@@ -17,9 +17,9 @@ from mcp_guide.core.tool_decorator import (
 from mcp_guide.result import Result
 
 
-def request_context(tmp_path):
+def request_context(tmp_path, runtime=None):
     """Build the FastMCP-facing test input for a public tool boundary."""
-    runtime = create_test_runtime(str(tmp_path))
+    runtime = runtime or create_test_runtime(str(tmp_path))
     return SimpleNamespace(
         request_context=SimpleNamespace(
             protocol_version="2026-07-28", request_id="deferred-tool", meta=None, lifespan_context=runtime
@@ -147,3 +147,34 @@ async def test_deferred_tool_preserves_native_error_status(tmp_path):
     assert isinstance(output, ToolResult)
     assert output.is_error
     assert output.structured_content["error"] == "native error"
+
+
+@pytest.mark.anyio
+async def test_protected_tool_returns_provider_denial_before_side_effects(tmp_path, monkeypatch):
+    """A protected tool stops before task handling or its application function."""
+    from mcp_guide.auth import AuthScope
+
+    class AuthService:
+        pass
+
+    runtime = create_test_runtime(str(tmp_path))
+    runtime.auth_service = AuthService()
+    monkeypatch.setattr("mcp_guide.core.tool_decorator.get_runtime", lambda: runtime)
+
+    invoked = False
+
+    @toolfunc(args_class=object, requires_project=False, auth_scope=AuthScope.ADMIN)
+    async def protected_tool(args, request_context):
+        nonlocal invoked
+        invoked = True
+        return Result.ok("must-not-run")
+
+    from mcp_guide.auth import UserAuthorisation, bind_user_authorisation
+
+    wrapper = get_tool_registration("protected_tool").metadata.wrapped_func
+    with bind_user_authorisation(UserAuthorisation(scopes=frozenset({AuthScope.USER}))):
+        output = await wrapper(object(), ctx=request_context(tmp_path, runtime))
+
+    assert output.is_error
+    assert output.structured_content["error_type"] == "forbidden"
+    assert invoked is False

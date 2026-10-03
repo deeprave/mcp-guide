@@ -71,6 +71,16 @@ This index tracks all ADRs including historical decisions that have been superse
 **Related change:** `use-request-context`
 **Summary:** User-supplied configuration paths, including `docroot`, stay as written. A user-anchored value is already absolute from the user's point of view and must not be rewritten into a host-absolute path. Missing-key defaults remain host-absolute beside the configuration file.
 
+### ADR-014: Pluggable Remote Authentication Provider
+**Status:** Accepted
+**Date:** 2026-10-01
+**File:** [014-pluggable-remote-authentication.md](014-pluggable-remote-authentication.md)
+**Related changes:** `add-mcp-authentication`, `add-reference-auth-provider`
+**Summary:** Select one dynamically loaded remote authentication provider that
+returns request-level `UserAuthorisation` scopes; Guide enforces its access
+scopes without implementing identity management or interpreting credential
+formats and provider claims.
+
 ## Historical ADRs
 
 ### ADR-002: MCP Server Framework
@@ -112,7 +122,7 @@ ADR numbers are assigned sequentially and are never reused. When an ADR is super
 ## Maintenance
 
 When creating a new ADR:
-1. Use the next available number (currently: 014)
+1. Use the next available number (currently: 015)
 2. Add entry to this index
 3. Update "Supersedes" field if replacing an existing ADR
 4. Move superseded ADR to "Historical ADRs" section

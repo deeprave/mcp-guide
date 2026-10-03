@@ -61,6 +61,48 @@ async def test_unbound_context_does_not_create_or_borrow_a_project(runtime):
 
 
 @pytest.mark.anyio
+async def test_sessionless_render_omits_auth_even_during_an_authenticated_request(runtime):
+    """Request authorisation alone must not enrich pre-session guidance."""
+    from mcp_guide.auth import AuthScope, UserAuthorisation, bind_user_authorisation
+    from mcp_guide.render.renderer import render_template_content
+
+    with bind_user_authorisation(UserAuthorisation(scopes=frozenset({AuthScope.ADMIN}))):
+        context = await get_template_contexts(None)
+        rendered = await render_template_content("{{#auth}}bound{{/auth}}{{^auth}}unbound{{/auth}}", context)
+
+    assert "auth" not in context
+    assert rendered.success is True
+    assert rendered.value.content == "unbound"
+
+
+@pytest.mark.anyio
+async def test_session_render_updates_auth_without_caching_request_access(session):
+    """The same session can inspect anonymously and save after authentication."""
+    from mcp_guide.auth import AuthScope, UserAuthorisation, bind_user_authorisation
+    from mcp_guide.render.renderer import render_template_content
+
+    template = "inspect|{{#auth.user}}save{{/auth.user}}{{^auth.user}}authenticate{{/auth.user}}"
+    for scopes, expected in (
+        (frozenset(), "inspect|authenticate"),
+        (frozenset({AuthScope.USER}), "inspect|save"),
+        (frozenset({AuthScope.ADMIN}), "inspect|save"),
+        (frozenset(), "inspect|authenticate"),
+    ):
+        with bind_user_authorisation(UserAuthorisation(scopes=scopes)):
+            context = await get_template_contexts(session)
+            rendered = await render_template_content(template, context)
+        assert rendered.success is True
+        assert rendered.value.content == expected
+
+    assert (await get_template_contexts(session))["auth"] == {
+        "active": False,
+        "authenticated": True,
+        "user": True,
+        "admin": True,
+    }
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("error", [ValueError, AttributeError])
 async def test_project_read_failure_uses_empty_context(session, monkeypatch, error):
     # Inject an unavailable configuration boundary; normal fixtures cannot reliably cause it.

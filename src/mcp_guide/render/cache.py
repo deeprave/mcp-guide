@@ -617,9 +617,18 @@ class TemplateContextCache(SessionListener):
             category_context = await self._build_category_context(category_name)
             layered_context = category_context.new_child(layered_context)
 
-        # Keep the cache-aware OpenSpec layer dynamic, even when the rest of
-        # the context is materialised for this session.
-        return layered_context.new_child(await self._build_openspec_context())
+        # Keep request-derived layers out of the materialised session cache.
+        # Both OpenSpec state and authentication scope decisions may vary
+        # between calls from the same session.
+        dynamic_context = await self._build_openspec_context()
+        if self._session is None:
+            return layered_context.new_child(dynamic_context)
+
+        from mcp_guide.auth import current_user_authorisation, template_auth_context
+
+        # Project the current request decision, not transport enforcement configuration.
+        auth_context = await template_auth_context(current_user_authorisation())
+        return layered_context.new_child(dynamic_context.new_child({"auth": auth_context}))
 
     def get_transient_context(self) -> "TemplateContext":
         """Generate fresh transient context with timestamps.

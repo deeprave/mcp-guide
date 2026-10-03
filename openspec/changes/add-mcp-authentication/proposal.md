@@ -1,74 +1,62 @@
+# Proposal
+
 ## Why
 
-Guide exposes an MCP surface that can alter process-wide configuration, project
-configuration, installed documents, stored documents, and exported content.
-Remote deployments need a way to identify a caller and apply externally owned
-access policy before those operations run. Guide must not become an identity
-provider, token issuer, or account-management service to provide that boundary.
+Remote Guide needs an optional access boundary without becoming an identity,
+credential, or account service. The boundary must work both behind direct HTTPS
+and behind a TLS-terminating proxy, while leaving existing stdio and unauthenticated
+remote use unchanged when no provider is selected.
 
 ## What Changes
 
-- Add an optional, CLI-selected authentication-provider module for remote MCP
-  transports. Its absence preserves current unauthenticated behaviour; its
-  presence enables scope checks for explicitly protected operations.
-- Start and stop the provider with the remote transport. The provider may
-  validate bearer credentials, authenticate through an external service, watch
-  policy or revocation updates, and provide an HTTPS handoff for an
-  unauthenticated protected operation.
-- Keep Guide agnostic to credential format and contents. Only a stable
-  principal identifier and immutable scopes may enter Guide's request context.
-- Support direct TLS and explicitly configured trusted-proxy deployments. A
-  proxy assertion is trusted only when the Guide endpoint is not directly
-  reachable and the proxy strips caller-controlled identity headers.
-- Require the `user` scope for project-administration operations, including
-  creating, selecting, cloning, and changing project configuration.
-- Require the `admin` scope for server-wide administration, including changing
-  global feature flags and updating installed documentation.
-- Require the `admin` scope for document export and make the protected-operation
-  inventory explicit, so further privileged mutations cannot be added by
-  convention alone.
-- Apply one central protected-operation policy at tool, resource, and prompt
-  boundaries before session creation, project binding, sensitive reads, or
-  side effects. The initial protected inventory remains project administration
-  and SQLite ingestion (`user`), plus global flags, document updates, and
-  exports (`admin`); `admin` implies `user`.
-- Document that principal scopes are not a project tenancy model. A later
-  change must add server-generated project identities and per-project access
-  control before shared multi-user project hosting is supported.
+- Add one CLI option, `--auth-provider <provider>`, which selects a trusted
+  server-side authentication module. Provider configuration is owned by the
+  module's own deployment environment, not by Guide CLI or configuration.
+- Start the provider only with a remote transport. It validates request
+  evidence, returns request-level `UserAuthorisation` scopes, and can provide
+  an opaque HTTPS authentication hand-off.
+- Keep Guide opaque to credentials, token format, and principals. Guide uses
+  `user` and `admin` access scopes to enforce its bounded operation policy.
+- Each protected operation declares its required `user` or `admin` scope
+  directly; `admin` is the unrestricted override.
+- Keep `set_project`, `switch_project`, normal file callbacks, and
+  `update_documents` unprotected. Require `user` for project configuration and
+  SQLite ingestion, and `admin` for cloning, permission paths, and global
+  configuration.
+- Expose request-specific `auth.active`, `auth.authenticated`, `auth.user`, and
+  `auth.admin` booleans to templates. With no provider selected, `auth.active`
+  is false and all scope predicates are true.
 
-## Capabilities
+## Specifications
 
-### New Capabilities
-- `mcp-authentication`: pluggable remote authentication lifecycle,
-  authorisation decisions, authentication handoff, and protected-operation
-  policy.
+### New specification
+
+- `mcp-authentication`: pluggable remote authorisation lifecycle, decisions,
+  hand-off, direct scope declarations, and template availability context.
 
 ### Modified Capabilities
-- `http-transport`: load a CLI-selected provider for direct-TLS or trusted
-  proxy remote ingress.
-- `feature-flags`: require `admin` scope for global feature-flag mutation when
-  provider-backed policy is active.
-- `guide-project-tools`: require `user` scope for project administration and
-  project-configuration mutation when provider-backed policy is active.
-- `document-store`: require `user` scope before provider-backed remote document
-  ingestion writes to SQLite.
-- `request-context`: expose only a provider decision's immutable,
-  credential-free principal and scopes.
-- `tool-infrastructure`: require `admin` scope for `update_documents` when
-  provider-backed policy is active.
-- `knowledge-export`: require `admin` scope for `export_content` when
-  provider-backed policy is active.
+
+- `http-transport`: load a selected provider for either remote HTTP or HTTPS;
+  TLS and proxy topology remain deployment responsibility.
+- `installation`: align HTTPS container requirements with port 8443 and
+  externally managed certificates mounted under `/home/mcp/certs`, without
+  bundled certbot.
+- `feature-flags`: require `admin` for global mutation and `user` for project
+  flag mutation.
+- `guide-project-tools`: retain unprotected binding/selection while protecting
+  other configuration mutation and project permission paths.
+- `document-store`: protect SQLite ingestion only.
+- `request-context`: carry only opaque provider decisions and availability.
+- `tool-infrastructure`: retain automatic document updates without auth.
+- `template-context`: expose dynamic, request-specific authentication and
+  scope booleans.
 
 ## Impact
 
-- Affects CLI configuration, remote transport startup, ASGI integration,
-  request-context propagation, operation registration, error responses, and
-  deployment documentation.
-- Affects global feature-flag tools, project-management and configuration tools,
-  document updates, and exports; read-only and otherwise unprotected tools retain
-  their existing unauthenticated behaviour.
-- Does not add Guide accounts, credential issuance, a built-in credential
-  store, or a web login flow.
-- Does not make path hashes a remote project identity or add per-project ACLs.
-- Requires provider lifecycle, transport, authorisation-boundary, and
-  end-to-end tests using provider fixtures rather than production credentials.
+- Affects remote transport startup, operation wrapping, result codes,
+  RequestContext, template rendering, and deployment documentation.
+- Does not add Guide accounts, passwords, token issuance, a built-in auth
+  service, project tenancy, or per-project ACLs.
+- `retire-export-metadata` separately removes export tracking. Until it lands,
+  the metadata-mutating export operations require user access;
+  `add-reference-auth-provider` supplies the reference OIDC pair.

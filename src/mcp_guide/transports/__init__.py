@@ -6,6 +6,7 @@ from mcp_guide.transports.base import Transport
 from mcp_guide.transports.stdio import StdioTransport
 
 if TYPE_CHECKING:
+    from mcp_guide.auth import AuthService
     from mcp_guide.content_limits import ContentLimits
 
 
@@ -46,6 +47,7 @@ def create_transport(
     log_level: str = "INFO",
     log_json: bool = False,
     content_limits: "ContentLimits | None" = None,
+    auth_service: "AuthService | None" = None,
 ) -> Transport:
     """Create a transport instance based on mode.
 
@@ -89,6 +91,7 @@ def create_transport(
                 log_level,
                 log_json,
                 content_limits,
+                auth_service,
             )
         case _:
             raise ValueError(f"Unknown transport mode: {mode}")

@@ -11,6 +11,7 @@ from typing import Optional
 
 from pydantic import Field
 
+from mcp_guide.auth import AuthScope
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.content.gathering import CONTENT_EXPRESSION_DESCRIPTION, gather_content
 from mcp_guide.content.utils import (
@@ -371,7 +372,7 @@ def _build_export_write_instruction(output_path: str, force: bool) -> str:
     )
 
 
-@toolfunc(ExportContentArgs)
+@toolfunc(ExportContentArgs, auth_scope=AuthScope.USER)
 async def export_content(
     args: ExportContentArgs,
     request_context: RequestContext,
@@ -606,7 +607,7 @@ class RemoveExportArgs(ToolArguments):
     )
 
 
-@toolfunc(RemoveExportArgs)
+@toolfunc(RemoveExportArgs, auth_scope=AuthScope.USER)
 async def remove_export(
     args: RemoveExportArgs,
     request_context: RequestContext,

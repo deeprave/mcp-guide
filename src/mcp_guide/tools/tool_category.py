@@ -11,6 +11,7 @@ from typing import Any, Literal, Optional, Union
 from anyio import Path as AsyncPath
 from pydantic import Field, model_validator
 
+from mcp_guide.auth import AuthScope
 from mcp_guide.content.formatters.selection import ContentFormat, get_formatter_from_flag
 from mcp_guide.content.gathering import CONTENT_EXPRESSION_DESCRIPTION, gather_content
 from mcp_guide.content.utils import (
@@ -746,7 +747,7 @@ async def internal_category_collection_remove(
         return await internal_collection_remove(collection_args, request_context)
 
 
-@toolfunc(CategoryCollectionRemoveArgs)
+@toolfunc(CategoryCollectionRemoveArgs, auth_scope=AuthScope.USER)
 async def category_collection_remove(
     args: CategoryCollectionRemoveArgs,
     request_context: RequestContext,
@@ -808,7 +809,7 @@ async def internal_category_collection_add(
         return await internal_collection_add(collection_args, request_context)
 
 
-@toolfunc(CategoryCollectionAddArgs)
+@toolfunc(CategoryCollectionAddArgs, auth_scope=AuthScope.USER)
 async def category_collection_add(
     args: CategoryCollectionAddArgs,
     request_context: RequestContext,
@@ -874,7 +875,7 @@ async def internal_category_collection_change(
         return await internal_collection_change(collection_args, request_context)
 
 
-@toolfunc(CategoryCollectionChangeArgs)
+@toolfunc(CategoryCollectionChangeArgs, auth_scope=AuthScope.USER)
 async def category_collection_change(
     args: CategoryCollectionChangeArgs,
     request_context: RequestContext,
@@ -935,7 +936,7 @@ async def internal_category_collection_update(
         return await internal_collection_update(collection_args, request_context)
 
 
-@toolfunc(CategoryCollectionUpdateArgs)
+@toolfunc(CategoryCollectionUpdateArgs, auth_scope=AuthScope.USER)
 async def category_collection_update(
     args: CategoryCollectionUpdateArgs,
     request_context: RequestContext,

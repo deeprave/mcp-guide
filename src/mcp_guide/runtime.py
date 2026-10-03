@@ -18,6 +18,7 @@ from mcp_guide.models import NoProjectError, Project
 from mcp_guide.utils.project_hash import calculate_project_hash
 
 if TYPE_CHECKING:
+    from mcp_guide.auth import AuthService, UserAuthorisation
     from mcp_guide.configuration import ConfigManager
     from mcp_guide.feature_flags.feature_flags import FeatureFlags
     from mcp_guide.session import Session
@@ -85,6 +86,7 @@ class GuideRuntime(Generic[SessionT]):
         self._lifecycle_lock = asyncio.Lock()
         self._started = False
         self._no_project_instruction: str | None = None
+        self.auth_service: AuthService | None = None
 
     @property
     def started(self) -> bool:
@@ -537,12 +539,15 @@ class GuideRuntime(Generic[SessionT]):
         seq: int,
     ) -> "RequestContext":
         """Build the only public RequestContext for a resolved Session."""
+        from mcp_guide.auth import current_user_authorisation
+
         resolver = await get_runtime().get_docroot_resolver()
         return RequestContext(
             session_id=session_id,
             session=session,
             seq=seq,
             document_path_resolver=resolver,
+            authorisation=current_user_authorisation(),
         )
 
 
@@ -612,6 +617,7 @@ class RequestContext:
     session: "Session"
     seq: int
     document_path_resolver: Callable[[str | Path], Path]
+    authorisation: "UserAuthorisation | None" = None
 
     def __post_init__(self) -> None:
         """Reject unsafe session identifiers before they become runtime keys."""

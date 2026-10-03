@@ -3,14 +3,52 @@
 import asyncio
 import errno
 from collections.abc import Callable
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
+from mcp_guide.auth import AuthEvidence, bind_user_authorisation
 from mcp_guide.content_limits import ContentLimits
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.transports import MissingDependencyError
 from mcp_guide.transports.rate_limit import HttpRateLimitMiddleware
 
+if TYPE_CHECKING:
+    from mcp_guide.auth import AuthService
+
 logger = get_logger(__name__)
+
+
+class _AuthenticationMiddleware:
+    """Pass request evidence to the provider and retain only its opaque result."""
+
+    def __init__(self, application: Callable[..., Any], auth_service: "AuthService") -> None:
+        self.application = application
+        self.auth_service = auth_service
+
+    async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.application(scope, receive, send)
+            return
+
+        evidence = AuthEvidence(
+            headers=tuple(scope.get("headers", ())),
+            method=scope.get("method", ""),
+            path=scope.get("path", ""),
+        )
+        try:
+            authorisation = await self.auth_service.authenticate(evidence)
+        except Exception:
+            logger.error("Authentication provider failed while validating a request")
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 503,
+                    "headers": [(b"content-type", b"application/json")],
+                }
+            )
+            await send({"type": "http.response.body", "body": b'{"error":"Authentication unavailable"}'})
+            return
+        with bind_user_authorisation(authorisation):
+            await self.application(scope, receive, send)
 
 
 class HttpTransport:
@@ -28,6 +66,7 @@ class HttpTransport:
         log_level: str = "INFO",
         log_json: bool = False,
         content_limits: ContentLimits | None = None,
+        auth_service: "AuthService | None" = None,
     ):
         """Initialize HTTP transport.
 
@@ -53,6 +92,7 @@ class HttpTransport:
         self.log_level = log_level
         self.log_json = log_json
         self.content_limits = content_limits or ContentLimits.from_config({})
+        self.auth_service = auth_service
         self.server: Optional[Any] = None
         self.server_task: Optional[asyncio.Task[None]] = None
 
@@ -78,6 +118,8 @@ class HttpTransport:
             ) from e
 
         try:
+            if self.auth_service is not None:
+                await self.auth_service.start()
             if self.path_prefix:
                 endpoint_path = f"/{self.path_prefix.strip('/')}"
                 if not endpoint_path.endswith("/mcp"):
@@ -91,10 +133,13 @@ class HttpTransport:
                 transport="streamable-http",
                 path=endpoint_path,
             )
+            session_is_established = _http_session_is_established(app)
+            if self.auth_service is not None:
+                app = _AuthenticationMiddleware(app, self.auth_service)
             app = HttpRateLimitMiddleware(
                 app,
                 self.content_limits,
-                session_is_established=_http_session_is_established(app),
+                session_is_established=session_is_established,
             )
 
             # Configure uvicorn
@@ -138,6 +183,9 @@ class HttpTransport:
             logger.info("HTTP transport stopped")
         except Exception as e:
             logger.warning(f"Error during HTTP server shutdown: {e}")
+        finally:
+            if self.auth_service is not None:
+                await self.auth_service.stop()
 
     async def send(self, message: Any) -> None:
         """Send a message through HTTP.

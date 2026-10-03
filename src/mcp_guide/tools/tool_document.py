@@ -4,6 +4,7 @@ from typing import Any
 
 from pydantic import Field
 
+from mcp_guide.auth import AuthScope
 from mcp_guide.core.arguments import Arguments as ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.result import Result
@@ -37,7 +38,7 @@ async def internal_document_remove(
     )
 
 
-@toolfunc(DocumentRemoveArgs)
+@toolfunc(DocumentRemoveArgs, auth_scope=AuthScope.USER)
 async def document_remove(args: DocumentRemoveArgs, request_context: RequestContext) -> ToolResult:
     """Remove a document from the store by category and name."""
     result = await internal_document_remove(args, request_context)
