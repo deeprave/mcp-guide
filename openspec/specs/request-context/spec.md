@@ -139,3 +139,34 @@ verified shared stdio paths MAY use ordinary server filesystem resolution.
 - **WHEN** sharing becomes verified after a root was already bound lexically
 - **THEN** that existing binding and its configuration identity SHALL remain unchanged
 - **AND** subsequent root selections SHALL use the verified resolution policy
+
+### Requirement: Credential-free authorisation context
+For a provider-backed remote request, the application request context SHALL
+retain only the opaque `UserAuthorisation` state for the current request. It
+SHALL NOT expose raw credentials, bearer tokens, authentication headers,
+provider configuration, provider objects, principals, or transport-specific
+request objects. The scope names are limited to Guide's access boundary and do
+not expose provider claims.
+Stdio request context SHALL remain trusted for authorisation purposes without
+requiring provider identity.
+
+#### Scenario: Provider authorises an HTTP request
+- **GIVEN** an authentication provider is selected for the remote request
+- **WHEN** a selected provider validates a caller before a protected operation
+  dispatches
+- **THEN** the request context SHALL retain only `UserAuthorisation` needed for
+  the request
+- **AND** it SHALL not expose the provider's request evidence or claims
+
+#### Scenario: Provider is not selected
+- **GIVEN** no authentication provider is selected for the remote request
+- **WHEN** a remote request enters the application boundary without a selected
+  provider
+- **THEN** the request context SHALL provide no provider authorisation state
+- **AND** the operation SHALL retain its existing access behaviour
+
+#### Scenario: Stdio request enters the application boundary
+- **GIVEN** the MCP transport is stdio
+- **WHEN** a stdio MCP request enters the application boundary
+- **THEN** its request context SHALL recognise the trusted stdio transport
+- **AND** it SHALL not construct or require a provider identity
