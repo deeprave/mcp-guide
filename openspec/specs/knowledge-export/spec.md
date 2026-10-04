@@ -60,8 +60,9 @@ format.
 ### Requirement: Client-owned export destination
 
 `export_content` SHALL treat its requested destination as client-owned output
-information. Guide SHALL return the supplied destination for the client to use,
-but SHALL not resolve a default destination, select an agent-specific knowledge
+information. Guide SHALL canonicalise backslash separators to forward slashes
+and use that same destination for validation and client delivery, without
+inferring the client platform from the server. It SHALL not resolve a default destination, select an agent-specific knowledge
 directory, or claim that it created or controls the file. Before returning an
 export hand-off, Guide SHALL require the supplied destination to be covered by
 the project's configured `allowed_write_paths`. It SHALL reject an uncovered
@@ -74,6 +75,8 @@ lexically equivalent roots, Windows drive roots or UNC share roots. Export
 destinations SHALL NOT contain ASCII control characters (U+0000–U+001F and
 U+007F) or backticks. Destination validation failures SHALL return a fixed
 security error without reproducing the rejected destination in the response.
+Export commands, including aliases through prompt and resource routes, SHALL
+apply the same unsafe-character rejection before rendering agent-facing guidance.
 
 #### Scenario: A filesystem root is requested as a write entry
 - **WHEN** project configuration or a permission addition supplies a filesystem-root write entry or its lexical equivalent
@@ -86,8 +89,17 @@ security error without reproducing the rejected destination in the response.
 
 #### Scenario: Client selects an export destination
 - **WHEN** a client supplies an export destination
-- **THEN** Guide returns that destination with the export payload
+- **THEN** Guide returns that destination with backslashes canonicalised to forward slashes with the export payload
 - **AND** the client remains responsible for deciding whether and how to write or index the payload
+
+#### Scenario: Export command destination contains instruction-breaking characters
+- **WHEN** a prompt or resource invokes an export command or alias with ASCII controls or backticks in its destination
+- **THEN** Guide returns a fixed security failure before rendering the command guidance
+- **AND** the failure does not reproduce the rejected destination
+
+#### Scenario: Export destination uses backslash separators
+- **WHEN** an export destination uses backslash separators and its forward-slash form is covered by configured write paths
+- **THEN** Guide validates that forward-slash form and uses the same form in the client write instruction
 
 #### Scenario: Destination is outside configured write paths
 - **WHEN** the requested export destination is not covered by a configured write-path entry

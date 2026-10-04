@@ -54,9 +54,18 @@ class TestStatelessExport:
         assert "path-export" not in registered_flag_names()
 
     @pytest.mark.parametrize(
-        "path", ["exports/report.md", "single", "exports/no-extension", "exports\\report.md", "exports/my report-é.md"]
+        "path,destination",
+        [
+            ("exports/report.md", "exports/report.md"),
+            ("single", "single"),
+            ("exports/no-extension", "exports/no-extension"),
+            ("exports\\report.md", "exports/report.md"),
+            ("exports/my report-é.md", "exports/my report-é.md"),
+        ],
     )
-    async def test_permitted_export_preserves_configuration_and_destination(self, runtime, export_session, path):
+    async def test_permitted_export_preserves_configuration_and_destination(
+        self, runtime, export_session, path, destination
+    ):
         config = runtime.configuration_service().config_file
         before = config.read_bytes()
         project = await export_session.get_project()
@@ -67,7 +76,7 @@ class TestStatelessExport:
         )
         assert payload["success"] is True
         assert "Current server content" in payload["value"]
-        assert f"`{path}`" in payload["instruction"]
+        assert f"`{destination}`" in payload["instruction"]
         assert config.read_bytes() == before
         assert await export_session.get_project() == project
 

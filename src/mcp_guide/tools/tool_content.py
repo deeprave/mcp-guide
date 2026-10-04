@@ -22,7 +22,7 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.discovery.files import FileInfo
-from mcp_guide.filesystem.read_write_security import SecurityError
+from mcp_guide.filesystem.read_write_security import SecurityError, normalise_export_destination
 from mcp_guide.models import (
     CategoryNotFoundError,
     CollectionNotFoundError,
@@ -240,12 +240,10 @@ class ExportContentArgs(ToolArguments):
     )
 
 
-def _validate_export_path(path: str, allowed_write_paths: list[str]) -> None:
+def _validate_export_path(path: str, allowed_write_paths: list[str]) -> str:
     """Check the client's destination lexically against configured write entries."""
     denial = "Export destination is invalid or outside configured write paths"
-    if any(ord(character) < 32 or ord(character) == 127 or character == "`" for character in path):
-        raise SecurityError(denial)
-    normalised = path.replace("\\", "/")
+    normalised = normalise_export_destination(path)
     destination = PurePosixPath(normalised)
     if not normalised or normalised.endswith("/") or destination.name in ("", ".") or ".." in destination.parts:
         raise SecurityError(denial)
@@ -256,9 +254,9 @@ def _validate_export_path(path: str, allowed_write_paths: list[str]) -> None:
             continue
         if entry.endswith("/"):
             if destination != permitted and destination.is_relative_to(permitted):
-                return
+                return normalised
         elif destination == permitted:
-            return
+            return normalised
     raise SecurityError(denial)
 
 
@@ -305,7 +303,7 @@ async def export_content(
             "export_content", await make_no_project_result(), session=session, session_id=args.session_id
         )
     try:
-        _validate_export_path(args.path, project.allowed_write_paths)
+        destination = _validate_export_path(args.path, project.allowed_write_paths)
     except SecurityError as error:
         return await tool_result(
             "export_content",
@@ -324,7 +322,7 @@ async def export_content(
     exported_value = prepend_export_frontmatter(result.value, result.disposition, result.instruction)
     return await tool_result(
         "export_content",
-        Result.ok(exported_value, instruction=_build_export_write_instruction(args.path, args.force)),
+        Result.ok(exported_value, instruction=_build_export_write_instruction(destination, args.force)),
         session=session,
         session_id=args.session_id,
     )

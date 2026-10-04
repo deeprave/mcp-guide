@@ -33,6 +33,7 @@ from mcp_guide.discovery.commands import CommandAliasMetadata, discover_commands
 from mcp_guide.discovery.files import FileInfo, discover_document_files
 from mcp_guide.elicitation import resolve_elicitations
 from mcp_guide.feature_flags.types import FeatureValue
+from mcp_guide.filesystem.read_write_security import SecurityError, normalise_export_destination
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render import render_template
@@ -449,6 +450,12 @@ async def _execute_command(
             return result
 
     kwargs = _merge_alias_kwargs(default_kwargs=alias_implied_kwargs, override_kwargs=kwargs)
+
+    if file_info.path.with_suffix("") == commands_dir / "export/add" and len(args) > 1:
+        try:
+            args = [args[0], normalise_export_destination(args[1]), *args[2:]]
+        except SecurityError as error:
+            return Result.failure(str(error), error_type=ERROR_SECURITY, disposition=AGENT_ERROR)
 
     requirements_context: dict[str, FeatureValue] = await resolve_all_flags(session)
     base_context = await get_template_contexts(session)

@@ -183,8 +183,9 @@ export_content(expression="api-guide", path=".todo/api.md", force=True)
 **Arguments:**
 
 - `expression` - Content expression (category, collection, or pattern)
-- `path` - Required client destination, used exactly as supplied; no default
-  directory or extension is added
+- `path` - Required client destination; backslashes are converted to forward
+  slashes for both validation and delivery. No default directory or extension
+  is added
 - `pattern` - Optional glob pattern to filter files
 - `force` - Instruct the client to overwrite an existing file; otherwise create
   only and report an existing destination without overwriting it
@@ -196,8 +197,10 @@ configured write-directory entry. Guide rejects uncovered destinations,
 including otherwise permitted temporary paths, without adding permissions.
 Filesystem roots (including equivalent spellings, drive roots and UNC share
 roots) cannot be configured as write entries. Export destinations containing
-ASCII controls or backticks are rejected with a fixed error that does not echo
-the destination. Path traversal is rejected. Permission changes are separate administrative
+ASCII controls or backticks are rejected before command guidance is rendered or
+the tool returns content, with a fixed error that does not echo the destination.
+The write instruction uses the same forward-slash destination that passed the
+permission check. Path traversal is rejected. Permission changes are separate administrative
 operations when authentication is active; admin access does not bypass this
 export check. Guide checks the configured paths lexically, not against the
 server's filesystem. The client remains responsible for performing the write.
