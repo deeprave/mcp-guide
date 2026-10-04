@@ -68,7 +68,6 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 | `content-style` | Controls markdown formatting in template output. `plain` = strips all formatting, `headings` = renders heading markers only, `full` = renders all markdown. | `string` | `plain` |
 | `content-format` | Controls content MIME type. `text` = plain text, `mime` = MIME multipart format. | `string` | `text` |
 | `path-documents` | Directory path for workflow tracking documents (plans, checklists, summaries). Supports both relative (`.todo/`) and absolute (`~/.goose/projects/knowledge/`) paths. Auto-added to `allowed_write_paths`. | `string` | `.todo/` |
-| `path-export` | Directory path for exported knowledge content. Agent-specific defaults: Goose uses `~/.goose/projects/{project-hash}/knowledge/`, others use `.kiro/knowledge/`. Auto-added to `allowed_write_paths`. | `string` | (agent-specific) |
 | `allow-client-info` | Enables collection of client environment information (OS, hostname, user, git remotes). Privacy-sensitive. | `boolean` | `false` |
 | `autoupdate` | Enables automatic update prompting at startup when new documentation versions are available. Prompts agent to run the `update_documents` tool. Global only (cannot be set per-project). | `boolean` | `false` |
 | `mcp-skills` | Enables the experimental `io.uniquode/mcp-guide-skills` MCP extension for Guide skills. Global only; it is read at startup, so restart Guide after changing it. Negotiated modern clients can query their session's skill list and receive list-change notifications; the ordinary Guide catalogue remains available independently. | `boolean` | `false` |
@@ -83,7 +82,7 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 - `workflow-consent` set to `true` applies default consent: implementation requires entry consent, review requires exit consent
 - `workflow-consent` can be a dict for custom consent: `{"planning": ["entry"], "implementation": ["entry", "exit"]}`
 - `openspec` is project-only; set it with `guide://_flags/project/set/openspec/true`
-- `path-documents` and `path-export` accept both relative paths (`.todo/`) and absolute paths (`/tmp/knowledge/`, `~/.goose/knowledge/`)
+- `path-documents` accepts both relative paths (`.todo/`) and absolute paths (`/tmp/workflow/`, `~/workflow/`)
 - Path flags automatically add trailing slash if missing and normalize backslashes to forward slashes
 - Path flags are validated for security: path traversal (`../`, `..\\`) is blocked
 - For absolute paths, system directories (`/etc`, `/sys`, `/proc`) are blocked

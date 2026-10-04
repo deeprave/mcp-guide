@@ -435,7 +435,6 @@ async def internal_clone_project(args: CloneProjectArgs, request_context: Reques
         merged_cats, cats_added, cats_overwritten = _merge_categories(source_project, target_project)
         merged_colls, colls_added, colls_overwritten = _merge_collections(source_project, target_project)
         merged_flags = {**target_project.project_flags, **source_project.project_flags}
-        merged_exports = {**target_project.exports, **source_project.exports}
     else:
         # Replace: copy source entirely
         merged_cats = dict(source_project.categories)
@@ -445,7 +444,6 @@ async def internal_clone_project(args: CloneProjectArgs, request_context: Reques
         colls_added = len(merged_colls)
         colls_overwritten = 0
         merged_flags = dict(source_project.project_flags)
-        merged_exports = dict(source_project.exports)
 
     # Create updated project and save
     # Preserve destination identity while copying every transferable setting.
@@ -457,7 +455,6 @@ async def internal_clone_project(args: CloneProjectArgs, request_context: Reques
         project_flags=merged_flags,
         allowed_write_paths=list(source_project.allowed_write_paths),
         additional_read_paths=list(source_project.additional_read_paths),
-        exports=merged_exports,
     )
 
     try:
@@ -487,7 +484,7 @@ async def internal_clone_project(args: CloneProjectArgs, request_context: Reques
 async def clone_project(args: CloneProjectArgs, request_context: RequestContext) -> ToolResult:
     """Copy transferable configuration into the currently bound project.
 
-    Categories, collections, project flags, exports, allowed-write paths, and
+    Categories, collections, project flags, allowed-write paths, and
     additional-read paths transfer while the destination identity is preserved.
     In merge mode source mappings win and source path lists replace destination
     lists; replace mode copies all transferable configuration from the source.

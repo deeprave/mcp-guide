@@ -377,20 +377,12 @@ class TemplateContextCache(SessionListener):
         # Resolve path flags for template context with validation
         path_config = {
             "documents": ".todo/",  # Default
-            "export": ".knowledge/",  # Default
         }
         try:
             if session:
-                from mcp_guide.feature_flags.constants import FLAG_PATH_EXPORT
-                from mcp_guide.feature_flags.utils import get_resolved_flag_value, resolve_documents_path
-                from mcp_guide.feature_flags.validators import validate_path_flag
+                from mcp_guide.feature_flags.utils import resolve_documents_path
 
                 path_config["documents"] = await resolve_documents_path(session)
-                export_path = await get_resolved_flag_value(session, FLAG_PATH_EXPORT)
-                if export_path is not None:
-                    raw_export_path = to_raw_feature_value(export_path)
-                    if isinstance(raw_export_path, str) and validate_path_flag(raw_export_path, True):
-                        path_config["export"] = raw_export_path
         except Exception as e:
             logger.debug(f"Failed to resolve path flags: {e}")
 
@@ -536,7 +528,7 @@ class TemplateContextCache(SessionListener):
                 "project_flag_values": project_flag_values,
             },
             "client_working_dir": client_working_dir,
-            "path": path_config,  # Path flags (documents, export)
+            "path": path_config,  # Document path flags
             "flags": resolved_flags_dict,  # Resolved flags (project + global with overrides)
             "flag_values": resolved_flags_list,  # List format for iteration
             "feature_flags": global_flags_dict,  # Global flags only (dict format)

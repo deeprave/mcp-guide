@@ -2,7 +2,7 @@
 
 import pytest
 
-from mcp_guide.feature_flags.constants import FLAG_PATH_DOCUMENTS, FLAG_PATH_EXPORT
+from mcp_guide.feature_flags.constants import FLAG_PATH_DOCUMENTS
 from mcp_guide.feature_flags.validators import (
     FlagValidationError,
     normalise_flag,
@@ -17,7 +17,6 @@ from mcp_guide.feature_flags.validators import (
 def _ensure_path_flags_registered(reset_flag_registry):
     """Ensure path flag validators are registered (other tests may clear them)."""
     register_flag_validator(FLAG_PATH_DOCUMENTS, validate_path_flag, normaliser=normalise_path_flag)
-    register_flag_validator(FLAG_PATH_EXPORT, validate_path_flag, normaliser=normalise_path_flag)
 
 
 class TestValidatePathFlag:
@@ -77,7 +76,6 @@ class TestNormaliseFlag:
         "flag,input_val,expected",
         [
             (FLAG_PATH_DOCUMENTS, ".todo", ".todo/"),
-            (FLAG_PATH_EXPORT, ".knowledge", ".knowledge/"),
             ("unknown-flag", "value", "value"),
         ],
     )
@@ -90,7 +88,6 @@ class TestPathFlagRegistration:
         "flag,value",
         [
             (FLAG_PATH_DOCUMENTS, ".todo/"),
-            (FLAG_PATH_EXPORT, ".knowledge/"),
         ],
     )
     def test_valid(self, flag, value):
@@ -100,7 +97,7 @@ class TestPathFlagRegistration:
         "flag,value",
         [
             (FLAG_PATH_DOCUMENTS, True),
-            (FLAG_PATH_EXPORT, "../secret/"),
+            (FLAG_PATH_DOCUMENTS, "../secret/"),
         ],
     )
     def test_invalid(self, flag, value):

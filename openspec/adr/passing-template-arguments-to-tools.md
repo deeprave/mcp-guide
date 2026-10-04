@@ -1,6 +1,6 @@
 # ADR: Passing Template Arguments to Tools
 
-**Status:** Accepted
+**Status:** Superseded by `retire-export-metadata`
 **Date:** 2026-03-14
 
 ## Context
@@ -10,6 +10,10 @@ Command templates (`.mustache`) instruct agents to call tools with specific argu
 A naive approach would add specific boolean parameters (`formatted`, `verbose`, `table`) to each tool. This creates tight coupling between tool signatures and display concerns, and requires tool changes for every new display option.
 
 ## Decision
+
+The examples below document the former generic convention, not an exposed tool
+API. The export-list consumer and its otherwise unused `parse_options` helper
+were retired by `retire-export-metadata`. No public tool uses this convention.
 
 Tools that render formatted output accept an `options` parameter of type `list[str]`. Each entry is either:
 
@@ -38,7 +42,7 @@ Templates use standard Mustache conditionals:
 
 ```mustache
 {{#verbose}}
-  - Exported: {{exported_at}}
+  - Directory: {{dir}}
 {{/verbose}}
 {{#limit}}
   Showing first {{limit}} results
@@ -54,14 +58,14 @@ Templates use standard Mustache conditionals:
 ### Command template usage
 
 ```mustache
-{{tool_prefix}}list_exports(
+{{tool_prefix}}example_display_tool(
     options=["formatted", "verbose"])
 ```
 
 Or with key=value:
 
 ```mustache
-{{tool_prefix}}list_exports(
+{{tool_prefix}}example_display_tool(
     options=["formatted", "limit=10"])
 ```
 

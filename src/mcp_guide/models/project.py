@@ -1,7 +1,9 @@
 """Core project models."""
 
+import ntpath
 import os
 from dataclasses import field, replace
+from pathlib import PureWindowsPath
 from typing import Optional
 
 from pydantic import ConfigDict, field_validator
@@ -10,23 +12,6 @@ from pydantic.dataclasses import dataclass as pydantic_dataclass
 from mcp_guide.core.validation import validate_content_name, validate_directory_path
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models.constants import _NAME_REGEX, DEFAULT_ALLOWED_WRITE_PATHS
-
-
-@pydantic_dataclass(frozen=True)
-class ExportedTo:
-    """Export tracking entry.
-
-    Attributes:
-        path: Export destination path
-        metadata_hash: CRC32 hash of file metadata as "{docroot_relative_path}:{mtime}" entries joined by "|"
-        exported_at: Unix timestamp when the export was performed
-    """
-
-    model_config = ConfigDict(extra="ignore")
-
-    path: str
-    metadata_hash: str
-    exported_at: float = 0.0
 
 
 @pydantic_dataclass(frozen=True)
@@ -108,7 +93,6 @@ class Project:
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)
     allowed_write_paths: list[str] = field(default_factory=lambda: DEFAULT_ALLOWED_WRITE_PATHS.copy())
     additional_read_paths: list[str] = field(default_factory=list)
-    exports: dict[tuple[str, Optional[str]], ExportedTo] = field(default_factory=dict)
 
     @field_validator("name")
     @classmethod
@@ -138,18 +122,25 @@ class Project:
     @field_validator("allowed_write_paths")
     @classmethod
     def validate_allowed_write_paths(cls, v: list[str]) -> list[str]:
-        """Validate allowed write paths (relative or absolute). Block system directories for absolute paths."""
+        """Validate write entries, rejecting filesystem roots and protected directories."""
         from mcp_guide.filesystem.system_directories import is_system_directory
 
         for path in v:
             if not path:
                 raise ValueError("Allowed write path cannot be empty")
 
-            # Normalize separators
-            normalized = path.replace("\\", "/")
+            # Detect client filesystem roots lexically, regardless of the server platform.
+            normalised = path.replace("\\", "/")
+            prefix = "//" if normalised.startswith("//") else "/" if normalised.startswith("/") else ""
+            root_spelling = prefix + "/".join(part for part in normalised.split("/") if part)
+            if root_spelling.lower().startswith(("//./unc/", "//?/unc/")):
+                root_spelling = "//" + root_spelling[8:]
+            root_check = PureWindowsPath(ntpath.normpath(root_spelling))
+            if root_check.anchor and str(root_check) == root_check.anchor:
+                raise ValueError("Filesystem root is not allowed in write paths")
 
             # For absolute paths, block system directories
-            if os.path.isabs(path) and is_system_directory(normalized):
+            if os.path.isabs(path) and is_system_directory(normalised):
                 raise ValueError(f"System directory not allowed: {path}")
 
             # For relative paths, use existing validation
@@ -238,36 +229,3 @@ class Project:
         """Return new Project with collection removed."""
         new_collections = {k: v for k, v in self.collections.items() if k != name}
         return replace(self, collections=new_collections)
-
-    def get_export_entry(self, expression: str, pattern: Optional[str]) -> Optional[ExportedTo]:
-        """Get export tracking entry.
-
-        Args:
-            expression: Category or collection expression
-            pattern: Optional file pattern
-
-        Returns:
-            ExportedTo entry if found, None otherwise
-        """
-        return self.exports.get((expression, pattern))
-
-    def upsert_export_entry(
-        self, expression: str, pattern: Optional[str], path: str, metadata_hash: str, exported_at: float = 0.0
-    ) -> "Project":
-        """Add or update export tracking entry.
-
-        Args:
-            expression: Category or collection expression
-            pattern: Optional file pattern
-            path: Export destination path
-            metadata_hash: CRC32 hash of file metadata
-            exported_at: Unix timestamp when the export was performed
-
-        Returns:
-            New Project with updated exports
-        """
-        new_exports = {
-            **self.exports,
-            (expression, pattern): ExportedTo(path=path, metadata_hash=metadata_hash, exported_at=exported_at),
-        }
-        return replace(self, exports=new_exports)

@@ -142,6 +142,37 @@ class TestProject:
 class TestAllowedPaths:
     """Tests for Project.allowed_paths field."""
 
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/",
+            "//",
+            "///",
+            "/./",
+            "/client/../",
+            "\\",
+            "C:/",
+            "C:\\",
+            "C:/./",
+            "C:/client/../",
+            "//server/share/",
+            "\\\\server\\share\\",
+            "//server/share/client/../",
+            "\\\\?\\C:\\",
+            "\\\\?\\UNC\\server\\share\\",
+            "\\\\.\\C:\\",
+            "//./UNC/server/share/",
+            "//./UnC/server/share/",
+            "//server//share/",
+            "//server///share/",
+            "//?/UNC/server//share/",
+            "//?/UNC//server/share/",
+        ],
+    )
+    def test_filesystem_roots_cannot_be_configured_for_writing(self, path):
+        with pytest.raises(ValidationError, match="Filesystem root"):
+            Project(name="test", allowed_write_paths=[path])
+
     def test_project_has_default_allowed_paths(self):
         """Project should have default allowed_write_paths when created."""
         from mcp_guide.models import DEFAULT_ALLOWED_WRITE_PATHS

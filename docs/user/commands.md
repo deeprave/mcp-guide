@@ -278,22 +278,25 @@ Removes a stored document from a category.
 
 ## Export Commands
 
-Export commands manage tracked content exports — rendered content saved to files for knowledge persistence. See [Content Management](content-management.md) for how exports work.
+The export command delivers rendered content for a client-owned file write.
+See [Content Management](content-management.md) for destination policy and
+content handling.
 
 **`guide://_export/add`** _`<expression> <path>`_
-Exports rendered content to a file and tracks it.
+Returns content and instructions to write it to the supplied destination,
+which must be covered by configured `allowed_write_paths`. It does not track
+exports or add permissions. The `export` alias remains available.
 
-**Examples:**
+**Examples** (with `.todo/` configured as a write directory):
+
 ```
-guide://_export/add/docs/documentation.md
-guide://_export/add/architecture/arch.md?force
+guide://_export/add/docs/.todo%2Fdocumentation.md
+guide://_export/add/architecture/.todo%2Farch.md?force
 ```
 
-**`guide://_export/list`**
-Lists all tracked exports with their expression, path, and staleness status.
-
-**`guide://_export/remove`** _`<expression>`_
-Removes an export tracking entry (does not delete the exported file).
+`force` requests client-side overwrite; otherwise the write is create-only.
+Listing and removing tracked exports are no longer supported. Manage the
+resulting files with the client's own filesystem tools.
 
 ## Filesystem Permissions
 

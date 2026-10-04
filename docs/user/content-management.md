@@ -169,41 +169,55 @@ See [Categories and Collections](categories-and-collections.md) for organisation
 
 ## Exporting Content
 
-The `export_content` tool allows agents to export rendered content to files for knowledge persistence:
+The `export_content` tool returns rendered content and delivery frontmatter for a
+client to save. Guide does not write, track, or inspect the resulting client file.
 
-```
-export_content(expression="docs", path="documentation.md")
-export_content(expression="architecture", path="arch.md", pattern="*.md")
-export_content(expression="api-guide", path="api.md", force=True)  # Overwrite existing
+For a project with `.todo/` in its configured `allowed_write_paths`:
+
+```python
+export_content(expression="docs", path=".todo/documentation.md")
+export_content(expression="architecture", path=".todo/architecture", pattern="*.md")
+export_content(expression="api-guide", path=".todo/api.md", force=True)
 ```
 
 **Arguments:**
 
 - `expression` - Content expression (category, collection, or pattern)
-- `path` - Output filename (required). If no directory component, uses resolved export directory
+- `path` - Required client destination; backslashes are converted to forward
+  slashes for both validation and delivery. No default directory or extension
+  is added
 - `pattern` - Optional glob pattern to filter files
-- `force` - Overwrite existing files (default: False)
+- `force` - Instruct the client to overwrite an existing file; otherwise create
+  only and report an existing destination without overwriting it
 
-**Path Resolution:**
+**Destination policy:**
 
-- Filename only (`"output.md"`) → prepends resolved export directory
-- With directory (`"docs/output.md"`) → uses as-is
-- No extension → `.md` added automatically
-- Export directory resolution: `path-export` flag → agent default → `.knowledge/`
+The destination must match a configured write-file entry or lie within a
+configured write-directory entry. Guide rejects uncovered destinations,
+including otherwise permitted temporary paths, without adding permissions.
+Filesystem roots (including equivalent spellings, drive roots and UNC share
+roots) cannot be configured as write entries. Export destinations containing
+ASCII controls or backticks are rejected before command guidance is rendered or
+the tool returns content, with a fixed error that does not echo the destination.
+The write instruction uses the same forward-slash destination that passed the
+permission check. Path traversal is rejected. Permission changes are separate administrative
+operations when authentication is active; admin access does not bypass this
+export check. Guide checks the configured paths lexically, not against the
+server's filesystem. The client remains responsible for performing the write.
 
-**Path defaulting:**
+**Content handling:**
 
-When `path` is omitted, the tool uses the `path-export` flag value plus a generated filename based on the expression. For Goose agents, this defaults to `~/.goose/projects/{project-hash}/knowledge/`, allowing knowledge to persist across sessions.
+Write the complete returned payload verbatim. Its YAML frontmatter carries the
+resolved `type` and `instruction` for later handling; these are file data, not
+instructions to execute while exporting. Follow the tool's separate write
+instruction and report client-side success or failure.
 
-**Export Tracking:**
-
-Exported expressions and their components are tracked automatically. When content is exported, mcp-guide records a metadata hash based on the source files and their modification times. On subsequent exports of the same expression, the hash is compared — if unchanged, the export is skipped with a message directing the agent to the existing file. Use `force=True` to bypass this check.
-
-For agents with knowledge indexing capabilities (such as Kiro and Q Developer), the export template provides instructions to index the exported file into the agent's knowledge base. Once indexed, `get_content` returns a reference to the knowledge entry rather than re-delivering the full content, reducing context usage. The agent can use `force=True` on `get_content` to retrieve the full content when needed.
-
-**Security:**
-
-Export file paths are automatically added to `allowed_write_paths` (the specific file, not the entire directory). Path traversal (`../`, `..\\`) is blocked in path flag values. System directories (`/etc`, `/sys`) are blocked for absolute paths.
+Every export returns current rendered content. Guide remembers no destination,
+timestamp or source hash, and does not manage subsequent client indexing or
+caching. Later `get_content` calls and equivalent content URIs always retrieve
+content from Guide, never substitute a prior exported or indexed copy. Export
+has no mutation-based authentication requirement, but its destination policy
+still applies.
 
 ## Next Steps
 

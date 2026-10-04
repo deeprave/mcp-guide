@@ -9,7 +9,6 @@ from mcp_guide.feature_flags.resolution import resolve_flag
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import registered_flag_names
 from mcp_guide.models import Category, Project
-from mcp_guide.models.project import ExportedTo
 from mcp_guide.utils.project_hash import generate_project_key
 
 
@@ -160,13 +159,7 @@ def project_from_snapshot(project: Mapping[str, Any] | None, identity: ProjectId
     categories = values.get("categories")
     if isinstance(categories, dict):
         values["categories"] = {name: Category(**{**category, "name": name}) for name, category in categories.items()}
-    exports = values.get("exports")
-    if isinstance(exports, dict):
-        values["exports"] = {
-            (expression, pattern or None): ExportedTo(**exported)
-            for key, exported in exports.items()
-            for expression, _, pattern in (key.partition(":"),)
-        }
+    values.pop("exports", None)
     return Project(**values)
 
 

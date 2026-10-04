@@ -18,6 +18,13 @@ class SecurityError(Exception):
     pass
 
 
+def normalise_export_destination(path: str) -> str:
+    """Reject instruction-breaking characters and use portable path separators."""
+    if any(ord(character) < 32 or ord(character) == 127 or character == "`" for character in path):
+        raise SecurityError("Export destination is invalid or outside configured write paths")
+    return path.replace("\\", "/")
+
+
 class ReadWriteSecurityPolicy:
     """Security policy with separate read and write permissions."""
 

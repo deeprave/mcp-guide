@@ -536,7 +536,6 @@ async def internal_read_resource(
     content_args = ContentArgs(
         expression=parsed.expression,
         pattern=parsed.pattern,
-        force=False,
         session_id=request_context.session_id,
     )
     return await internal_get_content(content_args, request_context)

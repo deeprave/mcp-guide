@@ -51,11 +51,17 @@ async def test_session(base_test_session):
         ("read", "/home/user/data", True),
         ("write", "/etc/", False),
         ("write", "/sys/kernel/", False),
+        ("write", "/", False),
+        ("write", "/./", False),
+        ("write", "/client/../", False),
+        ("write", "C:/", False),
+        ("write", "//server/share/", False),
         ("read", "relative/path", False),
     ],
 )
-async def test_add_permission_path(permission_type, path, expected_success, test_session):
+async def test_add_permission_path(permission_type, path, expected_success, test_session, runtime):
     """Test adding permission paths with various inputs."""
+    before = runtime.configuration_service().config_file.read_bytes()
     args = AddPermissionPathArgs(permission_type=permission_type, path=path)
     result = await internal_add_permission_path(args, await request_context_for(test_session))
 
@@ -64,6 +70,7 @@ async def test_add_permission_path(permission_type, path, expected_success, test
         assert "Added" in result.value or "already" in result.value
     else:
         assert not result.success, f"Expected failure for {permission_type}:{path}"
+        assert runtime.configuration_service().config_file.read_bytes() == before
 
 
 @pytest.mark.anyio

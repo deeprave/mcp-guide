@@ -52,7 +52,7 @@ Feature flags that register a custom validator or normaliser SHALL continue to
 use their registered behavior instead of the default boolean-or-string path.
 
 #### Scenario: Registered path flag keeps custom normalization
-- **WHEN** `path-export` is set to `"docs"`
+- **WHEN** `path-documents` is set to `"docs"`
 - **THEN** the registered path normaliser SHALL run
 - **AND** the stored value SHALL reflect the path-specific normalization rather
   than the default scalar-only path

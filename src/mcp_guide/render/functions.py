@@ -234,7 +234,7 @@ class TemplateFunctions:
         return render(body) if render and str(candidate) not in self._get_workflow_phases() else ""
 
     def time_ago(self, text: str, render: Callable[[str], str] | None = None) -> str:
-        """Format timestamp as relative time: {{#time_ago}}{{exported_at}}{{/time_ago}}"""
+        """Format timestamp as relative time: {{#time_ago}}{{timestamp}}{{/time_ago}}"""
         _, var_name = self._parse_template_args(text)
 
         value = self._resolve_path(var_name)

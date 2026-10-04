@@ -151,13 +151,11 @@ OpenSpec information, when enabled for the project:
 Path configuration from flags:
 
 - `{{path.documents}}` - Workflow documents directory (from `path-documents` flag, default `.todo/`)
-- `{{path.export}}` - Knowledge export directory (from `path-export` flag, agent-specific default)
 
 Use these in templates instead of hardcoding paths:
 
 ```markdown
 Implementation plan: {{path.documents}}plan.md
-Export knowledge: {{path.export}}architecture.md
 ```
 
 ### Feature Flags

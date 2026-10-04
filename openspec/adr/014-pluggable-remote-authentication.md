@@ -157,10 +157,12 @@ skipped, requires user access while authentication is active.
 The initial policy leaves `set_project`, `switch_project`, ordinary file
 callbacks, and `update_documents` available. It requires user access for
 project configuration and SQLite document ingestion, and admin access for
-cloning, project permission paths, and global configuration. While export
-operations persist project export metadata and write permissions, creating or
-removing that state requires user access. `retire-export-metadata` will make
-export a stateless client-side handoff and can remove that temporary protection.
+cloning, project permission paths, and global configuration. Export is a
+stateless client-side handoff with no mutation-based user-scope gate. Its
+supplied destination must still be covered by configured write paths, without
+automatic permission grants; admin access does not bypass that independent check.
+Guide neither writes nor tracks the client file. Later content requests always
+retrieve Guide-rendered content rather than reuse an exported copy.
 
 ## Consequences
 

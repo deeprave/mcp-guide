@@ -19,7 +19,6 @@ from mcp_guide.feature_flags.constants import (
     FLAG_OPENSPEC,
     FLAG_OPENSPEC_STATE,
     FLAG_PATH_DOCUMENTS,
-    FLAG_PATH_EXPORT,
     FLAG_RESOURCE,
 )
 from mcp_guide.feature_flags.types import FeatureValue, FeatureValueLike
@@ -483,7 +482,6 @@ register_flag_validator(
     normaliser=normalise_handoff_context_flag,
 )
 register_flag_validator(FLAG_PATH_DOCUMENTS, validate_path_flag, normaliser=normalise_path_flag)
-register_flag_validator(FLAG_PATH_EXPORT, validate_path_flag, normaliser=normalise_path_flag)
 register_flag_validator(
     FLAG_ONBOARDED, validate_boolean_flag, scope=FlagScope.PROJECT_ONLY, normaliser=normalise_boolean_flag
 )
