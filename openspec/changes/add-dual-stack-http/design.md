@@ -61,6 +61,12 @@ A two-listener fallback is not included. If the platform cannot provide the
 requested dual-stack listener, report startup failure instead of adding a
 second lifecycle or silently narrowing the endpoint.
 
+Bind failure messages identify the requested endpoint and retain the existing
+port-in-use hint. The CLI reports fatal transport startup errors concisely and
+exits non-zero without a traceback. Handle these errors at the startup call,
+not by suppressing exceptions from the subsequent serving task; retain the
+outer `finally` that always calls `stop()`.
+
 ### Keep ownership and protection in the existing transport
 
 The transport owns the listener from creation until shutdown. Close it on

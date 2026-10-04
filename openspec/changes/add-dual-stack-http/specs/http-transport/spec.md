@@ -22,6 +22,8 @@ rather than silently serve only one address family.
 - **GIVEN** dual-stack listening is unavailable or the requested bind fails
 - **WHEN** Guide starts with an explicit `[::]` endpoint
 - **THEN** startup SHALL report a clear failure
+- **AND** a bind failure SHALL identify the requested endpoint
+- **AND** the CLI SHALL exit non-zero with a concise startup error rather than a traceback
 - **AND** Guide SHALL NOT present an IPv4-only or IPv6-only fallback as successful startup
 
 ### Requirement: Preserve other bind semantics

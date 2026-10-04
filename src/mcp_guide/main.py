@@ -101,7 +101,13 @@ async def async_main(config: ServerConfig) -> None:
             content_limits,
             application.auth_service,
         )
-        await transport.start()
+        try:
+            await transport.start()
+        except DocrootError:
+            raise
+        except RuntimeError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
 
         # For HTTP/HTTPS transports, wait for the server to complete
         if hasattr(transport, "server_task"):

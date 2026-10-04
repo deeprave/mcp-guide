@@ -1,12 +1,34 @@
 """Dual-stack startup failures and cancellation release their actual bind."""
 
 import asyncio
+import errno
 import socket
 
 import pytest
 from fastmcp import FastMCP
 
 from mcp_guide.transports.http import HttpTransport
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("error_number", [errno.EACCES, errno.EAFNOSUPPORT])
+async def test_dual_stack_bind_failure_identifies_endpoint(error_number, monkeypatch):
+    monkeypatch.setattr(socket, "has_dualstack_ipv6", lambda: True)
+
+    def fail_bind(*args, **kwargs):
+        raise OSError(error_number, "Synthetic bind failure")
+
+    monkeypatch.setattr(socket, "create_server", fail_bind)
+    transport = HttpTransport("http", "::", 8080, FastMCP())
+    try:
+        with pytest.raises(RuntimeError) as error:
+            await transport.start()
+        assert "http://[::]:8080" in str(error.value)
+        assert "Synthetic bind failure" in str(error.value)
+        assert isinstance(error.value.__cause__, OSError)
+        assert transport.server_task is None
+    finally:
+        await transport.stop()
 
 
 @pytest.mark.anyio
