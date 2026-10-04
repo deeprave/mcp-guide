@@ -504,6 +504,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ipv4-and-ipv6-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IPv4 and IPv6 binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#optional-remote-authentication" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1432,6 +1443,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#ipv4-and-ipv6-binding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        IPv4 and IPv6 binding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#optional-remote-authentication" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1785,6 +1807,50 @@ proxy. HTTPS encrypts traffic; it does not authenticate callers.</p>
 To listen on another interface, supply its address explicitly in the transport
 URL. For example, <code>https://0.0.0.0:8443</code> listens on all IPv4 interfaces and
 requires the usual certificate options. No separate bind flag is needed.</p>
+<h4 id="ipv4-and-ipv6-binding">IPv4 and IPv6 binding<a class="headerlink" href="#ipv4-and-ipv6-binding" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Bind host</th>
+<th>Listening addresses</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Omitted, or <code>localhost</code></td>
+<td>Loopback addresses returned by local hostname resolution, normally IPv4 and IPv6</td>
+</tr>
+<tr>
+<td><code>0.0.0.0</code></td>
+<td>All IPv4 interfaces only</td>
+</tr>
+<tr>
+<td><code>[::]</code></td>
+<td>All IPv4 and IPv6 interfaces through one dual-stack listener</td>
+</tr>
+<tr>
+<td><code>[::1]</code></td>
+<td>IPv6 loopback only</td>
+</tr>
+<tr>
+<td>A hostname</td>
+<td>Its locally resolved bind addresses; not an all-interface wildcard</td>
+</tr>
+</tbody>
+</table>
+<p>Request dual-stack access explicitly, quoting bracketed URLs in shell commands:</p>
+<div class="codehilite"><pre><span></span><code>mcp-guide<span class="w"> </span><span class="s1">'http://[::]:8080'</span>
+mcp-guide<span class="w"> </span><span class="s1">'https://[::]:8443'</span><span class="w"> </span>--ssl-certfile<span class="w"> </span>cert.pem<span class="w"> </span>--ssl-keyfile<span class="w"> </span>key.pem
+</code></pre></div>
+
+<p>The MCP endpoint remains <code>/mcp</code> (or the configured path prefix). HTTPS uses the
+same certificate settings for both families. Dual-stack support must be available
+on the host; an unsupported or unsuccessful bind fails startup instead of
+falling back to IPv6-only or IPv4-only listening.</p>
+<p><strong>Breaking exposure change:</strong> <code>[::]</code> now accepts IPv4 as well as IPv6. Existing
+deployments relying on IPv6-only wildcard exposure must review their bind and
+network controls before upgrading. Use a specific IPv6 address for an
+address-specific listener. Localhost and explicit IPv4 defaults are unchanged.</p>
 <h4 id="optional-remote-authentication">Optional remote authentication<a class="headerlink" href="#optional-remote-authentication" title="Permanent link">&para;</a></h4>
 <p>Remote HTTP(S) deployments can protect selected operations with an installed
 provider:</p>
@@ -1843,6 +1909,10 @@ an access-control boundary.</p>
 </code></pre></div>
 
 <p><strong>Note:</strong> STDIO mode cannot be used in a compose configuration because it requires the MCP client to start the MCP server to attach stdin/stdout used for message exchange. In HTTP/HTTPS mode, the MCP server runs independently from the AI client and communicates over the network using the HTTP protocol.</p>
+<p>The examples bind IPv4 inside the container. To request both address families,
+use <code>command: ["http://[::]:8080"]</code> (or the HTTPS equivalent with certificate
+options). This controls Guide's listener, not Docker's host-side port publishing:
+IPv6 availability also depends on the host and Docker network configuration.</p>
 <p>Pull the pre-built image:</p>
 <div class="codehilite"><pre><span></span><code>docker<span class="w"> </span>pull<span class="w"> </span>dlnugent/mcp-guide:latest
 </code></pre></div>

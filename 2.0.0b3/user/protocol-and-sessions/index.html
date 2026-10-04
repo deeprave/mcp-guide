@@ -1320,7 +1320,9 @@ in with its own resolved policy.</p>
 overall response is no-cache because another contributing document is undeclared.</p>
 <h2 id="client-migration">Client migration<a class="headerlink" href="#client-migration" title="Permanent link">&para;</a></h2>
 <p>Existing retained clients continue to use their FastMCP connection identity. They do
-not need to replay an identifier returned by Guide.</p>
+not need to replay an identifier returned by Guide for tools and prompts. Native
+content resource reads require the explicit <code>session_id</code> query parameter on both
+retained and modern clients.</p>
 <p>Modern <code>2026-07-28</code> clients bind an interaction with:</p>
 <div class="codehilite"><pre><span></span><code>set_project({"path": "/absolute/client/path/to/project"})
 </code></pre></div>
@@ -1331,8 +1333,14 @@ through unchanged and do not construct, alter, or log it.</p>
 <p>Clients that read <code>guide://</code> resource templates directly must provide the same value
 as the URI query parameter, for example:</p>
 <div class="codehilite"><pre><span></span><code>guide://_status?session_id=&lt;session_id&gt;
+guide://guidelines?session_id=&lt;session_id&gt;
+guide://docs/readme?session_id=&lt;session_id&gt;
 </code></pre></div>
 
+<p>For native content resources, omitting <code>session_id</code> returns Guide's <code>no_project</code>
+result with project-binding guidance; it does not inherit a legacy connection's
+project binding. The advertised <code>{?session_id}</code> notation describes the URI query
+syntax, not permission to retrieve content without a bound session.</p>
 <p>The <code>read_resource</code> tool accepts <code>session_id</code> as its normal tool argument. This is
 needed because rendered Guide resources can depend on the interaction's selected
 project, agent details, and feature configuration.</p>
