@@ -166,9 +166,7 @@ async def guide_resource(
         else:
             pattern = document if document else None
 
-        content_args = ContentArgs(
-            expression=collection, pattern=pattern, force=False, session_id=request_context.session_id
-        )
+        content_args = ContentArgs(expression=collection, pattern=pattern, session_id=request_context.session_id)
         result = await internal_get_content(content_args, request_context)
         return await _process_and_serialize(result, request_context, mcp_context=mcp_context)
 

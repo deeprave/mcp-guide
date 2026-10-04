@@ -79,7 +79,7 @@ change HTTP transport status codes or introduce HTTP authentication challenges.
 - **THEN** the system SHALL return a `forbidden` insufficient-authorisation result
 - **AND** it SHALL not perform the operation
 
-### Requirement: Direct protected-operation scopes
+### Requirement: Direct operation scope enforcement
 Each protected tool, resource, or prompt SHALL declare its required `AuthScope`
 string-enum value directly. The initial values are `user` and `admin`; `admin`
 SHALL satisfy every protected-operation scope. A later change MAY introduce
@@ -103,10 +103,9 @@ boundary.
 - **THEN** the system SHALL preserve that operation's existing access and
   result behaviour
 
-#### Scenario: Export metadata is persisted
+#### Scenario: Stateless export with provider active
 - **GIVEN** an authentication provider is active
-- **WHEN** `export_content` or `remove_export` would create or remove persisted
-  export metadata while an authentication provider is active
-- **THEN** the operation SHALL require the `user` scope
-- **AND** it SHALL not change project configuration when authentication is
-  required or insufficient
+- **WHEN** a caller requests a non-mutating `export_content` operation
+- **THEN** no mutation-based `user` scope SHALL be required for that export
+- **AND** its configured write-path validation SHALL still apply
+- **AND** project configuration and permissions SHALL remain unchanged

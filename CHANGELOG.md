@@ -2,6 +2,16 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+- Content export is now a stateless client-owned write handoff restricted to
+  configured write paths, without granting permissions or requiring user scope.
+- Retired export tracking, listing/removal tools and commands, `path-export`,
+  agent-specific destination defaults and `get_content`'s `force` argument.
+  Content retrieval always returns Guide content, not a prior exported copy.
+- Legacy project `exports` data is ignored on load and omitted on normal saves.
+
 ## [2.0.0b3] - 2026-10-01
 
 ### Added

@@ -8,7 +8,6 @@ from tests.helpers import create_test_session, create_unbound_test_session, requ
 
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models import Category, Collection, Project
-from mcp_guide.models.project import ExportedTo
 from mcp_guide.tools.tool_project import (
     CloneProjectArgs,
     GetCurrentProjectArgs,
@@ -145,7 +144,6 @@ async def test_clone_persists_transferable_settings_and_retains_identity(runtime
                 project_flags={"shared": FeatureValue(own), own: FeatureValue(True)},
                 allowed_write_paths=[f"{own}/"],
                 additional_read_paths=[f"/Users/{own}/read"],
-                exports={("docs", None): ExportedTo(path=f"{own}.md", metadata_hash=own)},
             )
         )
     identity = (target.project.name, target.project.key, target.project.hash)
@@ -172,7 +170,6 @@ async def test_clone_persists_transferable_settings_and_retains_identity(runtime
     )
     assert cloned.allowed_write_paths == ["source/"]
     assert cloned.additional_read_paths == ["/Users/source/read"]
-    assert cloned.exports[("docs", None)].path == "source.md"
 
 
 @pytest.mark.anyio

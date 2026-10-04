@@ -64,8 +64,6 @@ def test_protected_tools_declare_their_required_scopes() -> None:
         "send_file_content": AuthScope.USER,
         "document_remove": AuthScope.USER,
         "document_update": AuthScope.USER,
-        "export_content": AuthScope.USER,
-        "remove_export": AuthScope.USER,
     }
 
     assert {name: get_tool_registration(name).metadata.auth_scope for name in expected} == expected

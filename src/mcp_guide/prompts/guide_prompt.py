@@ -667,10 +667,7 @@ Examples:
     pattern = kwargs.get("pattern")
     if isinstance(pattern, int):
         pattern = str(pattern)
-    force = bool(kwargs.get("force", False))
-    content_args_obj = ContentArgs(
-        expression=category, pattern=pattern, force=force, session_id=request_context.session_id
-    )
+    content_args_obj = ContentArgs(expression=category, pattern=pattern, session_id=request_context.session_id)
     return await internal_get_content(content_args_obj, request_context)
 
 

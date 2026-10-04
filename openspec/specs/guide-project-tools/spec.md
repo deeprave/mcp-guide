@@ -158,7 +158,7 @@ retaining the destination project's identity (`name`, `key`, and `hash`).
 
 #### Scenario: Clone retains project flags and settings
 - **WHEN** the source project has project flags, allowed write paths,
-  additional read paths, or exports
+  or additional read paths
 - **THEN** the destination project SHALL receive those settings
 - **AND** the destination project's identity fields SHALL remain unchanged
 
@@ -169,7 +169,7 @@ retaining the destination project's identity (`name`, `key`, and `hash`).
 
 #### Scenario: Merge clone combines mapping configuration
 - **WHEN** `clone_project` is called with `merge=true`
-- **THEN** categories, collections, project flags, and exports from the source
+- **THEN** categories, collections, and project flags from the source
   SHALL be merged into the destination
 - **AND** a source value SHALL replace a destination value with the same key
 - **AND** source allowed write paths and additional read paths SHALL replace the
@@ -178,7 +178,7 @@ retaining the destination project's identity (`name`, `key`, and `hash`).
 #### Scenario: Replacement clone copies the complete transferable configuration
 - **WHEN** `clone_project` is called with `merge=false`
 - **THEN** the destination project's categories, collections, project flags,
-  allowed write paths, additional read paths, and exports SHALL be replaced by
+  allowed write paths and additional read paths SHALL be replaced by
   the source values
 - **AND** the destination project's identity fields SHALL remain unchanged
 

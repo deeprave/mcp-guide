@@ -35,7 +35,7 @@ Commands use an underscore prefix to distinguish them from content:
 | `guide://_project` | Project information |
 | `guide://_help` | List available commands |
 | `guide://_flags/project/list` | List project flags |
-| `guide://_export/list` | List tracked exports |
+| `guide://_export/add/docs/.todo%2Fdocs.md` | Export docs to a configured client write path |
 
 Command URIs mirror the prompt command syntax — for example, a prompt-style `:status` request becomes `guide://_status`.
 
@@ -81,7 +81,7 @@ guide://_review             # Start a code review
 
 **Managing content:**
 ```
-guide://_export/list        # View tracked exports
+guide://_export/add/docs/.todo%2Fdocs.md  # Export to a configured write path
 guide://_document/list      # View stored documents
 guide://_flags              # View feature flag status
 ```

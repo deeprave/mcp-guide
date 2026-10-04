@@ -46,7 +46,7 @@ processing; it SHALL NOT silently redirect other existing request contexts.
 
 A bound RequestContext SHALL expose its Session's immutable root identity and
 current Project configuration, including categories, collections, flags,
-permissions, exports and configuration identity. Unbound contexts SHALL expose
+permissions and configuration identity. Unbound contexts SHALL expose
 absent root and project values.
 
 Project configuration values may change through the owning Session, but a

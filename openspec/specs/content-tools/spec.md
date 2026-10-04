@@ -49,23 +49,23 @@ The project SHALL distinguish between:
 - **THEN** the client must be able to complete ingestion end-to-end, including `send_file_content`
 - **AND** cloud or background preparation alone does not qualify the client for that path
 
-### Requirement: Exported Frontmatter Guidance
+### Requirement: Stateless export delivery guidance
 
-The export instruction template SHALL explain how agents must interpret frontmatter added to exported content.
+Export guidance SHALL instruct the client to write the complete returned payload
+verbatim to the supplied, configured destination, respecting create-only or
+overwrite instructions. Delivery frontmatter SHALL remain file data during that
+write; its `type` and `instruction` retain the content's semantics for later use.
+Guide SHALL NOT direct later content requests to an exported or indexed copy.
 
-The guidance SHALL explain:
-- `type` determines whether exported content is user-facing information, agent-only information, or agent-only instruction content
-- `instruction` overrides default handling and must be followed when present
+#### Scenario: Export delivers file data
+- **WHEN** `export_content` returns a payload and write instruction
+- **THEN** the client is instructed to preserve the entire payload verbatim
+- **AND** embedded frontmatter is not executed as an export instruction
+- **AND** create-only or overwrite behaviour applies to the supplied destination
 
-#### Scenario: First export explains exported frontmatter
-- **WHEN** `export_content` returns instructions to write exported content to disk
-- **THEN** the message explains that the exported file contains frontmatter with `type` and `instruction`
-- **AND** the message tells the agent to apply those fields when the exported file is read later
-
-#### Scenario: Export reference explains exported frontmatter
-- **WHEN** `get_content` or `export_content` returns a reference to already-exported content
-- **THEN** the message explains that the exported file contains frontmatter with `type` and `instruction`
-- **AND** the message tells the agent how those fields affect display and execution behavior
+#### Scenario: Later content retrieval remains ordinary
+- **WHEN** a client requests the same content after exporting it
+- **THEN** Guide returns its rendered content without a prior-file reference
 
 ### Requirement: Document Update Command Remains Inline by Default
 
