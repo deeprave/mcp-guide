@@ -53,7 +53,9 @@ overall response is no-cache because another contributing document is undeclared
 ## Client migration
 
 Existing retained clients continue to use their FastMCP connection identity. They do
-not need to replay an identifier returned by Guide.
+not need to replay an identifier returned by Guide for tools and prompts. Native
+content resource reads require the explicit `session_id` query parameter on both
+retained and modern clients.
 
 Modern `2026-07-28` clients bind an interaction with:
 
@@ -70,7 +72,14 @@ as the URI query parameter, for example:
 
 ```
 guide://_status?session_id=<session_id>
+guide://guidelines?session_id=<session_id>
+guide://docs/readme?session_id=<session_id>
 ```
+
+For native content resources, omitting `session_id` returns Guide's `no_project`
+result with project-binding guidance; it does not inherit a legacy connection's
+project binding. The advertised `{?session_id}` notation describes the URI query
+syntax, not permission to retrieve content without a bound session.
 
 The `read_resource` tool accepts `session_id` as its normal tool argument. This is
 needed because rendered Guide resources can depend on the interaction's selected

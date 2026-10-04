@@ -40,7 +40,8 @@ None.
 - No new CLI flag, global feature flag, authentication requirement, MCP API or
   persisted configuration format.
 - The current Uvicorn implementation can receive an explicitly created Python
-  dual-stack socket. Coordinate with the pending `migrate-hypercorn-asgi`
-  change: the required behaviour is independent of the selected ASGI backend.
+  dual-stack socket. `migrate-hypercorn-asgi` is deferred until the upstream
+  FastMCP/MCP stack no longer requires Uvicorn; this change proceeds independently.
+  The required listener behaviour remains independent of the selected ASGI backend.
 - Existing deployments that intentionally use `[::]` for IPv6-only exposure
   must review their bind configuration before upgrading.

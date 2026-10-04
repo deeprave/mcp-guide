@@ -11,8 +11,9 @@ IPv4 connections even when the operating system supports dual-stack sockets.
 `::1`, and the server can bind separate loopback listeners. IPv4 literals and
 specific IPv6 addresses also have useful, existing address-specific semantics.
 
-The pending `migrate-hypercorn-asgi` proposal replaces Guide's ASGI server.
-This change defines listener behaviour, not a requirement to retain Uvicorn.
+The `migrate-hypercorn-asgi` proposal is deferred until the upstream FastMCP/MCP
+stack no longer requires Uvicorn. This change proceeds with the existing Uvicorn
+backend and defines listener behaviour that a future migration must preserve.
 
 ## Goals / Non-Goals
 
@@ -52,11 +53,9 @@ This retains the socket's explicit dual-stack setting instead of allowing
 asyncio to create an IPv6-only socket. TLS remains configured on the ASGI server;
 the raw listener is not independently TLS-wrapped.
 
-If Hypercorn migration lands first, use its supported listener configuration
-or socket integration to provide the same explicit dual-stack behaviour and
-cleanup contract. Do not retain Uvicorn or introduce an interchangeable backend
-layer solely for this change. Reconcile the overlapping transport work before
-implementation.
+A future Hypercorn migration must use its supported socket integration to
+preserve the same explicit dual-stack behaviour and cleanup contract. Do not
+introduce an interchangeable backend layer or a second server for this change.
 
 A two-listener fallback is not included. If the platform cannot provide the
 requested dual-stack listener, report startup failure instead of adding a
@@ -82,12 +81,12 @@ introduce client-address policy in this change.
   clearly, and skip only real dual-stack integration tests on unsupported hosts.
 - [Pre-binding leaks a socket after failure] → Exercise startup failure,
   cancellation and shutdown, and verify that the bind can be reused afterwards.
-- [ASGI migration overlaps this work] → Keep the specification backend-neutral
-  and implement against the actual backend present at that time.
+- [A future ASGI migration changes listener behaviour] → Keep the specification
+  backend-neutral and preserve its behavioural tests when migrating.
 
 ## Migration Plan
 
-1. Resolve ordering with `migrate-hypercorn-asgi` and add behavioural tests.
+1. Confirm the deferred Hypercorn migration and add behavioural tests for Uvicorn.
 2. Implement explicit dual-stack binding in the HTTP transport.
 3. Document endpoint examples and the `[::]` exposure change.
 4. Run focused transport tests, the full suite and strict OpenSpec validation.

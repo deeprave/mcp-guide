@@ -2,7 +2,7 @@
 
 ## 1. Backend Alignment and Regression Coverage
 
-- [ ] 1.1 Reconcile implementation order with `migrate-hypercorn-asgi`; verify the design names the actual backend and its supported listener integration without introducing a second backend.
+- [x] 1.1 Confirm `migrate-hypercorn-asgi` is deferred pending upstream Uvicorn dependency resolution; implement independently against the existing Uvicorn backend without introducing a second backend.
 - [ ] 1.2 Add behavioural regressions for `[::]`, localhost/hostless URLs, IPv4 literals, specific IPv6 addresses and dual-family hostname resolution; verify the new dual-stack expectation fails before implementation while existing bind expectations remain unchanged.
 
 ## 2. Dual-Stack Listener and Lifecycle
