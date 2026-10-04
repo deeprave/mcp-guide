@@ -1601,33 +1601,48 @@ guide://_collection/remove/docs           # Remove a collection
 </ol>
 <p>See <a href="../categories-and-collections/">Categories and Collections</a> for organisation details.</p>
 <h2 id="exporting-content">Exporting Content<a class="headerlink" href="#exporting-content" title="Permanent link">&para;</a></h2>
-<p>The <code>export_content</code> tool allows agents to export rendered content to files for knowledge persistence:</p>
-<div class="codehilite"><pre><span></span><code><span class="n">export_content</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="s2">"docs"</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="o">=</span><span class="s2">"documentation.md"</span><span class="p">)</span>
-<span class="n">export_content</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="s2">"architecture"</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="o">=</span><span class="s2">"arch.md"</span><span class="p">,</span><span class="w"> </span><span class="n">pattern</span><span class="o">=</span><span class="s2">"*.md"</span><span class="p">)</span>
-<span class="n">export_content</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="s2">"api-guide"</span><span class="p">,</span><span class="w"> </span><span class="n">path</span><span class="o">=</span><span class="s2">"api.md"</span><span class="p">,</span><span class="w"> </span><span class="n">force</span><span class="o">=</span><span class="n">True</span><span class="p">)</span><span class="w">  </span><span class="c1"># Overwrite existing</span>
+<p>The <code>export_content</code> tool returns rendered content and delivery frontmatter for a
+client to save. Guide does not write, track, or inspect the resulting client file.</p>
+<p>For a project with <code>.todo/</code> in its configured <code>allowed_write_paths</code>:</p>
+<div class="codehilite"><pre><span></span><code><span class="n">export_content</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="s2">"docs"</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">".todo/documentation.md"</span><span class="p">)</span>
+<span class="n">export_content</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="s2">"architecture"</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">".todo/architecture"</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="s2">"*.md"</span><span class="p">)</span>
+<span class="n">export_content</span><span class="p">(</span><span class="n">expression</span><span class="o">=</span><span class="s2">"api-guide"</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">".todo/api.md"</span><span class="p">,</span> <span class="n">force</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 </code></pre></div>
 
 <p><strong>Arguments:</strong></p>
 <ul>
 <li><code>expression</code> - Content expression (category, collection, or pattern)</li>
-<li><code>path</code> - Output filename (required). If no directory component, uses resolved export directory</li>
+<li><code>path</code> - Required client destination; backslashes are converted to forward
+  slashes for both validation and delivery. No default directory or extension
+  is added</li>
 <li><code>pattern</code> - Optional glob pattern to filter files</li>
-<li><code>force</code> - Overwrite existing files (default: False)</li>
+<li><code>force</code> - Instruct the client to overwrite an existing file; otherwise create
+  only and report an existing destination without overwriting it</li>
 </ul>
-<p><strong>Path Resolution:</strong></p>
-<ul>
-<li>Filename only (<code>"output.md"</code>) → prepends resolved export directory</li>
-<li>With directory (<code>"docs/output.md"</code>) → uses as-is</li>
-<li>No extension → <code>.md</code> added automatically</li>
-<li>Export directory resolution: <code>path-export</code> flag → agent default → <code>.knowledge/</code></li>
-</ul>
-<p><strong>Path defaulting:</strong></p>
-<p>When <code>path</code> is omitted, the tool uses the <code>path-export</code> flag value plus a generated filename based on the expression. For Goose agents, this defaults to <code>~/.goose/projects/{project-hash}/knowledge/</code>, allowing knowledge to persist across sessions.</p>
-<p><strong>Export Tracking:</strong></p>
-<p>Exported expressions and their components are tracked automatically. When content is exported, mcp-guide records a metadata hash based on the source files and their modification times. On subsequent exports of the same expression, the hash is compared — if unchanged, the export is skipped with a message directing the agent to the existing file. Use <code>force=True</code> to bypass this check.</p>
-<p>For agents with knowledge indexing capabilities (such as Kiro and Q Developer), the export template provides instructions to index the exported file into the agent's knowledge base. Once indexed, <code>get_content</code> returns a reference to the knowledge entry rather than re-delivering the full content, reducing context usage. The agent can use <code>force=True</code> on <code>get_content</code> to retrieve the full content when needed.</p>
-<p><strong>Security:</strong></p>
-<p>Export file paths are automatically added to <code>allowed_write_paths</code> (the specific file, not the entire directory). Path traversal (<code>../</code>, <code>..\\</code>) is blocked in path flag values. System directories (<code>/etc</code>, <code>/sys</code>) are blocked for absolute paths.</p>
+<p><strong>Destination policy:</strong></p>
+<p>The destination must match a configured write-file entry or lie within a
+configured write-directory entry. Guide rejects uncovered destinations,
+including otherwise permitted temporary paths, without adding permissions.
+Filesystem roots (including equivalent spellings, drive roots and UNC share
+roots) cannot be configured as write entries. Export destinations containing
+ASCII controls or backticks are rejected before command guidance is rendered or
+the tool returns content, with a fixed error that does not echo the destination.
+The write instruction uses the same forward-slash destination that passed the
+permission check. Path traversal is rejected. Permission changes are separate administrative
+operations when authentication is active; admin access does not bypass this
+export check. Guide checks the configured paths lexically, not against the
+server's filesystem. The client remains responsible for performing the write.</p>
+<p><strong>Content handling:</strong></p>
+<p>Write the complete returned payload verbatim. Its YAML frontmatter carries the
+resolved <code>type</code> and <code>instruction</code> for later handling; these are file data, not
+instructions to execute while exporting. Follow the tool's separate write
+instruction and report client-side success or failure.</p>
+<p>Every export returns current rendered content. Guide remembers no destination,
+timestamp or source hash, and does not manage subsequent client indexing or
+caching. Later <code>get_content</code> calls and equivalent content URIs always retrieve
+content from Guide, never substitute a prior exported or indexed copy. Export
+has no mutation-based authentication requirement, but its destination policy
+still applies.</p>
 <h2 id="next-steps">Next Steps<a class="headerlink" href="#next-steps" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong><a href="../categories-and-collections/">Categories and Collections</a></strong> - Organising content</li>

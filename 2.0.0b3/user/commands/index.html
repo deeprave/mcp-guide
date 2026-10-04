@@ -1781,18 +1781,21 @@ Updates a stored document's name, category, or metadata.</p>
 <p><strong><code>guide://_document/remove</code></strong> <em><code>&lt;category&gt; &lt;name&gt;</code></em>
 Removes a stored document from a category.</p>
 <h2 id="export-commands">Export Commands<a class="headerlink" href="#export-commands" title="Permanent link">&para;</a></h2>
-<p>Export commands manage tracked content exports — rendered content saved to files for knowledge persistence. See <a href="../content-management/">Content Management</a> for how exports work.</p>
+<p>The export command delivers rendered content for a client-owned file write.
+See <a href="../content-management/">Content Management</a> for destination policy and
+content handling.</p>
 <p><strong><code>guide://_export/add</code></strong> <em><code>&lt;expression&gt; &lt;path&gt;</code></em>
-Exports rendered content to a file and tracks it.</p>
-<p><strong>Examples:</strong></p>
-<div class="codehilite"><pre><span></span><code><span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_export</span><span class="o">/</span><span class="n">add</span><span class="o">/</span><span class="n">docs</span><span class="o">/</span><span class="n">documentation</span><span class="o">.</span><span class="n">md</span>
-<span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_export</span><span class="o">/</span><span class="n">add</span><span class="o">/</span><span class="n">architecture</span><span class="o">/</span><span class="n">arch</span><span class="o">.</span><span class="n">md</span><span class="err">?</span><span class="n">force</span>
+Returns content and instructions to write it to the supplied destination,
+which must be covered by configured <code>allowed_write_paths</code>. It does not track
+exports or add permissions. The <code>export</code> alias remains available.</p>
+<p><strong>Examples</strong> (with <code>.todo/</code> configured as a write directory):</p>
+<div class="codehilite"><pre><span></span><code><span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_export</span><span class="o">/</span><span class="n">add</span><span class="o">/</span><span class="n">docs</span><span class="o">/.</span><span class="n">todo</span><span class="o">%</span><span class="mi">2</span><span class="n">Fdocumentation</span><span class="o">.</span><span class="n">md</span>
+<span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_export</span><span class="o">/</span><span class="n">add</span><span class="o">/</span><span class="n">architecture</span><span class="o">/.</span><span class="n">todo</span><span class="o">%</span><span class="mi">2</span><span class="n">Farch</span><span class="o">.</span><span class="n">md</span><span class="err">?</span><span class="n">force</span>
 </code></pre></div>
 
-<p><strong><code>guide://_export/list</code></strong>
-Lists all tracked exports with their expression, path, and staleness status.</p>
-<p><strong><code>guide://_export/remove</code></strong> <em><code>&lt;expression&gt;</code></em>
-Removes an export tracking entry (does not delete the exported file).</p>
+<p><code>force</code> requests client-side overwrite; otherwise the write is create-only.
+Listing and removing tracked exports are no longer supported. Manage the
+resulting files with the client's own filesystem tools.</p>
 <h2 id="filesystem-permissions">Filesystem Permissions<a class="headerlink" href="#filesystem-permissions" title="Permanent link">&para;</a></h2>
 <p>mcp-guide implements built-in security controls to ensure agent instructions don't transgress security boundaries outside the project.</p>
 <h3 id="security-model">Security Model<a class="headerlink" href="#security-model" title="Permanent link">&para;</a></h3>
