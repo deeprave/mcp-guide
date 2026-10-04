@@ -116,7 +116,7 @@ async def guide_skill_resource(
         return resource_response(Result.failure(f"Unexpected error: {error}"))
 
 
-@resourcefunc("guide://{collection}/{document}{?session_id}")
+@resourcefunc("guide://{collection}/{document}{?session_id}", require_session=True)
 async def guide_resource(
     collection: Annotated[
         str,
@@ -141,10 +141,23 @@ async def guide_resource(
 ) -> object:
     """Read Guide content for a collection or category.
 
-    collection is the collection or category name; document is an optional pattern.
-    Pass session_id from set_project as the URI query parameter. Command URIs use the
+    collection is the collection or category name; document is a pattern.
+    To read without a document filter, use the guide://{expression} template.
+    The session_id query parameter from set_project is required. Omitting it
+    returns unbound-session guidance rather than content. Command URIs use the
     guide://_ template instead. Skill URIs use the guide://$ template.
     """
+    return await _read_content_resource(collection, document, request_context, request_uri, mcp_context)
+
+
+async def _read_content_resource(
+    collection: str,
+    document: str,
+    request_context: RequestContext,
+    request_uri: str | None,
+    mcp_context: Context | None,
+) -> object:
+    """Share content resolution and response adaptation between URI templates."""
     try:
         if collection.startswith("_"):
             uri = request_uri or f"guide://{collection}"
@@ -178,6 +191,25 @@ async def guide_resource(
         # Log unexpected exceptions for debugging while still handling them
         logger.error(f"Unexpected error in guide_resource: {type(e).__name__}: {str(e)}", exc_info=True)
         return resource_response(Result.failure(f"Unexpected error: {str(e)}"))
+
+
+@resourcefunc("guide://{expression}{?session_id}", require_session=True)
+async def guide_expression_resource(
+    expression: Annotated[str, Field(description="Collection, category or comma-separated content expression.")],
+    session_id: Annotated[Optional[str], Field(description=SESSION_ID_DESCRIPTION)] = None,
+    *,
+    request_context: RequestContext,
+    request_uri: str | None,
+    mcp_context: Context | None = None,
+) -> object:
+    """Read Guide content without a document filter.
+
+    The session_id query parameter from set_project is required. Omitting it
+    returns unbound-session guidance rather than content. For a document pattern
+    use guide://{collection}/{document}. Command and skill URIs have dedicated
+    guide://_ and guide://$ templates.
+    """
+    return await _read_content_resource(expression, "", request_context, request_uri, mcp_context)
 
 
 @resourcefunc("guide://_{command_path*}{?session_id}")

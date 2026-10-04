@@ -190,6 +190,33 @@ To listen on another interface, supply its address explicitly in the transport
 URL. For example, `https://0.0.0.0:8443` listens on all IPv4 interfaces and
 requires the usual certificate options. No separate bind flag is needed.
 
+#### IPv4 and IPv6 binding
+
+| Bind host | Listening addresses |
+| --- | --- |
+| Omitted, or `localhost` | Loopback addresses returned by local hostname resolution, normally IPv4 and IPv6 |
+| `0.0.0.0` | All IPv4 interfaces only |
+| `[::]` | All IPv4 and IPv6 interfaces through one dual-stack listener |
+| `[::1]` | IPv6 loopback only |
+| A hostname | Its locally resolved bind addresses; not an all-interface wildcard |
+
+Request dual-stack access explicitly, quoting bracketed URLs in shell commands:
+
+```bash
+mcp-guide 'http://[::]:8080'
+mcp-guide 'https://[::]:8443' --ssl-certfile cert.pem --ssl-keyfile key.pem
+```
+
+The MCP endpoint remains `/mcp` (or the configured path prefix). HTTPS uses the
+same certificate settings for both families. Dual-stack support must be available
+on the host; an unsupported or unsuccessful bind fails startup instead of
+falling back to IPv6-only or IPv4-only listening.
+
+**Breaking exposure change:** `[::]` now accepts IPv4 as well as IPv6. Existing
+deployments relying on IPv6-only wildcard exposure must review their bind and
+network controls before upgrading. Use a specific IPv6 address for an
+address-specific listener. Localhost and explicit IPv4 defaults are unchanged.
+
 #### Optional remote authentication
 
 Remote HTTP(S) deployments can protect selected operations with an installed
@@ -259,6 +286,11 @@ services:
 ```
 
 **Note:** STDIO mode cannot be used in a compose configuration because it requires the MCP client to start the MCP server to attach stdin/stdout used for message exchange. In HTTP/HTTPS mode, the MCP server runs independently from the AI client and communicates over the network using the HTTP protocol.
+
+The examples bind IPv4 inside the container. To request both address families,
+use `command: ["http://[::]:8080"]` (or the HTTPS equivalent with certificate
+options). This controls Guide's listener, not Docker's host-side port publishing:
+IPv6 availability also depends on the host and Docker network configuration.
 
 Pull the pre-built image:
 

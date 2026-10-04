@@ -16,7 +16,8 @@ changing the safe localhost default or introducing more CLI options.
 - Preserve localhost defaults, explicit IPv4 binds, specific IPv6 binds and
   hostname-based address resolution. `0.0.0.0` remains IPv4-only.
 - Report a clear startup failure if the requested dual-stack listener cannot be
-  established; do not silently provide only one address family.
+  established, identifying the endpoint and exiting non-zero without a CLI
+  traceback; do not silently provide only one address family.
 - Keep the same MCP application, TLS configuration, optional authentication,
   rate limiting and transport shutdown behaviour for both address families.
 - Document wildcard, loopback and hostname binding, and add behavioural tests
@@ -35,12 +36,13 @@ None.
 
 ## Impact
 
-- `src/mcp_guide/transports/http.py`, transport tests, installation documentation
+- `src/mcp_guide/transports/http.py`, CLI startup error reporting, transport tests, installation documentation
   and Docker deployment guidance.
 - No new CLI flag, global feature flag, authentication requirement, MCP API or
   persisted configuration format.
 - The current Uvicorn implementation can receive an explicitly created Python
-  dual-stack socket. Coordinate with the pending `migrate-hypercorn-asgi`
-  change: the required behaviour is independent of the selected ASGI backend.
+  dual-stack socket. `migrate-hypercorn-asgi` is deferred until the upstream
+  FastMCP/MCP stack no longer requires Uvicorn; this change proceeds independently.
+  The required listener behaviour remains independent of the selected ASGI backend.
 - Existing deployments that intentionally use `[::]` for IPv6-only exposure
   must review their bind configuration before upgrading.

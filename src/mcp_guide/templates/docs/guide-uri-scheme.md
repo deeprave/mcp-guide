@@ -9,7 +9,7 @@ The `guide://` URI scheme provides MCP resource access to guide content.
 {{h2}}URI Pattern
 
 ```
-guide://expression[/pattern]
+guide://expression[/pattern]?session_id=<session_id>
 guide://_command[/args][?kwargs]
 guide://$
 guide://$?table
@@ -18,6 +18,7 @@ guide://$skill-name[/member-path][?kwargs]
 
 - {{b}}expression{{b}}: Content expression for content URIs, such as a category name, collection name, or combined expression like `docs,tasks`
 - {{b}}pattern{{b}}: Optional document pattern for content URIs
+- {{b}}session_id{{b}}: Required query parameter for native content resource reads; pass the identifier returned by `set_project` unchanged
 - {{b}}_command{{b}}: Command name for command URIs
 - {{b}}args{{b}}: Optional positional command arguments
 - {{b}}kwargs{{b}}: Optional query parameters passed as command keyword arguments
@@ -29,11 +30,11 @@ guide://$skill-name[/member-path][?kwargs]
 {{h2}}Examples
 
 ```
-guide://lang              # All language guidelines
-guide://lang/python       # Python-specific content
-guide://docs              # All documentation
-guide://docs/readme       # README-related docs
-guide://docs,tasks        # Combined content expression
+guide://lang?session_id=<session_id>          # All language guidelines
+guide://lang/python?session_id=<session_id>   # Python-specific content
+guide://docs?session_id=<session_id>          # All documentation
+guide://docs/readme?session_id=<session_id>   # README-related docs
+guide://docs,tasks?session_id=<session_id>    # Combined content expression
 guide://_project          # Run the project command
 guide://_status?verbose=true
 guide://_perm/write/add/docs%2F
@@ -49,6 +50,11 @@ Access via MCP resources protocol:
 1. Discover available patterns via `resources/templates/list`
 2. Read content via `resources/read` with guide:// URI
 3. Use the `read_resource` tool as a fallback when the client does not expose MCP resource reads directly
+
+Native content resources require an explicit `session_id` even on legacy MCP.
+Without it, Guide returns unbound-session guidance rather than content. When using
+the fallback `read_resource` tool, provide `session_id` as a tool argument instead
+of adding it to the URI.
 
 {{h2}}Behaviour
 

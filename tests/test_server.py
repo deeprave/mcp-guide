@@ -112,7 +112,7 @@ async def test_application_construction_defers_guide_startup_to_runtime_lifecycl
 
 
 @pytest.mark.anyio
-async def test_remote_start_failure_stops_the_transport_once() -> None:
+async def test_remote_start_failure_stops_the_transport_once(capsys) -> None:
     """The main lifecycle finalises a transport after any startup failure."""
     from mcp_guide.cli import ServerConfig
     from mcp_guide.main import async_main
@@ -138,9 +138,11 @@ async def test_remote_start_failure_stops_the_transport_once() -> None:
         patch("mcp_guide.server.create_application", return_value=application),
         patch("mcp_guide.transports.create_transport", return_value=transport),
     ):
-        with pytest.raises(RuntimeError, match="server setup failed"):
+        with pytest.raises(SystemExit) as error:
             await async_main(ServerConfig(transport_mode="http"))
 
+    assert error.value.code == 1
+    assert "server setup failed" in capsys.readouterr().err
     assert transport.stopped == 1
 
 

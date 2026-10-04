@@ -115,7 +115,7 @@ flowchart TB
     GuidePrompt --> TaskManager
 
     subgraph Resources["Registered resources"]
-        GuideResource["guide://{collection}/{document}{?session_id}\nSession content lookup · TaskManager process_result"]
+        GuideResource["guide://{expression}{?session_id}\nguide://{collection}/{document}{?session_id}\nExplicit session required · TaskManager process_result"]
         GuideCommandResource["guide://_{command_path*}{?session_id}\nSession command-resource lookup · TaskManager process_result"]
     end
     GuideResource --> SessionResolver

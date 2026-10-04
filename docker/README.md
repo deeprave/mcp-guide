@@ -173,6 +173,30 @@ ports can reach them. Restrict published ports or configure authentication
 before making those endpoints accessible to untrusted callers; HTTPS alone
 does not authenticate clients.
 
+### IPv4 and IPv6 binding
+
+`0.0.0.0` is IPv4-only. For a dual-stack listener inside the container, pass an
+explicit IPv6 wildcard endpoint:
+
+```bash
+docker run --rm -p 8080:8080 dlnugent/mcp-guide:latest 'http://[::]:8080'
+```
+
+In Compose, use `command: ["http://[::]:8080"]`. For HTTPS, use
+`https://[::]:8443` with the existing certificate options and read-only mounts.
+Bracketed URLs should be quoted in shell commands.
+
+**Breaking exposure change:** `[::]` accepts both IPv4 and IPv6, rather than
+IPv6 alone. Guide fails startup when the requested dual-stack bind is unsupported
+or unsuccessful; there is no single-family fallback. A specific address such as
+`[::1]` remains IPv6-only. Localhost and other hostname binds retain their normal
+address resolution; a hostname does not imply wildcard access.
+
+The host and Docker network must also support IPv6 for remote IPv6 access.
+Guide's listener does not enable IPv6 networking or control which address
+families Docker publishes on the host. Existing Compose and transport-image
+defaults remain IPv4-only; review network exposure before choosing `[::]`.
+
 ## Building Images
 
 ### Build all images

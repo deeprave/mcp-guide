@@ -2,6 +2,7 @@
 
 import asyncio
 import errno
+import socket
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -95,6 +96,7 @@ class HttpTransport:
         self.auth_service = auth_service
         self.server: Optional[Any] = None
         self.server_task: Optional[asyncio.Task[None]] = None
+        self._listener: socket.socket | None = None
 
     async def start(self) -> None:
         """Start the HTTP server using MCP's streamable HTTP (non-blocking)."""
@@ -117,6 +119,7 @@ class HttpTransport:
                 "HTTP transport requires uvicorn and starlette. Install with: uv sync --extra http"
             ) from e
 
+        display_host = f"[{self.host}]" if ":" in self.host else self.host
         try:
             if self.auth_service is not None:
                 await self.auth_service.start()
@@ -157,21 +160,49 @@ class HttpTransport:
             )
 
             self.server = uvicorn.Server(config)
+            if self.host == "::":
+                if not socket.has_dualstack_ipv6():
+                    raise RuntimeError("Dual-stack IPv4/IPv6 listening is not supported on this platform")
+                self._listener = socket.create_server(
+                    (self.host, self.port),
+                    family=socket.AF_INET6,
+                    dualstack_ipv6=True,
+                    backlog=config.backlog,
+                )
 
-            logger.info(f"HTTP transport started on {self.scheme}://{self.host}:{self.port}{endpoint_path}")
+            logger.info(f"HTTP transport started on {self.scheme}://{display_host}:{self.port}{endpoint_path}")
 
             # Start server in background task
-            self.server_task = asyncio.create_task(self.server.serve())
+            self.server_task = asyncio.create_task(self._serve(self.server))
 
         except OSError as e:
             if e.errno == errno.EADDRINUSE:
                 raise RuntimeError(
-                    f"Port {self.port} is already in use. "
-                    f"To use a different port, run: mcp-guide {self.scheme}://{self.host}:<port>"
+                    f"Port {self.port} is already in use for {self.scheme}://{display_host}:{self.port}. "
+                    f"To use a different port, run: mcp-guide {self.scheme}://{display_host}:<port>"
                 ) from e
-            raise
+            raise RuntimeError(f"Cannot listen on {self.scheme}://{display_host}:{self.port}: {e}") from e
         except Exception as e:
-            raise RuntimeError(f"Failed to start HTTP server: {e}") from e
+            raise RuntimeError(f"Failed to start HTTP server on {self.scheme}://{display_host}:{self.port}: {e}") from e
+        finally:
+            if self.server_task is None:
+                self._close_listener()
+
+    async def _serve(self, server: Any) -> None:
+        """Retain the explicit listener's ownership through the serving task."""
+        try:
+            if self._listener is not None:
+                await server.serve(sockets=[self._listener])
+            else:
+                await server.serve()
+        finally:
+            self._close_listener()
+
+    def _close_listener(self) -> None:
+        """Release the transport-owned socket once, including failed startup."""
+        if self._listener is not None:
+            self._listener.close()
+            self._listener = None
 
     async def stop(self) -> None:
         """Stop the HTTP server."""
@@ -184,6 +215,7 @@ class HttpTransport:
         except Exception as e:
             logger.warning(f"Error during HTTP server shutdown: {e}")
         finally:
+            self._close_listener()
             if self.auth_service is not None:
                 await self.auth_service.stop()
 
