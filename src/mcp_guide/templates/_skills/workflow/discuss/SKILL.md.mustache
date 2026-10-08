@@ -9,8 +9,20 @@ cache: short, private
 Source Guide URI: `guide://_discuss`.
 {{/workflow}}
 
+Discussion establishes alignment before implementation: decide the intended
+outcome and design, and resolve open questions that materially affect them.
+
 ## Directives
 
+- On entry, explain the active change: why it is needed, what it changes, and
+  the intended approach. If no active change is recorded, identify that gap and
+  seek it before proceeding.
+- Identify design concerns, dependencies, risks, and unanswered questions that
+  could materially affect implementation. Raise them with the user and request
+  clarification rather than assuming an answer.
+- Before implementation begins, ensure the material scope and design decisions
+  are aligned; record agreed decisions in the appropriate discussion, plan, or
+  specification artefact.
 - When the user does not name an issue, preserve the current issue, description, plan, tracking reference, and queue. Seek alignment before changing project state.
 {{#workflow}}
 - When the user names an issue, treat it as a new or resumed item. Ensure `{{workflow-file}}` records its issue, description, plan, tracking reference, and queue position.

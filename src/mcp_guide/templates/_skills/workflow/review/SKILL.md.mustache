@@ -53,7 +53,10 @@ elicitation:
 ## Directives
 
 {{#workflow}}
-- Read `{{workflow-file}}` to identify the current issue and review scope
+- Before every review request, read `{{workflow-file}}` afresh. Its required
+  `issue` field is authoritative for the review key and scope; do not infer the
+  issue from recent conversation, branch names, pull-request text, or earlier
+  review runs.
 - Update `{{workflow-file}}` to `phase: review` when changing phase, then send its complete content using `send_file_content`
 {{/workflow}}
 

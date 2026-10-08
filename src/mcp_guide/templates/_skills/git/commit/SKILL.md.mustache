@@ -10,6 +10,10 @@ policies: [git/ops, git/commit, git/delivery, issue-tracking]
 ## Directives
 
 - Inspect the change and commit only work belonging to it.
+- Under a configured non-`none` tracker, determine or create the current
+  change's issue record before staging or selecting delivery. When branch
+  delivery is used, include that issue identifier in the branch name; do not
+  create an untracked branch unless the user explicitly requests that exception.
 - Where a branch is required, use
   `<commit-type>/[<issue-id>-]<commit-slug>`.
 

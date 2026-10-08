@@ -23,11 +23,26 @@ Onboarding SHALL select `issue-tracking/<provider>` and `git/delivery/<mode>` po
 - **THEN** it offers a tracker provider and a delivery mode
 
 ### Requirement: Commit skill applies issue and delivery policy
-`git-commit` SHALL use the selected delivery and issue-tracking policies. For a non-`none` tracker with no issue, it SHALL ask whether to create or link an issue or proceed without one; when creation or linking is chosen, it SHALL use an available integration or ask the user how to proceed if none is available. A branch, where used, SHALL be named `<commit-type>/[<issue-id>-]<commit-slug>`. Commit formatting SHALL follow the selected commit policy.
+`git-commit` SHALL use the selected delivery and issue-tracking policies. Under
+a non-`none` tracker, it SHALL determine or create the current change's tracker
+record before staging or selecting delivery. For a non-`none` tracker with no
+issue, it SHALL create or link an issue using an available integration, or ask
+the user how to proceed if none is available. When branch delivery is used with
+a non-`none` tracker, the branch SHALL include that issue identifier and be
+named `<commit-type>/<issue-id>-<commit-slug>`. An explicit user request MAY
+authorise proceeding without an issue or creating a branch without its
+identifier. Commit formatting SHALL follow the selected commit policy.
 
-#### Scenario: Tracked change has no issue
+#### Scenario: Tracked branch change has no issue
 - **WHEN** `git-commit` runs under a non-`none` tracker policy without an issue
-- **THEN** it asks the user to create, link, or omit an issue
+- **AND** branch delivery is selected
+- **THEN** it creates or links an issue before creating the branch
+- **AND** the branch name includes the resulting issue identifier
+
+#### Scenario: User explicitly requests an untracked branch
+- **WHEN** a non-`none` tracker is selected
+- **AND** the user explicitly requests a branch without an issue identifier
+- **THEN** `git-commit` MAY create that branch
 
 ### Requirement: Push skill protects unrelated work
 `git-push` SHALL commit current-change work by default. When it detects other changed files that it did not create, it SHALL ask whether to include or omit them, using `git-commit` for approved inclusion, before pushing all selected work.

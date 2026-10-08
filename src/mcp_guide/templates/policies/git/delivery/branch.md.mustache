@@ -13,5 +13,9 @@ practice.
 ## Rules
 
 - Where a branch is required, use `<commit-type>/[<issue-id>-]<commit-slug>`.
+- Under a configured non-`none` tracker, determine or create the current
+  change's tracker issue before creating the branch, and include its identifier
+  in the branch name. An explicit user request is required to create a branch
+  without that issue identifier.
 - Apply the selected pull-request policy when creating or updating the pull
   request.

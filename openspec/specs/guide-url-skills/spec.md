@@ -141,6 +141,27 @@ packages: `workflow-check`, `workflow-discuss`, `workflow-explore`,
 - **AND** the package name SHALL use the verb form rather than the workflow
   phase noun
 
+### Requirement: Workflow discussion establishes design alignment
+`workflow-discuss` SHALL treat discussion as the phase for aligning the intended
+outcome and design before implementation. On entry it SHALL direct the agent to
+explain the active change's motivation, scope, and intended approach. It SHALL
+direct the agent to identify material concerns, dependencies, risks, and open
+design questions, request clarification where an answer is needed, and record
+agreed decisions in the applicable workflow, planning, or specification
+artefact before implementation begins.
+
+#### Scenario: Enter discussion for an active change
+- **WHEN** an agent enters `workflow-discuss` for an active change
+- **THEN** the skill SHALL direct it to explain why the change is needed, what
+  it changes, and how it is intended to work
+- **AND** SHALL direct it to seek alignment before implementation
+
+#### Scenario: Discussion exposes a material open question
+- **WHEN** the active change has an unresolved decision that could materially
+  affect implementation
+- **THEN** the skill SHALL direct the agent to raise that concern and request
+  clarification rather than assume a design decision
+
 ### Requirement: Focused workflow status skill
 The `workflow-status` skill SHALL report the configured workflow file without
 changing the project. It SHALL not instruct the agent to inspect client
@@ -195,7 +216,7 @@ by skill identifier.
   context
 
 ### Requirement: Workflow review skill
-The system SHALL serve `workflow-review` as a packaged Guide skill for independent code review. It SHALL transition the configured workflow file to the review phase when workflow mode is active, and SHALL validate the active OpenSpec change when OpenSpec mode is active. After producing its independent source reports, it SHALL report their paths and request the user's next action without collating or triaging them.
+The system SHALL serve `workflow-review` as a packaged Guide skill for independent code review. For every review request in workflow mode, it SHALL read the configured workflow file afresh and treat its required `issue` field as authoritative; it SHALL not infer the issue from recent conversation, branch names, pull-request text, or an earlier review. It SHALL transition the configured workflow file to the review phase when workflow mode is active, and SHALL validate the active OpenSpec change when OpenSpec mode is active. After producing its independent source reports, it SHALL report their paths and request the user's next action without collating or triaging them.
 
 #### Scenario: Choose a review target when mode is omitted
 - **WHEN** an agent selects `guide://$workflow-review` without a `mode` query parameter through either the native resource or the `read_resource` tool
@@ -204,6 +225,12 @@ The system SHALL serve `workflow-review` as a packaged Guide skill for independe
 - **AND** SHALL direct the agent to use the same choices as a numbered list when the client cannot render a choice picker
 - **AND** SHALL direct the agent not to begin review until the user selects a target
 - **AND** SHALL instruct it to read the configured workflow file before changing its phase to `review` when workflow mode is active
+
+#### Scenario: Workflow issue changes between review requests
+- **GIVEN** a prior review request used a different workflow issue
+- **WHEN** an agent begins a new workflow review request
+- **THEN** it SHALL read the current workflow file before identifying the review issue
+- **AND** it SHALL use that file's current `issue` field rather than the prior review context
 
 #### Scenario: Select a review target
 - **WHEN** an agent selects `guide://$workflow-review` with `mode` equal to `uncommitted`, `main`, a branch name, a pull-request URL, or a pull-request number for the current repository
@@ -373,7 +400,9 @@ catalogue or skill resources.
 
 ### Requirement: Workflow triage skill
 The system SHALL serve `triage-review` as a packaged Guide skill for converting
-independent review reports into a stable decision workflow.
+independent review reports into a stable decision workflow. Peer and
+independently requested review reports for the current issue are eligible source
+evidence and SHALL be considered alongside the coordinator's own reports.
 
 #### Scenario: Collate every source report
 - **WHEN** an agent selects `guide://$triage-review` for an active workflow
@@ -384,6 +413,12 @@ independent review reports into a stable decision workflow.
   target, and scope in `{{path.documents}}Reviews/<issue>.json`
 - **AND** SHALL deduplicate only findings describing the same underlying defect
 - **AND** SHALL report the canonical inventory path before beginning user decisions
+
+#### Scenario: Collate peer review reports
+- **GIVEN** peer reviewers have written valid source reports for the current workflow issue
+- **WHEN** `triage-review` performs an initial collation
+- **THEN** it SHALL include those reports in the canonical inventory
+- **AND** it SHALL not treat the coordinator's own review records as the complete source set
 
 #### Scenario: Incremental review triage
 - **WHEN** a canonical inventory already exists and the user has not requested
