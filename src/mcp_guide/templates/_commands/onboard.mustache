@@ -16,6 +16,7 @@ is required before saving settings or marking onboarding as skipped.
 {{#kwargs.skip}}
 The user has chosen to skip guided onboarding.
 
+{{#auth.active}}
 {{#auth.user}}
 Set the project flag `onboarded` to `true` using the `set_project_flag` tool, then
 inform the user:
@@ -27,6 +28,14 @@ inform the user:
 Ask the user to authenticate with the configured provider, then retry skipping
 onboarding. Do not set the `onboarded` flag before authentication.
 {{/auth.user}}
+{{/auth.active}}
+{{^auth.active}}
+Set the project flag `onboarded` to `true` using the `set_project_flag` tool, then
+inform the user:
+
+> Onboarding skipped. Your project flags have been updated. You can run
+> `{{#command}}onboard{{/command}}` at any time to configure your preferences.
+{{/auth.active}}
 {{/kwargs.skip}}
 {{^kwargs.skip}}
 ## Guided Project Onboarding
@@ -280,6 +289,7 @@ were actually collected before the remaining dimensions were skipped.
 
 ### Step 5 — Apply Configuration
 
+{{#auth.active}}
 {{#auth.user}}
 Once the user confirms, apply all changes using existing tools:
 
@@ -298,4 +308,17 @@ configured provider. Keep the staged choices in your working context and resume
 application after authentication. Do not call configuration-mutation tools or
 set the `onboarded` flag before authentication.
 {{/auth.user}}
+{{/auth.active}}
+{{^auth.active}}
+Once the user confirms, apply all changes using existing tools:
+
+- Use `use_project_profile` for any profiles selected
+- Use `category_collection_update` to update `policies` category patterns
+- Use `set_project_flag` for `workflow`, `handoff-context`, `openspec`, and
+  other project flags
+- Finally, use `set_project_flag` to set `onboarded` to `true`
+
+After applying, confirm to the user that configuration is complete and summarise
+what was set.
+{{/auth.active}}
 {{/kwargs.skip}}

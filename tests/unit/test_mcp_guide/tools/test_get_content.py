@@ -21,6 +21,29 @@ def test_expression_field_is_required():
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("bearer", [None, b"Bearer user-token"], ids=["anonymous", "user"])
+async def test_remote_content_without_a_bound_decision_hides_admin_template_content(runtime, tmp_path, bearer):
+    """Unprotected remote content is safe before an authorisation decision exists."""
+    from mcp_guide.auth import AuthEvidence, bind_auth_evidence
+
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "guarded.md.mustache").write_text(
+        "{{#auth.admin}}administrator-only{{/auth.admin}}{{^auth.admin}}ordinary-content{{/auth.admin}}"
+    )
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
+    session = await create_bound_test_session(runtime, "remote-template-auth")
+    await session.update_config(lambda project: project.with_category("docs", Category(dir="docs", patterns=["*.md"])))
+    headers = () if bearer is None else ((b"authorization", bearer),)
+
+    with bind_auth_evidence(AuthEvidence(headers=headers, method="POST", path="/mcp")):
+        result = await get_content.__wrapped__(ContentArgs(expression="docs"), await request_context_for(session))
+
+    content = tool_result_payload(result)["value"]
+    assert content == "ordinary-content"
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "project_format,global_format,expected",
     [

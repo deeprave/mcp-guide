@@ -4,7 +4,8 @@ import inspect
 import json
 import os
 import weakref
-from dataclasses import dataclass
+from contextlib import nullcontext
+from dataclasses import dataclass, replace
 from functools import cache, wraps
 from typing import TYPE_CHECKING, Any, Callable, Coroutine, Optional, cast
 
@@ -16,8 +17,10 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.mcp_result_adapter import add_session_continuation, tool_response
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
+    ERROR_AUTHENTICATION_UNAVAILABLE,
     ERROR_INVALID_NAME,
     ERROR_VALIDATION,
+    INSTRUCTION_AUTHENTICATION_UNAVAILABLE,
     INSTRUCTION_VALIDATION_ERROR,
     make_invalid_session_result,
     make_no_project_result,
@@ -28,7 +31,7 @@ from mcp_guide.session import InvalidGuideSessionError, UnmintableGuideSessionEr
 from mcp_guide.validation import InvalidProjectNameError
 
 if TYPE_CHECKING:
-    from mcp_guide.auth import AuthScope
+    from mcp_guide.auth import AuthScope, UserAuthorisation
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
@@ -103,18 +106,57 @@ async def _check_project_bound(request_context: RequestContext) -> Optional[obje
     return None
 
 
-async def _authorise_tool(request_context: RequestContext, required_scope: "AuthScope") -> Result[Any] | None:
-    """Apply the request's already-resolved authorisation scopes."""
-    from mcp_guide.auth import UserAuthorisation, scope_authorisation_result
+async def _authorise_tool(
+    request_context: RequestContext, required_scope: "AuthScope"
+) -> tuple[RequestContext, "UserAuthorisation | None", Result[Any] | None]:
+    """Obtain a decision only for a protected tool, then apply its scopes."""
+    from mcp_guide.auth import (
+        AuthProviderConnectionError,
+        AuthProviderResponseTimeoutError,
+        UserAuthorisation,
+        current_auth_evidence,
+        current_user_authorisation,
+        scope_authorisation_result,
+    )
 
     # Provider configuration enables enforcement, even without a request decision.
-    scope_enforcement_enabled = get_runtime().auth_service is not None
-    if not scope_enforcement_enabled:
-        return None
-    authorisation = request_context.authorisation
-    return scope_authorisation_result(
-        authorisation if isinstance(authorisation, UserAuthorisation) else None,
-        required_scope,
+    auth_service = get_runtime().auth_service
+    if auth_service is None:
+        return request_context, None, None
+    authorisation = current_user_authorisation()
+    if authorisation is None:
+        evidence = current_auth_evidence()
+        if evidence is None:
+            return request_context, None, scope_authorisation_result(None, required_scope)
+        try:
+            authorisation = await auth_service.authenticate(evidence)
+        except (AuthProviderConnectionError, AuthProviderResponseTimeoutError) as error:
+            return (
+                request_context,
+                None,
+                Result.failure(
+                    str(error),
+                    error_type=ERROR_AUTHENTICATION_UNAVAILABLE,
+                    instruction=INSTRUCTION_AUTHENTICATION_UNAVAILABLE,
+                ),
+            )
+        except Exception:
+            logger.error("Authentication provider failed while validating a protected tool request")
+            return (
+                request_context,
+                None,
+                Result.failure(
+                    "Authentication service is unavailable",
+                    error_type=ERROR_AUTHENTICATION_UNAVAILABLE,
+                    instruction=INSTRUCTION_AUTHENTICATION_UNAVAILABLE,
+                ),
+            )
+    if not isinstance(authorisation, UserAuthorisation):
+        return request_context, None, scope_authorisation_result(None, required_scope)
+    return (
+        replace(request_context, authorisation=authorisation),
+        authorisation,
+        scope_authorisation_result(authorisation, required_scope),
     )
 
 
@@ -215,26 +257,36 @@ def toolfunc(
                     session = request_context.session
                     if hasattr(args, "session_id") and getattr(args, "session_id", None) is None:
                         args.session_id = request_context.session_id
+                    authorisation_context = nullcontext()
                     if auth_scope is not None and (auth_required is None or auth_required(args)):
-                        authorisation = await _authorise_tool(request_context, auth_scope)
-                        if authorisation is not None:
+                        request_context, authorisation, authorisation_failure = await _authorise_tool(
+                            request_context, auth_scope
+                        )
+                        if authorisation_failure is not None:
                             return await _normalize_tool_output(
-                                authorisation,
+                                authorisation_failure,
                                 tool_name,
                                 request_context.session_id,
                                 session=session,
                             )
-                    if not binds_project:
-                        await _call_on_tool(tool_name, request_context)
-                    if requires_project:
-                        unbound = await _check_project_bound(request_context)
-                        if unbound is not None:
-                            return unbound
-                    application_kwargs: dict[str, Any] = {}
-                    if "mcp_context" in inspect.signature(func).parameters:
-                        application_kwargs["mcp_context"] = ctx
-                    result = await func(args, request_context, **application_kwargs)
-                    return await _normalize_tool_output(result, tool_name, request_context.session_id, session=session)
+                        if authorisation is not None:
+                            from mcp_guide.auth import bind_user_authorisation
+
+                            authorisation_context = bind_user_authorisation(authorisation)
+                    with authorisation_context:
+                        if not binds_project:
+                            await _call_on_tool(tool_name, request_context)
+                        if requires_project:
+                            unbound = await _check_project_bound(request_context)
+                            if unbound is not None:
+                                return unbound
+                        application_kwargs: dict[str, Any] = {}
+                        if "mcp_context" in inspect.signature(func).parameters:
+                            application_kwargs["mcp_context"] = ctx
+                        result = await func(args, request_context, **application_kwargs)
+                        return await _normalize_tool_output(
+                            result, tool_name, request_context.session_id, session=session
+                        )
             except InvalidGuideSessionError:
                 return tool_response(make_invalid_session_result())
             except UnmintableGuideSessionError:

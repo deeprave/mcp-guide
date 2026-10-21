@@ -30,16 +30,17 @@ entry point:
 ```
 
 `<provider-name>` is resolved from the `mcp_guide.auth_providers` entry-point
-group. Guide dynamically loads the selected factory only when a remote HTTP(S)
-transport is started. It constructs, starts, and stops that provider with that
-transport. Stdio never loads, creates, or calls a provider. Provider-specific
+group. Guide dynamically loads, constructs, and starts the selected provider
+only when a protected remote operation needs an authentication decision. It
+stops a constructed provider when its transport stops. Stdio never loads,
+creates, or calls a provider. Provider-specific
 configuration belongs to the provider's deployment environment, such as its
 own environment variables, configuration file, or external service; Guide has
 no provider-configuration CLI option.
 
-A selected provider that cannot be loaded or started prevents its remote
-transport from serving. No provider selected means current remote behaviour is
-preserved.
+A selected provider that cannot be loaded or started fails only a protected
+operation with Guide's safe authentication-service-unavailable Result. No
+provider selected means current remote behaviour is preserved.
 
 ### Python provider contract
 
@@ -77,11 +78,14 @@ another interface requires an explicit host in the transport URL. This safer
 bind default does not make authentication mandatory or introduce deployment
 policy checks.
 
-Guide's middleware uses the synchronous `bind_user_authorisation()` context
-manager to bind the provider decision while handling a request and restore the
-previous state on every exit. `current_user_authorisation()` exposes that
-decision to RequestContext construction and template projection. These are
-Guide integration helpers, not additional provider-interface methods.
+Guide's middleware binds only ephemeral `AuthEvidence` while handling a
+request. When a protected operation needs a decision, its authorisation
+boundary calls the provider and uses the synchronous
+`bind_user_authorisation()` context manager for that operation's execution,
+then restores the previous state on every exit.
+`current_user_authorisation()` exposes that decision to RequestContext
+construction and template projection. These are Guide integration helpers, not
+additional provider-interface methods.
 
 ### Why Guide owns the operation boundary
 
@@ -169,7 +173,7 @@ retrieve Guide-rendered content rather than reuse an exported copy.
 - Guide has a stable, testable authorisation boundary without becoming an
   identity provider.
 - Operators can integrate an existing provider, or install the separately
-  runnable reference OIDC provider, without changing Guide credentials or
+  runnable reference authentication provider, without changing Guide credentials or
   deployment configuration.
 - A provider package has a narrow public compatibility surface: its factory,
   lifecycle, request authorisation method, and optional handoff.

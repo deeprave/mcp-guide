@@ -4,6 +4,24 @@ All notable changes to mcp-guide will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0b5] - 2026-10-22
+
+### Added
+- Optional `auth-ref` provider adapter for `auth-guide` and compatible external
+  authentication services. It validates each protected remote operation through
+  a TLS-verified `POST /v1/authenticate` request and maps the service decision
+  to Guide's user and administrator access scopes.
+
+### Changed
+- Authentication providers now load only when a protected remote operation
+  needs a decision. Unprotected remote operations continue to work when the
+  provider is unavailable.
+- Remote template rendering without an authentication decision now fails closed
+  for authenticated and administrator-only sections; stdio and provider-free
+  rendering retain unrestricted behaviour.
+
+## [2.0.0b4] - 2026-10-13
+
 ### Changed
 - Content export is now a stateless client-owned write handoff restricted to
   configured write paths, without granting permissions or requiring user scope.

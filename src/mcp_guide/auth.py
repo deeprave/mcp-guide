@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -17,6 +18,7 @@ from mcp_guide.result_constants import ERROR_FORBIDDEN, ERROR_NOT_AUTHORISED
 AUTH_PROVIDER_ENTRY_POINT_GROUP = "mcp_guide.auth_providers"
 logger = get_logger(__name__)
 _USER_AUTHORISATION: ContextVar["UserAuthorisation | None"] = ContextVar("user_authorisation", default=None)
+_AUTH_EVIDENCE: ContextVar["AuthEvidence | None"] = ContextVar("auth_evidence", default=None)
 
 
 class AuthProviderConfigurationError(ValueError):
@@ -25,6 +27,20 @@ class AuthProviderConfigurationError(ValueError):
 
 class AuthProviderResultError(RuntimeError):
     """Raised when a provider returns an invalid authentication decision."""
+
+
+class AuthProviderConnectionError(RuntimeError):
+    """Raised when Guide cannot establish a usable provider-service connection."""
+
+    def __init__(self) -> None:
+        super().__init__("Could not connect to the authentication service")
+
+
+class AuthProviderResponseTimeoutError(RuntimeError):
+    """Raised when a provider does not return an authentication decision in time."""
+
+    def __init__(self) -> None:
+        super().__init__("Timed out waiting for an authentication response from the authentication service")
 
 
 class AuthScope(StrEnum):
@@ -41,6 +57,21 @@ class AuthEvidence:
     headers: tuple[tuple[bytes, bytes], ...]
     method: str
     path: str
+
+
+@contextmanager
+def bind_auth_evidence(evidence: AuthEvidence) -> Iterator[None]:
+    """Bind ephemeral request evidence until an operation requires authentication."""
+    token = _AUTH_EVIDENCE.set(evidence)
+    try:
+        yield
+    finally:
+        _AUTH_EVIDENCE.reset(token)
+
+
+def current_auth_evidence() -> AuthEvidence | None:
+    """Return the current request's ephemeral authentication evidence."""
+    return _AUTH_EVIDENCE.get()
 
 
 @contextmanager
@@ -103,23 +134,27 @@ class AuthService:
     def __init__(self, factory: AuthProviderFactory):
         self._factory = factory
         self._provider: AuthProvider | None = None
+        self._start_lock = asyncio.Lock()
 
     async def start(self) -> None:
         """Construct and start the selected provider once."""
         if self._provider is not None:
             return
-        provider = self._factory()
-        if not isinstance(provider, AuthProvider):
-            raise AuthProviderConfigurationError("Authentication provider does not implement the required protocol")
-        self._provider = provider
-        try:
-            await provider.start()
-        except BaseException:
+        async with self._start_lock:
+            if self._provider is not None:
+                return
+            provider = self._factory()
+            if not isinstance(provider, AuthProvider):
+                raise AuthProviderConfigurationError("Authentication provider does not implement the required protocol")
             try:
-                await self.stop()
+                await provider.start()
             except BaseException:
-                logger.error("Authentication provider cleanup failed after startup failure")
-            raise
+                try:
+                    await provider.stop()
+                except BaseException:
+                    logger.error("Authentication provider cleanup failed after startup failure")
+                raise
+            self._provider = provider
 
     async def stop(self) -> None:
         """Stop the selected provider after the remote transport exits."""
@@ -130,8 +165,11 @@ class AuthService:
     async def authenticate(self, evidence: AuthEvidence) -> UserAuthorisation:
         """Resolve the selected provider's request-level access scopes."""
         if self._provider is None:
-            raise RuntimeError("Authentication provider is not started")
-        authorisation = await self._provider.authenticate(evidence)
+            await self.start()
+        provider = self._provider
+        if provider is None:
+            raise RuntimeError("Authentication provider did not start")
+        authorisation = await provider.authenticate(evidence)
         if not isinstance(authorisation, UserAuthorisation):
             raise AuthProviderResultError("Authentication provider returned an invalid authorisation result")
         return authorisation
@@ -163,7 +201,7 @@ def load_auth_provider_factory(provider_name: str) -> AuthProviderFactory:
 
 
 def auth_service_for(provider_name: str) -> AuthService:
-    """Create a lazy service whose provider is loaded only at transport start."""
+    """Create a lazy service whose provider loads at its first protected operation."""
 
     def factory() -> AuthProvider:
         return load_auth_provider_factory(provider_name)()
@@ -194,6 +232,13 @@ async def template_auth_context(
     decision state retains the unrestricted rendering defaults.
     """
     request_has_provider_decision = authorisation is not None
+    if authorisation is None and current_auth_evidence() is not None:
+        return {
+            "active": True,
+            "authenticated": False,
+            "user": False,
+            "admin": False,
+        }
     if authorisation is None:
         return {
             "active": request_has_provider_decision,

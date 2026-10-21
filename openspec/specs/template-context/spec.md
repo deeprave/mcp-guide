@@ -171,12 +171,13 @@ the current request with boolean `active`, `authenticated`, `user`, and `admin`
 values. Rendering without a session SHALL omit the mapping.
 
 For a template rendered during a current remote request, `active` SHALL be true
-only when a provider is configured for that transport.
-Template activity projects the presence of a provider decision for the current
-request, including an unauthenticated decision. It is distinct from the
-configured-provider check that enables tool enforcement. Session rendering
-without a bound provider decision SHALL retain inactive, unrestricted template
-predicates without disabling enforcement.
+when provider-backed request evidence is bound for that transport. Template
+activity projects the presence of a provider decision for the current request,
+including an unauthenticated decision. It is distinct from the configured-provider
+check that enables tool enforcement. Session rendering with provider-backed
+request evidence but without a bound provider decision SHALL retain active,
+fail-closed predicates: `authenticated`, `user`, and `admin` SHALL be false.
+This projection SHALL NOT require a provider call.
 `authenticated`, `user`, and `admin` SHALL express access predicates, not raw
 identity claims. When `active` is false, all three scope predicates SHALL be
 true. With authentication active, `authenticated` SHALL mean that the caller
@@ -190,6 +191,13 @@ detail.
 - **WHEN** a template is rendered with a session without a configured provider or on stdio
 - **THEN** `auth.active` SHALL be false
 - **AND** `auth.authenticated`, `auth.user`, and `auth.admin` SHALL be true
+
+#### Scenario: Remote rendering has no provider decision
+- **GIVEN** provider-backed remote request evidence is bound
+- **AND** no provider decision is bound for the current request
+- **WHEN** a template is rendered with a session
+- **THEN** `auth.active` SHALL be true
+- **AND** `auth.authenticated`, `auth.user`, and `auth.admin` SHALL be false
 
 #### Scenario: Template rendering has no session
 - **GIVEN** no session is supplied

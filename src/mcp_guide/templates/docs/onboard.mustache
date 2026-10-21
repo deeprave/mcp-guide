@@ -31,6 +31,7 @@ To get started, run:
 
 Or use {{#resource}}_onboard{{/resource}}
 
+{{#auth.active}}
 {{#auth.user}}
 To skip and configure manually instead:
 
@@ -40,3 +41,13 @@ To skip and configure manually instead:
 
 Or use {{#resource}}_onboard?skip{{/resource}}
 {{/auth.user}}
+{{/auth.active}}
+{{^auth.active}}
+To skip and configure manually instead:
+
+```
+{{#command}}onboard{{/command}}{{#command-flags}}skip{{/command-flags}}
+```
+
+Or use {{#resource}}_onboard?skip{{/resource}}
+{{/auth.active}}
