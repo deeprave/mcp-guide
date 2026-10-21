@@ -55,6 +55,8 @@ class ReferenceAuthProvider:
     async def _request(self, headers: dict[str, str] | None = None) -> httpx2.Response:
         try:
             return await self._client.post(AUTHENTICATE_PATH, headers=headers)
+        except httpx2.PoolTimeout as error:
+            raise AuthProviderConnectionError() from error
         except httpx2.ConnectTimeout as error:
             raise AuthProviderConnectionError() from error
         except httpx2.TimeoutException as error:

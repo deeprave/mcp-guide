@@ -1,5 +1,7 @@
 """Behavioural tests for the reference authentication adapter."""
 
+from __future__ import annotations
+
 import asyncio
 import ipaddress
 import ssl
@@ -192,8 +194,9 @@ def test_reference_provider_factory_requires_a_provider_owned_https_address(monk
     [
         lambda request: httpx2.ConnectError("connection refused", request=request),
         lambda request: httpx2.ConnectTimeout("connection timed out", request=request),
+        lambda request: httpx2.PoolTimeout("connection pool exhausted", request=request),
     ],
-    ids=["connection-error", "connection-timeout"],
+    ids=["connection-error", "connection-timeout", "connection-pool-timeout"],
 )
 async def test_reference_provider_fails_closed_when_the_service_connection_fails(failure) -> None:
     """A network failure cannot be mistaken for an unauthenticated decision."""
