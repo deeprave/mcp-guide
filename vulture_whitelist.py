@@ -109,3 +109,4 @@ _.method
 _.__getattr__  # Python module protocol for lazy render_template compatibility export
 _.__all__
 _.main
+_.create_provider  # auth-provider entry point loaded dynamically from pyproject

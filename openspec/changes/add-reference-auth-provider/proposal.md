@@ -2,55 +2,54 @@
 
 ## Why
 
-The pluggable authentication design needs a real implementation on both sides
-of its boundary before its contract can be trusted. A reference OIDC provider
-will exercise Guide's provider-module interface against a reference identity
-service while supplying a small, understandable local user-management story for
-development, testing, and deployments that choose to adopt it.
+Guide has a pluggable authentication boundary but needs an adapter that can use
+the reference provider service now maintained outside this repository. The
+adapter proves that boundary without turning Guide into an identity provider or
+duplicating the provider service's accounts, credentials, lifecycle, or
+administration responsibilities.
 
 ## What Changes
 
-- Add an optional `auth-ref-oidc` provider module inside the `mcp-guide`
-  distribution.
-  It is selected through Guide's provider entry-point mechanism and validates
-  externally issued OIDC bearer tokens without Guide interpreting credentials
-  or managing users.
-- Add a reference OIDC provider application in this repository as a persistent
-  process. It exposes OIDC discovery, token validation keys, and a
-  password-login hand-off. The selected adapter connects to it at transport
-  startup and, in configured local-reference mode, starts and owns it when it
-  is unavailable.
-- Add a user-management command for the reference application to create,
-  remove, list, and grant coarse `user` or `admin` access to local accounts,
-  with secure password setup and reset. The command uses the provider's
-  management API rather than reading or writing its database. The application
-  stores password verifiers only, never plaintext passwords.
-- Define an end-to-end reference deployment: a user authenticates at the
-  identity provider, configures an issued bearer token in a capable MCP client,
-  and Guide's OIDC module maps the token to `UserAuthorisation` scopes.
-- Use the reference pair as a conformance test for provider lifecycle,
-  token validation, key rotation, expired/disabled users, authorisation
-  results, and authentication hand-off.
+- Add an optional provider module, selected through Guide's existing provider
+  entry-point mechanism, that connects to the external reference provider
+  service over its configured TLS endpoint.
+- Only when a protected remote operation requires an authentication decision,
+  forward the ephemeral bearer evidence needed by the service's authentication
+  endpoint. Convert its limited decision into Guide's `UserAuthorisation`
+  scopes, discarding account identity and every other provider detail. Remote
+  rendering without such a decision exposes fail-closed access predicates.
+- Define and test the service-adapter contract: request authentication,
+  response validation, `user` and `admin` mapping, provider errors, TLS
+  connection failure, and request-local credential handling.
+- Document installation, external service configuration, TLS trust, remote
+  transport selection, and the separation of Guide from the provider service.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `reference-auth-provider`: optional Guide OIDC provider integration and an
-  independently runnable reference OIDC identity-provider application.
+- `reference-auth-provider`: optional Guide adapter for the independently
+  operated reference authentication-provider service.
 
 ### Modified Capabilities
 
-None.
+- `mcp-authentication`: load and start a selected provider at the first
+  protected operation, rather than at remote transport startup; provider
+  configuration or startup failure affects that operation only. Remote template
+  access predicates are fail-closed while request evidence is bound but no
+  provider decision exists.
+- `template-context`: represent remote request evidence without a provider
+  decision as active but unauthenticated, rather than as inactive with
+  unrestricted predicates.
 
 ## Impact
 
-- Adds optional authentication dependencies, provider entry-point metadata,
-  an OIDC provider package, a reference identity-provider application, an
-  encrypted SQLite user store, and an API-based administration command.
+- Adds the adapter's optional HTTP client dependency, entry-point metadata,
+  provider-owned configuration, tests, and operator documentation.
 - Depends on the provider contract introduced by `add-mcp-authentication` and
-  serves as its executable conformance implementation.
-- Adds cryptographic key and password-verifier handling only to the independent
-  reference application; Guide's core remains credential- and account-agnostic.
-- Is explicitly opt-in and does not alter stdio or remote behaviour when no
-  authentication provider is selected.
+  on the external service's versioned authentication endpoint.
+- Does not add an identity-provider application, database, credential store,
+account-management command, provider process lifecycle, signing keys, login
+pages, or token issuance to Guide.
+- Is opt-in and does not alter stdio or remote behaviour when no authentication
+  provider is selected.

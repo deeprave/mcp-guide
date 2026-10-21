@@ -246,6 +246,46 @@ the deployment administrator's responsibility. Direct HTTPS, or HTTP behind a
 TLS-terminating reverse proxy, are the recommended remote deployments. Stdio
 does not support `--auth-provider`; Guide rejects that configuration.
 
+##### Reference provider adapter
+
+The `auth-ref` adapter connects Guide to an independently operated
+`auth-guide` reference-provider service. Install its optional client support and
+select the adapter for an HTTP or HTTPS transport:
+
+```bash
+uv tool install 'mcp-guide[http,auth-ref]'
+AG_ADDRESS=https://auth.example mcp-guide https --auth-provider auth-ref
+```
+
+`AG_ADDRESS` is the provider's public HTTPS address. Transport startup does not
+contact the provider. Guide forwards each request's bearer evidence to
+`POST /v1/authenticate` only when a protected operation needs a current
+authentication decision.
+An invalid or absent bearer response leaves the request unauthenticated; a
+successful decision grants `user` and may grant `admin`.
+
+The adapter verifies the provider using the operating system trust store. If the
+provider uses a private authority, install that authority in the system trust
+store of the host or container running Guide; do not disable certificate
+verification or provide a Guide certificate-bundle override.
+
+Guide waits at most five seconds for a connection or authentication decision.
+A connection timeout, another connection failure, or a TLS failure reports that
+Guide could not connect to the authentication service; a timeout after the
+connection phase reports that the authentication service did not respond in
+time. A protected operation returns that safe diagnostic in Guide's
+`authentication_unavailable` Result, so clients can report the condition to the
+service administrator. Operations that do not require authentication continue
+without contacting the provider. Remote templates rendered before a decision
+have fail-closed access predicates and therefore do not expose user- or
+administrator-gated content. Both failure paths exclude bearer data.
+
+The provider service owns its own lifecycle, accounts, credentials, login,
+token issuance, administration, availability and recovery. Guide neither
+starts nor configures it, and retains no principal, account identifier, decoded
+claim or bearer token after each authentication decision. Obtain bearer tokens
+and any login or hand-off experience from the provider's own documentation.
+
 Without a provider, operations remain available without authentication,
 including tools that mutate project configuration, flags, permission settings
 and documents. Before exposing Guide to untrusted callers, configure a provider

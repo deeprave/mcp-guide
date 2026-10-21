@@ -15,8 +15,10 @@ configuration SHALL be owned by that provider, including its own environment,
 files, or external services. Guide SHALL NOT offer a provider-config CLI
 argument.
 
-The selected provider SHALL start and stop with a remote HTTP(S) transport.
-Provider startup failure SHALL prevent that remote transport from serving.
+The selected provider SHALL be loaded and started only when a protected remote
+operation needs an authentication decision, and stopped with its remote HTTP(S)
+transport. A provider configuration or startup failure SHALL fail that protected
+operation closed without preventing unprotected remote operations from serving.
 Stdio SHALL reject `--auth-provider`. Guide
 SHALL NOT issue credentials, manage accounts, persist credentials, or parse
 credential formats or contents.
@@ -27,24 +29,25 @@ credential formats or contents.
 - **THEN** it SHALL not construct a provider
 - **AND** remote operations SHALL retain their existing access behaviour
 
-#### Scenario: Provider starts with remote transport
+#### Scenario: Provider starts for a protected operation
 - **GIVEN** an authentication provider is selected for the remote transport
-- **WHEN** a server starts a remote transport with a selected provider
-- **THEN** it SHALL start the provider before accepting protected operations
+- **WHEN** a protected remote operation needs an authentication decision
+- **THEN** it SHALL start the provider before dispatching that protected operation
 - **AND** it SHALL stop the provider when that transport stops
 
 #### Scenario: Provider startup fails
 - **GIVEN** an authentication provider is selected for the remote transport
-- **WHEN** a selected provider cannot initialise
-- **THEN** the remote transport SHALL fail to start
-- **AND** it SHALL not serve an endpoint that appears provider-protected
+- **WHEN** a protected remote operation requires a provider that cannot initialise
+- **THEN** that operation SHALL return a safe authentication-service-unavailable result
+- **AND** unprotected operations SHALL retain their existing result behaviour
 
 ### Requirement: Opaque request authorisation and handoff
-For each remote request, Guide SHALL supply the provider with ephemeral request
-evidence. The provider SHALL return `UserAuthorisation`: a set of scope names
-and an optional opaque HTTPS authentication handoff. Guide SHALL use `user` for
-ordinary protected operations and `admin` for administrative operations;
-`admin` SHALL also satisfy `user` operations.
+For each remote request that needs an authentication decision, Guide SHALL
+supply the provider with ephemeral request evidence. The provider SHALL return
+`UserAuthorisation`: a set of scope names and an optional opaque HTTPS
+authentication handoff. Guide SHALL use `user` for ordinary protected operations
+and `admin` for administrative operations; `admin` SHALL also satisfy `user`
+operations.
 
 Authenticated state SHALL mean the presence of `user` or `admin`, with
 unauthenticated state its complement. Future capability scopes SHALL require
@@ -102,6 +105,7 @@ boundary.
 - **WHEN** a caller invokes an operation without a declared protected scope
 - **THEN** the system SHALL preserve that operation's existing access and
   result behaviour
+- **AND** it SHALL NOT contact the provider solely to dispatch that operation
 
 #### Scenario: Stateless export with provider active
 - **GIVEN** an authentication provider is active

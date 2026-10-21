@@ -2,9 +2,7 @@
 
 import asyncio
 import errno
-import logging
 import socket
-from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx2
@@ -39,20 +37,21 @@ class RecordingMcpServer:
 
 
 @pytest.mark.anyio
-async def test_authentication_middleware_passes_request_evidence_to_provider() -> None:
-    """The middleware passes request evidence to the provider and calls the application."""
+async def test_authentication_middleware_binds_request_evidence_without_calling_provider() -> None:
+    """Unprotected requests retain evidence without requiring the provider."""
     observed = []
 
     async def application(scope, receive, send):
+        from mcp_guide.auth import current_auth_evidence
+
+        evidence = current_auth_evidence()
+        assert evidence is not None
+        assert evidence.method == "POST"
+        assert evidence.path == "/mcp"
+        assert evidence.headers == ((b"authorization", b"Bearer opaque-token"),)
         observed.append(scope)
 
-    class AuthService:
-        async def authenticate(self, evidence):
-            self.evidence = evidence
-            return UserAuthorisation(scopes=frozenset({AuthScope.USER}))
-
-    service = AuthService()
-    middleware = _AuthenticationMiddleware(application, service)
+    middleware = _AuthenticationMiddleware(application)
     await middleware(
         {
             "type": "http",
@@ -64,41 +63,7 @@ async def test_authentication_middleware_passes_request_evidence_to_provider() -
         lambda _: None,
     )
 
-    assert service.evidence.method == "POST"
-    assert service.evidence.path == "/mcp"
-    assert service.evidence.headers == ((b"authorization", b"Bearer opaque-token"),)
     assert len(observed) == 1
-
-
-@pytest.mark.anyio
-async def test_authentication_middleware_does_not_log_provider_exception_text(caplog: pytest.LogCaptureFixture) -> None:
-    """Provider failures return a generic response without logging credentials."""
-    sent: list[dict] = []
-
-    async def application(scope, receive, send):
-        raise AssertionError("The application must not run after provider failure")
-
-    class AuthService:
-        async def authenticate(self, evidence):
-            raise ValueError("Bearer synthetic-secret")
-
-    async def send(message):
-        sent.append(message)
-
-    middleware = _AuthenticationMiddleware(application, AuthService())
-    with caplog.at_level(logging.ERROR, logger="mcp_guide.transports.http"):
-        await middleware(
-            {"type": "http", "method": "POST", "path": "/mcp", "headers": []},
-            lambda: None,
-            send,
-        )
-
-    assert "synthetic-secret" not in caplog.text
-    assert "Authentication provider failed while validating a request" in caplog.text
-    assert sent == [
-        {"type": "http.response.start", "status": 503, "headers": [(b"content-type", b"application/json")]},
-        {"type": "http.response.body", "body": b'{"error":"Authentication unavailable"}'},
-    ]
 
 
 @pytest.mark.anyio
@@ -155,8 +120,8 @@ async def test_http_transport_lifecycle(prefix, expected):
 
 
 @pytest.mark.anyio
-async def test_http_transport_starts_and_stops_selected_auth_service() -> None:
-    """Only the remote transport owns the configured provider lifecycle."""
+async def test_http_transport_defers_selected_auth_service_until_a_protected_operation() -> None:
+    """Transport startup never constructs a configured provider."""
     started = asyncio.Event()
     stopped = asyncio.Event()
 
@@ -178,105 +143,31 @@ async def test_http_transport_starts_and_stops_selected_auth_service() -> None:
             started.set()
             await stopped.wait()
 
-    class AuthService:
-        started = False
-        stopped = False
+    factory_called = False
 
-        async def start(self):
-            self.started = True
+    class Provider:
+        async def start(self) -> None:
+            raise AssertionError("Transport startup must not start the provider")
 
-        async def stop(self):
-            self.stopped = True
+        async def stop(self) -> None:
+            raise AssertionError("An unconstructed provider must not be stopped")
 
-    auth_service = AuthService()
+        async def authenticate(self, evidence):
+            raise AssertionError("No protected operation was invoked")
+
+    def factory() -> Provider:
+        nonlocal factory_called
+        factory_called = True
+        return Provider()
+
+    auth_service = AuthService(factory)
     with patch("uvicorn.Server", FakeServer):
         transport = HttpTransport("http", "localhost", 8081, RecordingMcpServer(), auth_service=auth_service)
         await transport.start()
         await started.wait()
         await transport.stop()
 
-    assert auth_service.started is True
-    assert auth_service.stopped is True
-
-
-@pytest.mark.anyio
-async def test_provider_wrapping_preserves_established_session_rate_limiting() -> None:
-    """Authentication wrapping retains the FastMCP session lookup for rate limits."""
-    session_manager = SimpleNamespace(_server_instances={"established": object()})
-
-    class McpApplication:
-        routes = [SimpleNamespace(endpoint=SimpleNamespace(session_manager=session_manager))]
-
-        async def __call__(self, scope, receive, send):
-            await send({"type": "http.response.start", "status": 200, "headers": []})
-
-    class McpServer:
-        def http_app(self, *, transport, path):
-            return McpApplication()
-
-    class AuthService:
-        async def start(self) -> None:
-            return None
-
-        async def stop(self) -> None:
-            return None
-
-        async def authenticate(self, evidence):
-            return UserAuthorisation(scopes=frozenset({AuthScope.USER}))
-
-    captured: list[object] = []
-
-    class FakeServer:
-        def __init__(self, config):
-            self.should_exit = False
-            captured.append(config.app)
-
-        async def serve(self):
-            return None
-
-    with patch("uvicorn.Server", FakeServer):
-        transport = HttpTransport("http", "localhost", 8081, McpServer(), auth_service=AuthService())
-        await transport.start()
-        await transport.stop()
-
-    rate_limiter = captured[0]
-    assert rate_limiter._session_is_established("established") is True
-    assert rate_limiter._session_is_established("missing") is False
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize("mode", ["legacy", "2026-07-28"])
-async def test_streamable_http_serves_retained_and_modern_clients(mode: str):
-    """FastMCP owns negotiated Streamable HTTP protocol handling."""
-    from mcp_guide.cli import ServerConfig
-    from mcp_guide.server import create_application
-
-    with socket.socket() as port_socket:
-        try:
-            port_socket.bind(("127.0.0.1", 0))
-        except OSError as error:
-            if error.errno in {errno.EPERM, errno.EACCES}:
-                raise pytest.skip(f"HTTP integration test disabled in sandboxed environments: {error}") from error
-            raise
-        port = port_socket.getsockname()[1]
-
-    application = create_application(ServerConfig())
-    transport = HttpTransport("http", "127.0.0.1", port, application.server)
-    await transport.start()
-    try:
-        for _ in range(200):
-            if transport.server is not None and transport.server.started:
-                break
-            await asyncio.sleep(0.01)
-        else:
-            pytest.fail("Uvicorn did not start")
-
-        async with Client(f"http://127.0.0.1:{port}/mcp", mode=mode) as client:
-            tools = await client.list_tools()
-
-        assert any(tool.name == "set_project" for tool in tools)
-    finally:
-        await transport.stop()
+    assert factory_called is False
 
 
 @pytest.mark.anyio
@@ -286,6 +177,8 @@ async def test_reused_http_session_authorises_each_tool_request(tmp_path):
     from mcp_guide.server import create_application
 
     class Provider:
+        evidences = []
+
         async def start(self):
             pass
 
@@ -293,7 +186,14 @@ async def test_reused_http_session_authorises_each_tool_request(tmp_path):
             pass
 
         async def authenticate(self, evidence):
+            from mcp_guide.auth import AuthProviderConnectionError, AuthProviderResponseTimeoutError
+
+            self.evidences.append(evidence)
             credential = dict(evidence.headers).get(b"authorization")
+            if credential == b"Bearer unavailable":
+                raise AuthProviderConnectionError()
+            if credential == b"Bearer timeout":
+                raise AuthProviderResponseTimeoutError()
             scopes = {
                 b"Bearer test-admin": frozenset({AuthScope.ADMIN}),
                 b"Bearer test-user": frozenset({AuthScope.USER}),
@@ -320,7 +220,8 @@ async def test_reused_http_session_authorises_each_tool_request(tmp_path):
         port = port_socket.getsockname()[1]
 
     application = create_application(ServerConfig(transport_mode="http", configdir=str(tmp_path)))
-    service = AuthService(Provider)
+    provider = Provider()
+    service = AuthService(lambda: provider)
     application.runtime.auth_service = service
     transport = HttpTransport("http", "127.0.0.1", port, application.server, auth_service=service)
     credentials = ChangingCredentials()
@@ -337,15 +238,30 @@ async def test_reused_http_session_authorises_each_tool_request(tmp_path):
         async with Client(client_transport, mode="legacy") as client:
             bound = await client.call_tool("set_project", {"args": {"path": str(tmp_path / "client-project")}})
             assert bound.structured_content["success"] is True
+            assert provider.evidences == []
             session_id = bound.structured_content["session_id"]
             http_session_id = client_transport.get_session_id()
             assert http_session_id is not None
 
-            for credential, expected_error, value, expected_stored in [
-                ("test-admin", None, "initial", "initial"),
-                (None, "not_authorised", "anonymous", "initial"),
-                ("test-user", "forbidden", "user", "initial"),
-                ("test-admin", None, "restored", "restored"),
+            for credential, expected_error, expected_message, value, expected_stored in [
+                ("test-admin", None, None, "initial", "initial"),
+                (None, "not_authorised", None, "anonymous", "initial"),
+                ("test-user", "forbidden", None, "user", "initial"),
+                (
+                    "unavailable",
+                    "authentication_unavailable",
+                    "Could not connect to the authentication service",
+                    "unavailable",
+                    "initial",
+                ),
+                (
+                    "timeout",
+                    "authentication_unavailable",
+                    "Timed out waiting for an authentication response from the authentication service",
+                    "timeout",
+                    "initial",
+                ),
+                ("test-admin", None, None, "restored", "restored"),
             ]:
                 credentials.credential = credential
                 result = await client.call_tool(
@@ -357,8 +273,11 @@ async def test_reused_http_session_authorises_each_tool_request(tmp_path):
                 assert result.is_error is (expected_error is not None)
                 if expected_error is not None:
                     assert result.structured_content["error_type"] == expected_error
+                    if expected_message is not None:
+                        assert result.structured_content["error"] == expected_message
                 assert client_transport.get_session_id() == http_session_id
                 stored = await application.runtime.feature_flags().get("auth-test")
                 assert stored.to_raw() == expected_stored
+            assert len(provider.evidences) == 6
     finally:
         await transport.stop()

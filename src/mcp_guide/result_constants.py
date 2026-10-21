@@ -32,6 +32,7 @@ ERROR_SECURITY = "security_error"
 ERROR_INVALID_SESSION = "invalid_session"
 ERROR_FORBIDDEN = "forbidden"
 ERROR_NOT_AUTHORISED = "not_authorised"
+ERROR_AUTHENTICATION_UNAVAILABLE = "authentication_unavailable"
 
 # Error instructions
 INSTRUCTION_NOTFOUND_ERROR = "Present this error as-is to the user. Do NOT attempt to correct."
@@ -45,6 +46,9 @@ INSTRUCTION_VALIDATION_ERROR = "Return error to user without attempting remediat
 INSTRUCTION_NO_PROJECT = (
     "No active project context is available. "
     "Call set_project with the repository root, not a worktree or subdirectory path."
+)
+INSTRUCTION_AUTHENTICATION_UNAVAILABLE = (
+    "Report this authentication-service failure to the server administrator and retry after it is resolved."
 )
 
 

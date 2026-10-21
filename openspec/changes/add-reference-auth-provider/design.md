@@ -2,125 +2,158 @@
 
 ## Context
 
-`add-mcp-authentication` establishes a generic remote provider boundary but
-does not prove that an external identity system can satisfy it. This change
-adds a reference pair in the same distribution: an optional Guide-side OIDC
-module and an independent identity-provider application. See the proposal and
-the `reference-auth-provider` requirements for the behaviour contract.
+`add-mcp-authentication` establishes Guide's generic remote-provider boundary.
+The reference provider service is now developed and operated outside this
+repository. This change implements only the Guide-side adapter that consumes
+that service; it does not implement or own any provider-service behaviour.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Exercise the Guide provider lifecycle, `UserAuthorisation` scope results,
-  hand-off, key refresh, and template availability boundary against a real issuer.
-- Keep the two runtime processes independently deployable, startable, and
-  failure-isolated.
-- Give adopters a compact example of account administration and token issuance
-  without changing Guide core into an account service.
+- Connect a selected Guide provider module to the external reference provider
+  service using the service's TLS authentication interface.
+- Turn a validated, minimal service decision into the request-local
+  `UserAuthorisation` result required by Guide's protected-operation boundary.
+- Make the service interface, failure behaviour, trust configuration, and
+  ownership boundary explicit and testable.
 
 **Non-Goals:**
 
-- A general-purpose, high-scale, or managed identity product.
-- A Guide-managed login page, password database, signing key, or token store.
-- Automatic browser redirects or automatic bearer-token installation in an MCP
-  client.
-- Per-project roles or tenancy; access remains provider-global and coarse.
+- Implement, start, stop, supervise, or configure the reference provider
+  process.
+- Implement accounts, passwords, persistent tokens, signing keys, login pages,
+  hand-off pages, or provider administration.
+- Add a Guide CLI option for provider-specific configuration or a Guide-managed
+  credential store.
+- Pass account identifiers, raw tokens, decoded claims, or provider objects to
+  Guide handlers or templates.
 
 ## Decisions
 
-### Two packages, one distribution, two processes
+### External service is the sole identity and lifecycle owner
 
-Place the Guide adapter under the main package as an optional `auth-ref-oidc`
-provider entry point. Place the reference identity-provider application in a distinct
-namespaced package with its own executable command. Both ship in the
-distribution as three delivery components: the adapter plugin, the persistent
-reference-provider process, and its administrator command.
+The adapter is selected through Guide's existing authentication-provider
+entry-point mechanism. Its configuration identifies a pre-existing, TLS-secured
+reference provider service through the provider-owned `AG_ADDRESS` environment
+variable. The adapter builds a `truststore` system-trust context; an operator
+installs any private provider authority in the operating-system or container
+trust store rather than passing a CA bundle to Guide. Guide only receives the
+selected entry-point name and does not add a provider-config CLI argument.
 
-The adapter SHALL first connect to its configured issuer at startup. In local
-reference-provider mode, a failed connection SHALL cause it to start the
-provider process, wait for its discovery endpoint to become available, and
-retry. A failed start or readiness check SHALL fail the protected Guide
-transport. An adapter that started the process SHALL stop it with the
-transport; it SHALL not stop a pre-existing or externally managed issuer.
+Guide never starts, stops, waits for, or otherwise supervises the service. The
+service operator is responsible for availability, account bootstrap,
+credentials, login/token provisioning, rotation, and administration. Provider
+startup does not contact the service, so provider unavailability does not stop
+the configured remote Guide transport from serving operations that do not need
+an authentication decision.
 
-External issuers remain independently deployed and are never started by Guide.
-This preserves one repository and compatible releases while retaining the
-operational boundary. An independent repository or distribution remains
-possible later if the reference application outgrows this release cadence.
+### Adapter uses the narrow Guide authentication endpoint
 
-### OIDC module is a resource-server adapter
+For each protected remote operation, the adapter sends that request's bearer
+evidence to the service's versioned Guide authentication endpoint over TLS. A
+successful response is an authentication decision, not a provider session or
+identity object. The adapter accepts only the response fields defined for Guide
+access: an optional list of recognised Guide scopes. It discards any account
+identifier or other service metadata before returning to Guide.
 
-The `auth-ref-oidc` module discovers issuer metadata and public signing keys, validates
-bearer access tokens, and maps provider-owned grants to `AuthScope.USER` and
-`AuthScope.ADMIN` in a `UserAuthorisation` result. Guide applies the declared
-scope at each protected operation: missing or invalid authentication becomes
-`not_authorised`; a valid bearer without the required scope becomes
-`forbidden`; and `admin` satisfies `user`. Guide receives neither raw token
-content, decoded claims, nor a principal identity as an application-level
-authorisation input.
+A successful decision grants `AuthScope.USER`. If the service decision includes
+the recognised `admin` scope, the adapter also grants `AuthScope.ADMIN`; Guide's
+existing rule makes admin satisfy user access. Unknown, duplicated, malformed,
+or contradictory scopes fail closed. Missing, invalid, or rejected bearer
+evidence produces an unauthenticated `UserAuthorisation`, allowing Guide to
+return its existing `not_authorised` result. The adapter neither parses a token
+format nor retains bearer evidence beyond the request.
 
-Provider configuration belongs to the module's deployment environment, not an
-additional Guide CLI argument or persisted Guide configuration. This preserves
-the single provider-selection option and lets credentials remain under the
-identity-provider operator's control.
+The current reference service interface is `POST /v1/authenticate` with bearer
+request authentication and a JSON decision containing `scopes`; this is the
+only service route in scope. Guide must use the service's normal TLS trust
+configuration and must not disable certificate verification.
 
-### Encrypted local accounts, standards-based tokens, and API administration
+### Provider result and transport failures fail closed
 
-The reference application keeps its user store in SQLite encrypted at rest with
-SQLCipher, accessed through SQLAlchemy and a SQLCipher-capable DBAPI. SQLCipher
-rather than ORM field encryption protects the complete database and its
-journals. The encryption key SHALL come from provider-owned secret
-configuration and SHALL not be stored in the database, Guide configuration, or
-administrator command arguments.
+The adapter treats invalid responses, unexpected content types, TLS failures,
+connection errors, timeouts, and service errors as provider failures. It emits only safe
+operational diagnostics and does not log bearer values or response bodies. The
+remote request fails closed through the existing provider-failure path; Guide
+must not substitute a cached authorisation decision or silently allow an
+operation.
 
-The store holds Argon2id password verifiers, coarse user/admin grants,
-asymmetric signing keys, short-lived access tokens, OIDC discovery metadata,
-and JWKS key publication. The administrator command is an API client: it calls
-the persistent provider's authenticated management API to create, list, remove,
-and grant access to users, and securely set or reset passwords. It does not
-open, migrate, or write the SQLite database. The provider owns administrator
-authentication and bootstrap, and the management API's exposure is controlled
-by provider-owned deployment configuration.
+### Confirmed entrypoint and service contract
 
-Use a mature standards and cryptography implementation rather than composing
-password hashing, JWT handling, or protocol cryptography directly. The exact
-library is an implementation dependency selected during the implementation
-task.
+The public adapter entry-point name is `auth-ref`. It identifies the reference
+provider integration and uses the provider service's direct bearer-validation
+endpoint.
 
-### Handoff provisions client authentication; it does not redirect MCP
+The configured service base endpoint supplies `POST /v1/authenticate`. The
+adapter forwards only the incoming `Authorization: Bearer <token>` request
+evidence. A successful `200` JSON response contains a `scopes` list and may
+include provider-private account identity, which the adapter discards. An empty
+scope list grants Guide `user`; the only recognised service scope is `admin`,
+which additionally grants Guide `admin`. Missing or invalid bearer evidence
+receives `401` and maps to unauthenticated access. Any other response status,
+malformed success response, TLS failure, or connection failure is a provider
+failure and fails closed.
 
-For an unauthenticated protected operation, the OIDC module returns the
-reference application's opaque HTTPS login/token-provisioning URL. After login,
-the user configures the issued bearer in their MCP client and retries. This
-works with clients that cannot host an OAuth callback and keeps browser/session
-cookies out of Guide.
+The adapter allows five seconds for each provider connection or authentication
+decision. A connection timeout, TLS failure, or other connection failure reports
+that Guide could not connect to the authentication service. A timeout after the
+connection phase reports that the authentication service did not respond in
+time. These safe diagnostics do not expose bearer evidence or provider response
+content.
 
-An alternative authorisation-code callback flow would be more automated but
-requires every MCP client to implement a callback receiver and secure token
-storage. It is intentionally outside this first reference application.
+The HTTP authentication middleware retains only ephemeral evidence. A protected
+operation obtains and checks its decision at its own authorisation boundary.
+It returns the corresponding safe `authentication_unavailable` Result when the
+provider cannot connect or answer, while unprotected operations do not contact
+the provider. This lets the caller distinguish a provider connectivity problem
+from an unanswered authentication decision without making provider availability
+a dependency of basic Guide operations.
+
+When request evidence is bound but no decision is required or available,
+template `auth` predicates are active and fail closed: `authenticated`, `user`,
+and `admin` are all false. This prevents unprotected remote rendering from
+revealing content guarded by administrative predicates without making rendering
+contact the provider.
+
+The adapter does not probe the service at startup. It contacts the endpoint
+only while obtaining a request's current authentication decision. This preserves
+Guide availability for operations that do not need authentication while still
+failing closed whenever a protected operation cannot obtain its decision.
+
+### Templates gate scope predicates on active enforcement
+
+Template scope predicates describe the current request; they do not alone mean
+that the transport is enforcing authentication. `auth.active` is the sole outer
+authentication gate: a conditional on `auth.authenticated`, `auth.user`, or
+`auth.admin` must occur only within its corresponding `auth.active` section.
+When authentication is inactive, including stdio, the template must retain the
+existing action rather than presenting a credential hand-off. This keeps
+authentication-aware guidance from becoming a blocker for trusted local
+operation.
 
 ## Risks / Trade-offs
 
-- [A reference application is mistaken for a complete production IdP] → label
-  its operational limits prominently and recommend an organisation's existing
-  OIDC issuer where appropriate.
-- [A local password flow or user store is attacked] → use modern password
-  verifiers, encrypted SQLite, external key management, HTTPS, rate limiting,
-  generic login failures, short-lived tokens, and no password or token logging.
-- [Key rotation leaves cached decisions valid] → honour provider-controlled
-  expiry/invalidation and test JWKS refresh and token rejection.
-- [Clients cannot attach a configured bearer] → hand-off remains informative;
-  automatic client credential installation is explicitly out of scope.
+- [Provider service is unavailable] → fail only requests that need an
+  authentication decision safely; availability and recovery remain the provider
+  operator's concern.
+- [Provider service stalls] → time out after five seconds and fail closed with
+  a diagnostic that distinguishes an unavailable service from an unanswered
+  authentication decision.
+- [A service response grows provider-private fields] → accept only the narrow
+  recognised scope decision and discard everything else.
+- [Service and adapter contract drift] → version the endpoint contract,
+  maintain integration tests against a fake TLS service, and reject malformed
+  responses.
+- [Bearer data leaks through diagnostics] → never log request authorisation
+  headers, bearer values, or response bodies.
 
 ## Migration Plan
 
-1. Release the optional OIDC dependencies and provider entry point without
-   changing default Guide behaviour.
-2. Start the reference identity-provider application, create an administrator
-   and users through its management command, then configure the Guide module
-   with its issuer.
-3. Configure a capable MCP client with an issued bearer and verify user/admin
-   operations and denied operations.
-4. Roll back by stopping the reference application or removing the provider
-   selection; Guide does not need account or configuration migration.
+1. Install the adapter's optional dependency and the independently distributed
+   reference provider service.
+2. Configure and start the provider service under its own operational model.
+3. Select the adapter for a remote Guide transport and configure its
+   provider-owned TLS endpoint/trust settings.
+4. Roll back by removing the provider selection. No Guide account, token, or
+   provider-service state requires migration.
