@@ -3,26 +3,32 @@ cache: medium, private
 type: agent/information
 requires-workflow: true
 description: Workflow phase tracking policy
-instruction: Follow this policy exactly. If {{workflow.file}} missing, create it and enter discussion phase.
+instruction: Follow this policy exactly. Read {{workflow.file}} directly; never discover it with a glob or search. If a direct read confirms it is absent, create it to record workflow state.
 ---
 {{h1}}Workflow Phases and Tracking
 
 {{h2}}File Format
-Development phases are tracked in {{workflow.file}}
+Development phases are tracked in `{{workflow.file}}`. Read that exact configured
+path directly: do not look for it with a glob, repository search, or tracked-file
+listing. Such discovery can omit dotfiles and ignored files. If a direct read
+confirms the file is absent, create it to record the current workflow state.
 ```yaml
 phase: [{{#workflow.phase_list}}{{value}}{{^last}}|{{/last}}{{/workflow.phase_list}}]
-issue: <current-issue>
-tracking: <tracker> <tracker-id>
+issue: <optional-dash-delimited-current-work-phrase>
+plan: <optional-relative-plan-document-path>
+tracking: <optional-external-tracker-reference>
 description: <optional-context>
 queue:
   - <queued-issues>
 ```
 
 {{h2}}Core Rules
-- Missing `{{workflow.file}}` = assume `phase: discussion`
+- Missing `{{workflow.file}}` after a direct read = create it with `phase: discussion` unless another phase is already selected
 - Missing issue = request from user
 - Phase changes MUST update file
-- Issue format: openspec ID or relative path
+- `issue`: a dash-delimited current-work phrase with no spaces and only filesystem-friendly characters; use an OpenSpec change name when applicable
+- `plan`: a relative path to an existing plan document, never a descriptive sentence
+- `tracking`: one external issue-tracker reference, never a mapping
 
 {{h2}}MCP Communication Protocol
 {{b}}CRITICAL{{b}}: After ANY change to `{{workflow.file}}`:

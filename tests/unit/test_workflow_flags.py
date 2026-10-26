@@ -47,11 +47,12 @@ class TestWorkflowPhases:
         assert result.ordered_phases == ["discussion", "planning", "implementation", "check", "review"]
 
     def test_parse_custom_phases_valid(self):
-        """Test parsing custom phase list with valid phases."""
+        """Custom phase lists retain their order and always include exploration."""
         custom_phases = ["discussion", "planning", "implementation"]
         result = parse_workflow_phases(custom_phases)
         assert result.enabled is True
-        assert result.phases == custom_phases
+        assert result.phases == [*custom_phases, "exploration"]
+        assert result.ordered_phases == custom_phases
 
     def test_parse_custom_phases_invalid(self):
         """Test parsing custom phase list with invalid phase."""
@@ -134,6 +135,16 @@ class TestWorkflowFlagValidation:
         from mcp_guide.workflow.flags import _normalise_workflow_flag
 
         assert _normalise_workflow_flag(value) == expected
+
+    def test_workflow_normaliser_adds_exploration_to_explicit_phase_lists(self):
+        """Persisted explicit workflow lists always retain exploration."""
+        from mcp_guide.workflow.flags import _normalise_workflow_flag
+
+        assert _normalise_workflow_flag(["discussion", "implementation"]) == [
+            "discussion",
+            "implementation",
+            "exploration",
+        ]
 
     def test_workflow_file_flag_invalid_type_returns_false(self):
         """Test workflow-file validator returns False for invalid shapes."""

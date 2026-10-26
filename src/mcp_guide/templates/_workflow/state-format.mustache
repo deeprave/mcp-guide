@@ -13,18 +13,24 @@ Use strictly valid YAML with lowercase keys. Optional lines may be omitted.
 
 ```yaml
 phase: <current-phase>
-issue: <optional-current-issue-id>
-tracking: <optional-tracker-prefix> <required-tracker-id>
+issue: <optional-dash-delimited-current-work-phrase>
+plan: <optional-plan-document-path>
+tracking: <optional-external-tracker-reference>
 description: <optional-description>
 queue:
   - <optional-queued-issue-id>
 ```
 
-`phase` is required. Include `issue` for an active change. `tracking` is required
-only when transitioning issue tracking; its tracker identifier is required, while
-its tracker prefix is optional. Omit `queue` when it is empty.
+`phase` is required. `issue` is a dash-delimited current-work phrase with no
+spaces and only filesystem-friendly characters; `plan` is a relative path to an
+existing plan document.{{#openspec}} Include an OpenSpec change
+identifier in `issue` for an active change.{{/openspec}} Use `tracking` only for
+an external issue-tracker reference, such as a Linear identifier; it is a
+single string, not a mapping. Omit `tracking` when no external issue is
+associated, and omit `queue` when it is empty.
 
 ## Instructions
 
+- Read the exact configured path `{{workflow.file}}` directly; never discover it through a glob, repository search, or tracked-file listing.
 - Update `{{workflow.file}}` whenever workflow state changes.
 - Use the `send_file_content` MCP tool to send the complete file content after every update.

@@ -36,6 +36,8 @@ _._cached_content
 _._cached_mtime
 _._cached_context
 _._instruction_id
+_._setup_instruction_id
+_._reminder_instruction_id
 _._version_this_session
 
 # Syntax highlighting
@@ -97,6 +99,9 @@ _.require_project
 _.is_ok  # public Result API
 _.get_or_create  # WatcherRegistry public API
 _.resolve_session  # GuideRuntime public owner lookup
+_.is_available  # OpenSpecTask public availability API
+_.get_version  # OpenSpecTask public version API
+_.meets_minimum_version  # OpenSpecTask public compatibility API
 
 # FastMCP extension and Guide Session protocols
 _.ServerRequestContext

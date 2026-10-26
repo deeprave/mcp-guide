@@ -44,6 +44,13 @@ class WorkflowConfig:
     ordered_phases: list[str]
 
 
+def _with_exploration(phases: list[str]) -> list[str]:
+    """Ensure every enabled workflow makes exploration available."""
+    if PHASE_EXPLORATION in phases:
+        return phases
+    return [*phases, PHASE_EXPLORATION]
+
+
 def validate_phase_name(phase: str) -> bool:
     """Validate that a phase name is valid.
 
@@ -117,8 +124,9 @@ def parse_workflow_phases(workflow_flag: Union[bool, list[str]]) -> WorkflowConf
         else:
             raise ValueError(f"Invalid phase name: '{phase}'. Valid phases are: {', '.join(sorted(VALID_PHASES))}")
 
-    ordered_phases = [phase for phase in validated_phases if phase != PHASE_EXPLORATION]
-    return WorkflowConfig(enabled=True, phases=validated_phases, ordered_phases=ordered_phases)
+    phases = _with_exploration(validated_phases)
+    ordered_phases = [phase for phase in phases if phase != PHASE_EXPLORATION]
+    return WorkflowConfig(enabled=True, phases=phases, ordered_phases=ordered_phases)
 
 
 def _validate_workflow_flag(value: FeatureValueLike | None, is_project: bool) -> bool:
@@ -174,8 +182,16 @@ def _normalise_boolean_like_or_raw(value: FeatureValueLike | None):
 
 
 def _normalise_workflow_flag(value: FeatureValueLike | None):
-    """Normalise workflow flag booleans while preserving structured list values."""
-    return _normalise_boolean_like_or_raw(value)
+    """Normalise workflow flags and preserve the exploration-phase invariant."""
+    normalised = _normalise_boolean_like_or_raw(value)
+    if normalised is None:
+        return None
+    raw = to_raw_feature_value(normalised)
+    if isinstance(raw, list):
+        from mcp_guide.feature_flags.types import FeatureValue
+
+        return FeatureValue(_with_exploration(raw))
+    return normalised
 
 
 def _validate_workflow_file_flag(value: FeatureValueLike | None, is_project: bool) -> bool:

@@ -17,5 +17,15 @@ Once per session, Guide may ask you to read a small file it just created and sen
 - Guide uses the active project and its local workflow context only to track the current workflow and deliver guidance relevant to your request.
 - This guidance is scoped to the active project and the user's request. It does not authorise data disclosure, contact with external services, or unrelated actions.
 {{#workflow}}
-- This project tracks development phase in `{{workflow-file}}`; see the workflow state-file format for how to read and update it.
+- This project tracks development phase in `{{workflow-file}}`. Treat it as a strict YAML mapping with lowercase keys:
+  ```yaml
+  phase: <discussion|exploration|planning|implementation|check|review>
+  issue: <optional-dash-delimited-current-work-phrase>
+  plan: <optional-plan-document-path>
+  tracking: <optional-external-tracker-reference>
+  description: <optional-context>
+  queue:
+    - <optional-queued-issue>
+  ```
+  `phase` is required. All other fields are optional; omit empty fields. `issue` is a dash-delimited current-work phrase with no spaces and only filesystem-friendly characters. `plan` is a relative path to an existing plan document, not a description. `tracking` is one external tracker string (for example, `UT-441`), never a mapping. Read the exact configured path `{{workflow-file}}` directly; never find it through a glob, repository search, or tracked-file listing, because those can omit dotfiles and ignored files. If it exists, send its complete content with `send_file_content`. If a direct read confirms it is absent, create it to record the current workflow state, using `phase: discussion` when no other phase has been selected, then send its complete content.
 {{/workflow}}

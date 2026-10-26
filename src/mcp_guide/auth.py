@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -60,7 +60,7 @@ class AuthEvidence:
 
 
 @contextmanager
-def bind_auth_evidence(evidence: AuthEvidence) -> Iterator[None]:
+def bind_auth_evidence(evidence: AuthEvidence) -> Generator[None]:
     """Bind ephemeral request evidence until an operation requires authentication."""
     token = _AUTH_EVIDENCE.set(evidence)
     try:
@@ -75,7 +75,7 @@ def current_auth_evidence() -> AuthEvidence | None:
 
 
 @contextmanager
-def bind_user_authorisation(authorisation: UserAuthorisation) -> Iterator[None]:
+def bind_user_authorisation(authorisation: UserAuthorisation) -> Generator[None]:
     """Bind a request decision and restore the previous state on every exit."""
     token = _USER_AUTHORISATION.set(authorisation)
     try:

@@ -1,12 +1,17 @@
 """Workflow task behaviour through real rendering, state and instructions."""
 
+from pathlib import Path
+
 import pytest
 import yaml
 from tests.helpers import create_bound_test_session
 
+from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.rendering import render_content
 from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.manager import aggregate_event_results
+from mcp_guide.workflow.rendering import render_workflow_template
 from mcp_guide.workflow.tasks import WorkflowMonitorTask
 
 
@@ -46,6 +51,16 @@ async def test_initialisation_and_file_events_deliver_guidance_and_update_state(
     assert (await manager.process_result(Result.ok())).additional_agent_instructions == "Send workflow state"
     await task.handle_event(EventType.TIMER_ONCE, {})
     assert manager.is_queue_empty()
+
+    invalid = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".guide.yaml", "content": "phase: ["},
+    )
+    assert invalid is not None
+    assert invalid.result is False
+    now += 31
+    await manager.retry_unacknowledged()
+    assert (await manager.process_result(Result.ok())).additional_agent_instructions == "Send workflow state"
 
     for event, payload in [
         (EventType.FS_FILE_CONTENT, {"path": "unrelated.yaml", "content": "phase: other"}),
@@ -95,3 +110,37 @@ async def test_semantic_changes_use_matching_template_or_filtered_fallback(workf
         assert event.rendered_content is None
     assert manager.get_cached_data("workflow_state").phase == "planning"
     assert manager.get_cached_data("workflow_change_content") is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("openspec_enabled", [False, True], ids=["without-openspec", "with-openspec"])
+async def test_workflow_guidance_renders_with_or_without_openspec(runtime, openspec_enabled):
+    """Bundled workflow guidance renders for both OpenSpec contexts."""
+    docroot = Path(__file__).parents[2] / "src" / "mcp_guide" / "templates"
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
+    session = await create_bound_test_session(runtime, "workflow-guidance")
+    await session.project_flags().set("workflow", True)
+    context = TemplateContext({"openspec": openspec_enabled})
+
+    state_format = await render_workflow_template(session, "state-format", context)
+    discussion = await render_content(session, "workflow/discuss/SKILL", "_skills", context)
+
+    assert state_format is not None
+    assert discussion is not None
+    assert state_format.content
+    assert discussion.content
+
+
+@pytest.mark.anyio
+async def test_workflow_enabled_startup_delivers_guidance(runtime):
+    """A workflow-enabled session delivers its queued startup guidance."""
+    docroot = Path(__file__).parents[2] / "src" / "mcp_guide" / "templates"
+    runtime.configuration_service().config_file.write_text(
+        yaml.safe_dump({"docroot": str(docroot), "projects": {}, "feature_flags": {"workflow": True}})
+    )
+
+    session = await create_bound_test_session(runtime, "workflow-startup")
+    delivered = await session.task_manager.process_result(Result.ok())
+
+    assert delivered.additional_agent_instructions is not None
+    assert delivered.additional_agent_instructions

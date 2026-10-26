@@ -115,7 +115,7 @@ async def send_file_content(
 
         # Aggregate results
         result = aggregate_event_results(event_results)
-        if result.value:
+        if not result.success or result.value:
             return result
 
         return Result.ok(

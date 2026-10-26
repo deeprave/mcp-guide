@@ -15,6 +15,7 @@ async def test_flag_display_and_workflow_structure_use_real_project_and_global_f
     )
     session = await create_bound_test_session(runtime, "demo")
     phases = ["discussion", "planning", "implementation", "check", "review"]
+    effective_phases = [*phases, "exploration"]
     consent = {"planning": ["entry"], "review": ["exit"]}
     values = {"content-style": "plain", "workflow": phases, "workflow-consent": consent}
     for flag, value in values.items():
@@ -24,13 +25,14 @@ async def test_flag_display_and_workflow_structure_use_real_project_and_global_f
     def display(items):
         return {item["key"]: item["value"] for item in items}
 
-    project_display = {"content-style": "plain", "workflow": str(phases), "workflow-consent": str(consent)}
+    project_display = {"content-style": "plain", "workflow": str(effective_phases), "workflow-consent": str(consent)}
     assert display(context["project"]["project_flag_values"]) == project_display
     assert display(context["feature_flag_values"]) == {"autoupdate": "true"}
     assert display(context["flag_values"]) == {"autoupdate": "true", **project_display}
-    for flag, value in values.items():
+    expected_values = {**values, "workflow": effective_phases}
+    for flag, value in expected_values.items():
         assert context["project"]["project_flags"][flag] == FeatureValue(value)
-    for phase in phases:
+    for phase in effective_phases:
         assert context["workflow"][phase] is True
     assert context["workflow"]["phases"]["planning"] == {"enabled": True, "next": "implementation", "ordered": True}
     assert context["workflow"]["consent"]["planning"] == {"entry": True, "exit": False, "any": True}

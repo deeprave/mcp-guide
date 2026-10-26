@@ -70,7 +70,7 @@ async def test_flag_resolution_keeps_project_overrides_and_global_fallback(runti
         assert result.value == expected
     selected = await internal_list_project_flags(ListFlagsArgs(feature_name="workflow"), flag_context)
     assert selected.success
-    assert selected.value == ["discussion", "implementation"]
+    assert selected.value == ["discussion", "implementation", "exploration"]
     for name, expected in (("global_flag", True), ("shared_flag", "project_override"), ("missing", None)):
         result = await internal_get_project_flag(GetFlagArgs(feature_name=name), flag_context)
         assert result.success

@@ -9,7 +9,10 @@ class WorkflowState(BaseModel):
     """Schema for .guide.yaml workflow state file."""
 
     phase: str = Field(default="discussion", description="Current workflow phase")
-    issue: Optional[str] = Field(default=None, description="Current issue ID or path")
+    issue: Optional[str] = Field(
+        default=None,
+        description="Dash-delimited, filesystem-friendly phrase identifying the current work",
+    )
     plan: Optional[str] = Field(default=None, description="Relative path to implementation plan file")
     tracking: Optional[str] = Field(default=None, description="External tracker reference (e.g., 'JIRA PROJ-123')")
     description: Optional[str] = Field(default=None, description="Optional phase context or sub-phase info")

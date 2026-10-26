@@ -85,7 +85,7 @@ class TemplateContext(ChainMap[str, Any]):
         return TemplateContext(m, *self.maps)  # ty: ignore[invalid-argument-type]
 
     @property
-    def parents(self) -> Optional["TemplateContext"]:
+    def parents(self) -> Optional["TemplateContext"]:  # ty: ignore[invalid-property-type-override]
         parent_maps = super().parents
         return None if len(self.maps) <= 1 else TemplateContext(*parent_maps.maps)  # ty: ignore[invalid-argument-type]
 
