@@ -19,7 +19,7 @@ Once per session, Guide may ask you to read a small file it just created and sen
 {{#workflow}}
 - This project tracks development phase in `{{workflow-file}}`. Treat it as a strict YAML mapping with lowercase keys:
   ```yaml
-  phase: <discussion|exploration|planning|implementation|check|review>
+  phase: <{{#workflow.phase_list}}{{value}}{{^last}}|{{/last}}{{/workflow.phase_list}}>
   issue: <optional-dash-delimited-current-work-phrase>
   plan: <optional-plan-document-path>
   tracking: <optional-external-tracker-reference>

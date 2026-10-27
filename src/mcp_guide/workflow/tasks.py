@@ -6,10 +6,12 @@ from typing import TYPE_CHECKING, Any, Optional
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
+from mcp_guide.feature_flags.types import to_raw_feature_value
 from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
+from mcp_guide.workflow.flags import parse_workflow_phases
 from mcp_guide.workflow.instruction_generator import get_instruction_template_for_change
 from mcp_guide.workflow.parser import WorkflowStateValidationError, parse_workflow_state
 from mcp_guide.workflow.rendering import render_workflow_template
@@ -159,6 +161,14 @@ class WorkflowMonitorTask(InitialisableMixin):
                 logger.warning("Failed to parse workflow state - not processing changes")
                 return None
 
+            configured_phases = await self._configured_phases()
+            if new_state.phase not in configured_phases:
+                choices = ", ".join(configured_phases)
+                raise WorkflowStateValidationError(
+                    f"Invalid workflow file: phase `{new_state.phase}` is not enabled for this project; "
+                    f"enabled phases are: {choices}"
+                )
+
             logger.trace(
                 f"WorkflowMonitorTask: Parsed workflow state - phase={new_state.phase}, issue={new_state.issue}"
             )
@@ -194,6 +204,20 @@ class WorkflowMonitorTask(InitialisableMixin):
         except Exception as e:
             logger.error(f"Failed to process workflow content: {e}", exc_info=True)
             return None
+
+    async def _configured_phases(self) -> list[str]:
+        """Return the effective enabled workflow phases for this session."""
+        if self.activation is None:
+            raise WorkflowStateValidationError("Invalid workflow file: workflow configuration is unavailable")
+
+        workflow_flag = (await self.activation.resolved_flags()).get(FLAG_WORKFLOW)
+        raw_workflow_flag = to_raw_feature_value(workflow_flag) if workflow_flag is not None else False
+        if not isinstance(raw_workflow_flag, (bool, list)):
+            raise WorkflowStateValidationError("Invalid workflow file: workflow configuration is invalid")
+        workflow_config = parse_workflow_phases(raw_workflow_flag)
+        if not workflow_config.enabled:
+            raise WorkflowStateValidationError("Invalid workflow file: workflow is not enabled for this project")
+        return workflow_config.phases
 
     async def _process_workflow_changes(self, changes: list[ChangeEvent]) -> Optional["RenderedContent"]:
         """Process detected workflow changes and return rendered content for main response.

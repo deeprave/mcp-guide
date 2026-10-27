@@ -21,6 +21,8 @@ the complete contract when they first create or relay the file.
 - Supply the compact workflow-file contract before first submission.
 - Keep the `issue`, `plan`, and `tracking` meanings consistent across all
   workflow guidance.
+- Reject unsupported and disabled submitted phases before they enter cached
+  workflow state.
 
 **Non-Goals:**
 
@@ -75,6 +77,15 @@ invariant. `parse_workflow_phases()` will apply the same idempotent workflow
 helper as a read-time backstop for existing configuration written directly to
 YAML. This is contained within workflow-specific code; generic flag setters
 continue to dispatch through the normaliser registry.
+
+### Validate submitted phases against the effective workflow
+
+The parser rejects phase names outside Guide's recognised workflow vocabulary.
+The monitor then checks the parsed phase against the project's effective
+workflow configuration, because an otherwise valid phase may be disabled for
+that project. Both failures preserve cached state and identify the applicable
+valid phase choices. Bootstrap guidance uses the same effective phase list
+rather than a fixed list of every recognised phase.
 
 ## Risks / Trade-offs
 

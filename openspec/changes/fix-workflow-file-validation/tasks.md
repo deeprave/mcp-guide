@@ -15,3 +15,9 @@
 
 - [x] 3.1 Run the affected workflow parser, monitoring, and instruction-delivery tests in the foreground; verify all pass without warnings.
 - [x] 3.2 Run applicable Ruff and Ty checks plus `openspec validate fix-workflow-file-validation --strict`; verify all pass.
+
+## 4. Review follow-up
+
+- [x] 4.1 Reject unexpected strict-parser failures and unknown or disabled submitted phases without changing cached workflow state; provide clear valid-phase guidance.
+- [x] 4.2 Render only the configured enabled phases in workflow bootstrap guidance.
+- [x] 4.3 Run focused workflow parser, monitoring, and rendering tests plus applicable static checks and strict OpenSpec validation.

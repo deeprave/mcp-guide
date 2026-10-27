@@ -27,6 +27,9 @@ does not tell the agent what it must correct.
 - Ensure every enabled workflow includes the non-ordered `exploration` phase,
   including explicit phase lists written through a flag setter or loaded from
   existing configuration.
+- Reject submitted phases that are unknown or unavailable in the project's
+  configured workflow, with a clear error that lists the available choices.
+- Render only the configured workflow phases in bootstrap guidance.
 
 ## Capabilities
 

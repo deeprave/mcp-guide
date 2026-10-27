@@ -31,10 +31,11 @@ The workflow monitoring task SHALL process workflow file content by comparing va
 - **AND** system SHALL NOT replace it with workflow state-format guidance
 
 #### Scenario: Invalid workflow-file submission
-- **WHEN** submitted workflow file content is invalid YAML, is not a mapping, omits `phase`, or has a field with an invalid schema type
+- **WHEN** submitted workflow file content is invalid YAML, is not a mapping, omits `phase`, names an unknown or disabled phase, or has a field with an invalid schema type
 - **THEN** the file-content operation SHALL return a failure identifying the invalid workflow file
 - **AND** the system SHALL NOT cache submitted state
 - **AND** the system SHALL NOT acknowledge the submission as successfully received
+- **AND** an unsupported phase error SHALL identify the valid recognised or enabled phase choices as applicable
 
 #### Scenario: Error handling during comparison
 - **WHEN** workflow content parsing or comparison fails

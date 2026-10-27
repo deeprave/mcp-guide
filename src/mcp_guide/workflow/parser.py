@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from mcp_guide.core.mcp_log import get_logger
 
+from .flags import VALID_PHASES
 from .schema import WorkflowState
 
 logger = get_logger(__name__)
@@ -65,6 +66,15 @@ def parse_workflow_state(content: str, *, raise_validation_error: bool = False) 
         # Normalize phase to lowercase for validation
         if isinstance(yaml_data["phase"], str):
             yaml_data["phase"] = yaml_data["phase"].lower()
+            if yaml_data["phase"] not in VALID_PHASES:
+                logger.warning("Workflow content uses an unsupported phase: %s", yaml_data["phase"])
+                if raise_validation_error:
+                    valid_phases = ", ".join(sorted(VALID_PHASES))
+                    raise WorkflowStateValidationError(
+                        f"Invalid workflow file: unsupported phase `{yaml_data['phase']}`; "
+                        f"valid phases are: {valid_phases}"
+                    )
+                return None
 
         return WorkflowState.model_validate(yaml_data)
     except WorkflowStateValidationError:
@@ -84,4 +94,6 @@ def parse_workflow_state(content: str, *, raise_validation_error: bool = False) 
         return None
     except Exception as e:
         logger.error(f"Unexpected error parsing workflow state: {e}")
+        if raise_validation_error:
+            raise WorkflowStateValidationError("Invalid workflow file: unable to process content") from e
         return None

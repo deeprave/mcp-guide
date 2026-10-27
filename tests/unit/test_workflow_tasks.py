@@ -113,6 +113,25 @@ async def test_semantic_changes_use_matching_template_or_filtered_fallback(workf
 
 
 @pytest.mark.anyio
+async def test_rejects_phase_disabled_by_project_workflow_configuration(workflow_task):
+    """Submitted workflow state cannot select a phase the project has disabled."""
+    session, manager, _, _ = workflow_task
+    await session.project_flags().set("workflow", ["discussion", "implementation"])
+    task = manager.get_task_by_type(WorkflowMonitorTask)
+    assert task is not None
+
+    event = await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": "phase: planning\n"})
+
+    assert event is not None
+    assert event.result is False
+    assert event.message == (
+        "Invalid workflow file: phase `planning` is not enabled for this project; "
+        "enabled phases are: discussion, implementation, exploration"
+    )
+    assert manager.get_cached_data("workflow_state") is None
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("openspec_enabled", [False, True], ids=["without-openspec", "with-openspec"])
 async def test_workflow_guidance_renders_with_or_without_openspec(runtime, openspec_enabled):
     """Bundled workflow guidance renders for both OpenSpec contexts."""

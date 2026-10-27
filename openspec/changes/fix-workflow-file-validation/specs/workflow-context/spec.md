@@ -17,12 +17,14 @@ required, and describe the supported optional fields and their value shapes.
 - **AND** it SHALL describe `plan` as an optional relative path to an existing plan document
 - **AND** it SHALL describe `tracking` as an optional single-string external issue-tracker reference
 - **AND** it SHALL state that `tracking` is not a mapping
+- **AND** it SHALL list only the project's enabled workflow phases as valid `phase` values
 
 #### Scenario: Existing workflow file bootstrap
 - **WHEN** a workflow-enabled session starts and the configured workflow file exists
 - **THEN** the guidance SHALL provide the strict workflow-file schema
 - **AND** it SHALL instruct the agent to read and submit the complete configured file content
 - **AND** it SHALL instruct the agent to read the exact configured path directly rather than discover it through a glob, repository search, or tracked-file listing
+- **AND** it SHALL list only the project's enabled workflow phases as valid `phase` values
 
 ## ADDED Requirements
 
