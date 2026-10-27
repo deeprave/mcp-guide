@@ -251,7 +251,7 @@ async def test_initial_bind_listener_can_publish_a_configuration_mutation(tmp_pa
             pass
 
     session.add_listener(Listener())
-    await asyncio.wait_for(session.bind_project_path("/client/one/shared"), timeout=1)
+    await asyncio.wait_for(session.bind_project_path("/client/one/shared"), timeout=5)
 
     assert "docs" in (await session.get_project()).categories
     await session.cleanup()

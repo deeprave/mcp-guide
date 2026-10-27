@@ -6,12 +6,14 @@ from typing import TYPE_CHECKING, Any, Optional
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_FILE
+from mcp_guide.feature_flags.types import to_raw_feature_value
 from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
 from mcp_guide.workflow.change_detection import ChangeEvent, detect_workflow_changes
 from mcp_guide.workflow.constants import DEFAULT_WORKFLOW_FILE
+from mcp_guide.workflow.flags import parse_workflow_phases
 from mcp_guide.workflow.instruction_generator import get_instruction_template_for_change
-from mcp_guide.workflow.parser import parse_workflow_state
+from mcp_guide.workflow.parser import WorkflowStateValidationError, parse_workflow_state
 from mcp_guide.workflow.rendering import render_workflow_template
 
 if TYPE_CHECKING:
@@ -126,19 +128,22 @@ class WorkflowMonitorTask(InitialisableMixin):
         # Check if the file content is for our workflow file (compare basenames)
         path = data.get("path")
         if isinstance(path, str) and Path(path).name == Path(self.workflow_file_path).name:
-            # Acknowledge any pending instructions
-            if self._setup_instruction_id:
-                if self.activation is not None:
-                    await self.activation.acknowledge_instruction(self._setup_instruction_id)
-                self._setup_instruction_id = None
-            if self._reminder_instruction_id:
-                if self.activation is not None:
-                    await self.activation.acknowledge_instruction(self._reminder_instruction_id)
-                self._reminder_instruction_id = None
+            try:
+                rendered_content = await self._process_workflow_content(data.get("content", ""))
+            except WorkflowStateValidationError as error:
+                return EventResult(result=False, message=str(error))
 
-            rendered_content = await self._process_workflow_content(data.get("content", ""))
+            await self._acknowledge_pending_instructions()
             return EventResult(result=True, rendered_content=rendered_content)
         return None
+
+    async def _acknowledge_pending_instructions(self) -> None:
+        """Acknowledge setup and reminder guidance after a valid submission."""
+        for attribute in ("_setup_instruction_id", "_reminder_instruction_id"):
+            instruction_id = getattr(self, attribute)
+            if instruction_id and self.activation is not None:
+                await self.activation.acknowledge_instruction(instruction_id)
+            setattr(self, attribute, None)
 
     async def _handle_monitoring_reminder(self) -> None:
         """Handle timer events for workflow monitoring reminders."""
@@ -151,10 +156,18 @@ class WorkflowMonitorTask(InitialisableMixin):
         """Process workflow file content and update cached state."""
         logger.trace("_process_workflow_content called")
         try:
-            new_state = parse_workflow_state(content)
+            new_state = parse_workflow_state(content, raise_validation_error=True)
             if not new_state:
                 logger.warning("Failed to parse workflow state - not processing changes")
                 return None
+
+            configured_phases = await self._configured_phases()
+            if new_state.phase not in configured_phases:
+                choices = ", ".join(configured_phases)
+                raise WorkflowStateValidationError(
+                    f"Invalid workflow file: phase `{new_state.phase}` is not enabled for this project; "
+                    f"enabled phases are: {choices}"
+                )
 
             logger.trace(
                 f"WorkflowMonitorTask: Parsed workflow state - phase={new_state.phase}, issue={new_state.issue}"
@@ -186,9 +199,25 @@ class WorkflowMonitorTask(InitialisableMixin):
             logger.trace("New workflow state cached in TaskManager")
             return rendered_change
 
+        except WorkflowStateValidationError:
+            raise
         except Exception as e:
             logger.error(f"Failed to process workflow content: {e}", exc_info=True)
             return None
+
+    async def _configured_phases(self) -> list[str]:
+        """Return the effective enabled workflow phases for this session."""
+        if self.activation is None:
+            raise WorkflowStateValidationError("Invalid workflow file: workflow configuration is unavailable")
+
+        workflow_flag = (await self.activation.resolved_flags()).get(FLAG_WORKFLOW)
+        raw_workflow_flag = to_raw_feature_value(workflow_flag) if workflow_flag is not None else False
+        if not isinstance(raw_workflow_flag, (bool, list)):
+            raise WorkflowStateValidationError("Invalid workflow file: workflow configuration is invalid")
+        workflow_config = parse_workflow_phases(raw_workflow_flag)
+        if not workflow_config.enabled:
+            raise WorkflowStateValidationError("Invalid workflow file: workflow is not enabled for this project")
+        return workflow_config.phases
 
     async def _process_workflow_changes(self, changes: list[ChangeEvent]) -> Optional["RenderedContent"]:
         """Process detected workflow changes and return rendered content for main response.

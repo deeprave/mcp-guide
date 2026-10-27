@@ -11,6 +11,7 @@ Workflow support enables structured development phases with configurable agent b
 | Phase | Purpose |
 |-------|---------|
 | discussion | Initial problem analysis and requirements gathering |
+| exploration | Investigation, requirement discovery, and option analysis outside the ordered delivery sequence |
 | planning | Implementation plan creation and review |
 | implementation | Code changes and feature development |
 | check | Testing and validation |
@@ -33,11 +34,21 @@ queue:
 
 **Fields:**
 - `phase`: Current workflow phase (required)
-- `issue`: Current issue ID or path (optional)
-- `plan`: Path to implementation plan (optional)
-- `tracking`: External tracker reference (optional)
+- `issue`: Optional dash-delimited phrase identifying the current work, with no
+  spaces and only filesystem-friendly characters
+- `plan`: Relative path to an existing implementation plan document (optional)
+- `tracking`: External issue-tracker reference, such as a Jira or Linear identifier
+  (optional). In projects that use OpenSpec, OpenSpec change names
+  belong in `issue`, not `tracking`.
 - `description`: Phase context or sub-phase info (optional)
-- `queue`: Queued issues in priority order (optional)
+- `queue`: Queued issues, usually in priority order (optional, should be omitted if empty)
+
+Agents should read the configured workflow-file path directly. They must not
+try to discover it with a glob, repository search, or tracked-file listing:
+those approaches can omit dotfiles and ignored files, including the usual
+`.guide.yaml`. When a direct read confirms the configured file is absent, the
+agent creates it to record the current workflow state, normally beginning with
+`phase: discussion`.
 
 ## Configuration
 
@@ -47,12 +58,13 @@ This feature flag, normally set at the project level, controls which phases are 
 
 **Boolean:**
 - `false` / absent: No MCP-assisted workflow (default)
-- `true`: Enables all 5 phases
+- `true`: Enables all 6 phases
 
 **List:**
-- Custom phase selection (if enabled, `discussion` and `implementation` are mandatory)
-- Example: `[discussion, implementation]` - Minimal workflow
-- Example: `[discussion, implementation, review]` - Common workflow
+- Custom ordered phase selection (if enabled, `discussion` and `implementation` are mandatory)
+- Guide adds the non-ordered `exploration` phase to every enabled explicit list
+- Example: `[discussion, implementation]` - Minimal workflow with exploration
+- Example: `[discussion, implementation, review]` - Common workflow with exploration
 
 ### The `workflow-consent` Feature Flag
 

@@ -3,7 +3,7 @@
 import asyncio
 import os
 import time
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -317,7 +317,7 @@ class GuideRuntime(Generic[SessionT]):
         await self._config_manager.remove_feature_flag(flag_name)
 
     @asynccontextmanager
-    async def lifespan(self) -> AsyncIterator["GuideRuntime[SessionT]"]:
+    async def lifespan(self) -> AsyncGenerator["GuideRuntime[SessionT]"]:
         """Expose the runtime lifecycle to FastMCP's public lifespan API."""
         await self.start()
         try:
@@ -404,7 +404,7 @@ class GuideRuntime(Generic[SessionT]):
             self._disposal_tasks.pop(id(session), None)
 
     @asynccontextmanager
-    async def session_request(self, owner: OwnerKey) -> AsyncIterator[SessionT]:
+    async def session_request(self, owner: OwnerKey) -> AsyncGenerator[SessionT]:
         """Yield one request Session and clean it unless it becomes bound/retained."""
         session = self.resolve_session(owner)
         existing = self._inflight_sessions.get(owner)
@@ -450,7 +450,7 @@ class GuideRuntime(Generic[SessionT]):
         return session
 
     @asynccontextmanager
-    async def session_lease(self, owner: OwnerKey, *, session: SessionT | None = None) -> AsyncIterator[None]:
+    async def session_lease(self, owner: OwnerKey, *, session: SessionT | None = None) -> AsyncGenerator[None]:
         """Keep an already-resolved owner Session alive for one request.
 
         A lease deliberately does not create state. Callers first resolve and

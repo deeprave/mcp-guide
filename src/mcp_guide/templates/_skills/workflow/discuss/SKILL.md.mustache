@@ -25,11 +25,8 @@ outcome and design, and resolve open questions that materially affect them.
   specification artefact.
 - When the user does not name an issue, preserve the current issue, description, plan, tracking reference, and queue. Seek alignment before changing project state.
 {{#workflow}}
-- When the user names an issue, treat it as a new or resumed item. Ensure `{{workflow-file}}` records its issue, description, plan, tracking reference, and queue position.
-- Copy an associated issue-tracker reference into the tracking field, and update the queue to reflect the item's current priority.
-{{#openspec}}
-- Copy an associated OpenSpec reference into the tracking field.
-{{/openspec}}
+- When the user names an issue, treat it as a new or resumed item. Ensure `{{workflow-file}}` records its dash-delimited, filesystem-friendly issue phrase, description, plan, tracking reference, and queue position.
+- Copy an associated external issue-tracker reference into the `tracking` field, and update the queue to reflect the item's current priority.{{#openspec}} Do not record an OpenSpec change in `tracking`: record it in `issue` instead.{{/openspec}} Omit `tracking` when no external issue is associated.
 - Update `{{workflow-file}}` to `phase: discussion` when changing phase.
 - After editing `{{workflow-file}}`, send its complete content using `send_file_content`.
 {{/workflow}}

@@ -151,7 +151,7 @@ class OpenSpecTask(InitialisableMixin):
             raise RuntimeError("Completed OpenSpec state must serialise")
         await get_runtime().feature_flags().set(FLAG_OPENSPEC_STATE, FeatureValue(cast(RawFeatureValue, state)))
 
-    def is_available(self) -> Optional[bool]:  # noqa: Vulture
+    def is_available(self) -> Optional[bool]:
         """Check if OpenSpec CLI is available.
 
         Returns:
@@ -159,7 +159,7 @@ class OpenSpecTask(InitialisableMixin):
         """
         return self._available
 
-    def get_version(self) -> Optional[str]:  # noqa: Vulture
+    def get_version(self) -> Optional[str]:
         """Get OpenSpec CLI version.
 
         Returns:
@@ -167,7 +167,7 @@ class OpenSpecTask(InitialisableMixin):
         """
         return self._version
 
-    def meets_minimum_version(self, minimum: str) -> bool:  # noqa: Vulture
+    def meets_minimum_version(self, minimum: str) -> bool:
         """Check if current OpenSpec version meets minimum requirement.
 
         Args:

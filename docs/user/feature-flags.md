@@ -60,7 +60,7 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 
 | Flag | Description | Type | Default |
 |------|-------------|------|---------|
-| `workflow` | Enables workflow phase tracking (discussion, planning, implementation, check, review). Can be `true` (all phases), `false` (disabled), or list of phase names. | `boolean` or `list[string]` | `false` |
+| `workflow` | Enables workflow phase tracking (discussion, exploration, planning, implementation, check, review). Can be `true` (all phases), `false` (disabled), or list of phase names. | `boolean` or `list[string]` | `false` |
 | `workflow-file` | Path to workflow tracking file. Supports variables: `{project-name}`, `{project-key}`, `{project-hash}`. | `string` | `.guide.yaml` |
 | `handoff-context` | Startup handoff guidance target: `true` uses `context.json` under resolved `path-documents` (`.todo/` by default); a filename uses the document path; a relative path uses that project path. | `boolean` or `string` | Disabled |
 | `workflow-consent` | Controls phase transition consent requirements. Can be `true` (default consent rules), `false` (no consent required), or custom rules specifying which phases require consent to enter or exit. | `boolean` or `dict` | `true` |
@@ -77,8 +77,8 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 
 **Notes:**
 
-- `workflow` set to `true` enables all 5 default phases: discussion, planning, implementation, check, review
-- `workflow` can be a list to enable specific phases: `["discussion", "planning", "implementation"]` (`discussion` and `implementation` are mandatory)
+- `workflow` set to `true` enables all 6 phases: discussion, exploration, planning, implementation, check, review
+- `workflow` can be a list to enable specific ordered phases; Guide automatically adds the non-ordered `exploration` phase when it is omitted. `discussion` and `implementation` are mandatory.
 - `workflow-consent` set to `true` applies default consent: implementation requires entry consent, review requires exit consent
 - `workflow-consent` can be a dict for custom consent: `{"planning": ["entry"], "implementation": ["entry", "exit"]}`
 - `openspec` is project-only; set it with `guide://_flags/project/set/openspec/true`
