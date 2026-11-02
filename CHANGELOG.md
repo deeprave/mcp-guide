@@ -4,6 +4,20 @@ All notable changes to mcp-guide will be documented in this file.
 
 ## [Unreleased]
 
+## [2.0.0b6] - 2026-11-03
+
+### Added
+- The separately published `auth-guide` reference authentication service is
+  available for use with Guide's optional `auth-ref` provider adapter.
+
+### Changed
+- Template rendering now uses Chevron-ng, retaining existing template behaviour
+  while supporting modern Mustache extensions and iterator features.
+- Workflow tracking validates configured phases consistently and gives agents
+  clearer guidance for reading and maintaining the configured workflow file.
+- HTTP(S) servers can use an explicit IPv6 wildcard endpoint to listen on both
+  IPv4 and IPv6 where the host supports dual-stack sockets.
+
 ## [2.0.0b5] - 2026-10-22
 
 ### Added
