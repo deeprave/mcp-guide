@@ -18,7 +18,7 @@ aliases:
 
 {{b}}Current Categories:{{b}}
 {{#project.categories}}
-- `{{name}}`{{#kwargs.verbose}} ({{dir}}, patterns: {{#patterns}}{{value}}{{^last}}, {{/last}}{{/patterns}}){{/kwargs.verbose}}{{#kwargs.v}} ({{dir}}, patterns: {{#patterns}}{{value}}{{^last}}, {{/last}}{{/patterns}}){{/kwargs.v}}
+- `{{name}}`{{#kwargs.verbose}} ({{dir}}, patterns: {{#patterns}}{{.}}{{^.last}}, {{/.last}}{{/patterns}}){{/kwargs.verbose}}
 {{/project.categories}}
 {{^project.categories}}
 No categories configured

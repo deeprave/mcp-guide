@@ -17,7 +17,7 @@ aliases:
 
 {{b}}Current Collections:{{b}}
 {{#project.collections}}
-- `{{name}}`{{#kwargs.verbose}} ({{#categories}}{{value}}{{^last}}, {{/last}}{{/categories}}){{#description}} - {{description}}{{/description}}{{/kwargs.verbose}}{{#kwargs.v}} ({{#categories}}{{value}}{{^last}}, {{/last}}{{/categories}}){{#description}} - {{description}}{{/description}}{{/kwargs.v}}
+- `{{name}}`{{#kwargs.verbose}} ({{#categories}}{{.}}{{^.last}}, {{/.last}}{{/categories}}){{#description}} - {{description}}{{/description}}{{/kwargs.verbose}}
 {{/project.collections}}
 {{^project.collections}}
 No collections configured

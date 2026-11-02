@@ -13,7 +13,7 @@ examples:
 {{h1}}ℹ️  Command Help
 {{#args}}
 {{#command_help}}
-{{h2}}{{name}}{{#aliases}} ({{#first}}{{/first}}:`{{value}}`{{#last}}{{/last}}{{^last}}, {{/last}}{{/aliases}})
+{{h2}}{{name}}{{#aliases}}{{#.first}} ({{/.first}}`{{.}}`{{^.last}}, {{/.last}}{{#.last}}){{/.last}}{{/aliases}}
 
 {{description}}
 
@@ -23,9 +23,7 @@ examples:
 
 {{#examples}}
 {{h3}}Examples
-{{#.}}
 - `{{.}}`
-{{/.}}
 {{/examples}}
 {{/command_help}}
 {{^command_help}}

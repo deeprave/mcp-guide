@@ -9,12 +9,11 @@ from chevron import ChevronError
 
 from mcp_guide.content_limits import DEFAULT_MAX_CONTENT_LIMIT, ensure_within_limit
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.core.prompt_decorator import get_prompt_name
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
+from mcp_guide.render.bindings import build_template_bindings
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.document_properties import DocumentContribution, DocumentProperties
 from mcp_guide.render.frontmatter import get_frontmatter_includes
-from mcp_guide.render.functions import TemplateFunctions
 from mcp_guide.render.partials import (
     PartialNotFoundError,
     UnsafePartialPathError,
@@ -75,25 +74,6 @@ def is_template_file(file_info: FileInfo) -> bool:
     return str(file_info.path).endswith(TEMPLATE_EXTENSIONS)
 
 
-def _safe_lambda(func: Callable[..., str]) -> Callable[..., str]:
-    """Wrap lambda function to handle errors gracefully.
-
-    Logs the full exception and returns a concise, user-safe error string that
-    includes the exception type to aid debugging.
-    """
-
-    def wrapper(*args: Any, **kwargs: Any) -> str:
-        try:
-            return func(*args, **kwargs)
-        except Exception as e:
-            # Log full traceback for diagnostics
-            logger.exception("Error while evaluating template lambda", exc_info=True)
-            # Return a user-friendly error string with exception type preserved
-            return f"[Template Error ({type(e).__name__}): {e}]"
-
-    return wrapper
-
-
 async def render_template_content(
     content: str,
     context: TemplateContext,
@@ -106,6 +86,7 @@ async def render_template_content(
     base_dir: Optional[Path] = None,
     resolver: Callable[[str | Path], Path] | None = None,
     recommendation_footnotes: Callable[[list["Recommendation"]], Awaitable[str]] | None = None,
+    frontmatter_errors: list[str] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
 ) -> Result[TemplateRenderResult]:
     """Render template content with context.
@@ -130,6 +111,7 @@ async def render_template_content(
         partial_contributions_by_name: Dict[str, list[DocumentContribution]] = {
             name: list(contributions) for name, contributions in (pre_rendered_partial_contributions or {}).items()
         }
+        errors = list(frontmatter_errors or [])
 
         if metadata:
             # Add frontmatter data to context
@@ -151,13 +133,14 @@ async def render_template_content(
                             context_dict = {**dict(render_context), **(requirements_context or {})}
 
                             if base_dir and resolver:
-                                partial_content, partial_frontmatter = await load_partial_content(
+                                partial_content, partial_frontmatter, partial_errors = await load_partial_content(
                                     full_include_path,
                                     base_dir,
                                     context_dict,
                                     resolver=resolver,
                                     max_content_limit=max_content_limit,
                                 )
+                                errors.extend(f"Partial '{include_path}': {error}" for error in partial_errors)
                             else:
                                 raise UnsafePartialPathError(
                                     "filesystem partial loading requires a document-root resolver"
@@ -188,40 +171,10 @@ async def render_template_content(
         # Apply transient function if provided
         final_context = transient_fn(render_context) if transient_fn else render_context
 
-        # Create template functions and inject into context with error handling
-        functions = TemplateFunctions(final_context, recommendations_enabled=recommendation_footnotes is not None)
-        workflow_context = final_context.get("workflow")
-        workflow_vars = {}
-        if isinstance(workflow_context, dict):
-            workflow_vars = {
-                "workflow": {
-                    **workflow_context,
-                    "contains": _safe_lambda(functions.workflow_contains),
-                    "notcontains": _safe_lambda(functions.workflow_notcontains),
-                }
-            }
-        stem = Path(file_path).stem if file_path else "template"
-        template_context = final_context.new_child(
-            {
-                "template_name": stem.lstrip("_"),
-                "prompt": get_prompt_name(),
-                "_error": functions._error,
-                "recommend": functions.recommend,
-                "format_date": _safe_lambda(functions.format_date),
-                "truncate": _safe_lambda(functions.truncate),
-                "highlight_code": _safe_lambda(functions.highlight_code),
-                "pad_right": _safe_lambda(functions.pad_right),
-                "contains": _safe_lambda(functions.contains),
-                "equals": _safe_lambda(functions.equals),
-                "notequals": _safe_lambda(functions.notequals),
-                "time_ago": _safe_lambda(functions.time_ago),
-                "resource": _safe_lambda(functions.resource),
-                "command": _safe_lambda(functions.command),
-                "command-args": _safe_lambda(functions.command_args),
-                "command-flags": _safe_lambda(functions.command_flags),
-                "command-alias": _safe_lambda(functions.command_alias),
-                **workflow_vars,
-            }
+        bindings = build_template_bindings(
+            final_context,
+            file_path,
+            recommendations_enabled=recommendation_footnotes is not None,
         )
 
         # Use a tracking dict so we know which partials chevron actually renders
@@ -229,9 +182,16 @@ async def render_template_content(
 
         # Render template with Chevron (TemplateContext works as ChainMap)
         logger.trace(f"Rendering template {file_path} with partials: {list(processed_partials.keys())}")
-        rendered = chevron.render(content, template_context, partials_dict=tracking_partials)
+        rendered = await chevron.async_render(
+            content,
+            bindings.context,
+            partials_path=None,
+            partials_dict=tracking_partials,
+            lambdas=bindings.lambdas,
+            logger=logger,
+        )
         if recommendation_footnotes:
-            rendered += await recommendation_footnotes(functions.recommendations)
+            rendered += await recommendation_footnotes(bindings.functions.recommendations)
         ensure_within_limit(len(rendered.encode("utf-8")), limit_name="max-content-limit", limit=max_content_limit)
         logger.trace(f"Template {file_path} rendered content ({len(rendered)} chars): {rendered[:1024]}")
 
@@ -246,7 +206,7 @@ async def render_template_content(
                     DocumentContribution(processed_partials[name], {}, DocumentProperties.from_frontmatter(None))
                 )
 
-        return Result.ok(TemplateRenderResult(rendered, partial_contributions, functions.errors))
+        return Result.ok(TemplateRenderResult(rendered, partial_contributions, [*errors, *bindings.functions.errors]))
 
     except ChevronError as e:
         # Enhanced Chevron-specific error handling with line context

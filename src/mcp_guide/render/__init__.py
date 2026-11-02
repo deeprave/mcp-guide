@@ -2,6 +2,10 @@
 
 from typing import TYPE_CHECKING, Any
 
+from mcp_guide.render.chevron_extensions import configure_chevron_extensions
+
+configure_chevron_extensions()
+
 if TYPE_CHECKING:
     from mcp_guide.render.template import render_template
 

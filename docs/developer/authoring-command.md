@@ -101,7 +101,7 @@ Commands have access to these template variables:
 - `{{command.path}}` - Command file path
 
 ### Arguments
-- `{{args}}` - List of positional arguments
+- `{{args}}` - Ordered list of positional-argument mappings, each exposing a `value` field; use `{{#args}}{{value}}{{/args}}` to iterate or `{{args.0.value}}` to access an indexed argument
 - `{{kwargs}}` - Clean keyword arguments (without underscore prefix)
 - `{{raw_kwargs}}` - Original kwargs with underscore prefixes
 
@@ -157,8 +157,13 @@ Current project: **{{project.name}}**
 - `{{variable}}` - Variable interpolation
 - `{{#section}}...{{/section}}` - Conditional sections (truthy)
 - `{{^section}}...{{/section}}` - Inverted sections (falsy)
-- `{{#list}}{{.}}{{/list}}` - Iterate over lists
+- `{{#list}}{{.}}{{/list}}` - Iterate over a list of scalar values
+- `{{#list}}{{#.first}}First: {{/.first}}{{.}}{{^.last}}, {{/.last}}{{/list}}` - Use `.first` and `.last` metadata inside any list section
 - `{{! comment }}` - Comments (not rendered)
+
+List entries retain their original type: use `{{.}}` for scalar values and
+their ordinary properties for mappings. Guide does not wrap list items in
+`value`, `first`, or `last` objects.
 
 ## Error Handling
 

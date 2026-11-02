@@ -46,7 +46,10 @@ Commands can accept positional arguments via path segments and keyword arguments
 ```
 guide://_help/flags              # Positional: help for the "flags" command
 guide://_flags/project/set/workflow?value=true   # Positional + keyword arguments
+guide://_project?v               # Short option: verbose output
 ```
+
+Command query options use the same standard short aliases as prompt commands: `v`, `h`, `q`, `f`, `d`, and `t` mean `verbose`, `help`, `quiet`, `force`, `debug`, and `table` respectively.
 
 When a command argument contains a slash as part of the argument value, encode it so it remains a single path segment. For example, use `guide://_project/perm/write/add/src%2F` for the directory `src/`, and `guide://_project/perm/read/add/%2Fexternal%2Fdata` for the absolute path `/external/data`.
 

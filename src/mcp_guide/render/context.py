@@ -12,55 +12,22 @@ from mcp_guide.core.mcp_log import get_logger
 logger = get_logger(__name__)
 
 
-def convert_lists_to_indexed(obj: Any) -> Any:
-    """Recursively convert lists to IndexedList for both iteration and indexed access."""
-    if isinstance(obj, list):
-        return IndexedList([convert_lists_to_indexed(item) for item in obj])
-    elif isinstance(obj, dict):
-        return {k: convert_lists_to_indexed(v) for k, v in obj.items()}
-    else:
-        return obj
-
-
 def keyword_context(kwargs: Mapping[str, Any]) -> dict[str, Any]:
     """Return the shared template representation of URI or command keywords."""
     raw_kwargs = dict(kwargs)
     return {
-        "kwargs": convert_lists_to_indexed(raw_kwargs.copy()),
+        "kwargs": raw_kwargs.copy(),
         "raw_kwargs": raw_kwargs,
     }
-
-
-class IndexedList(list[Any]):
-    """List that supports both iteration and indexed access via attributes."""
-
-    def __init__(self, items: Any) -> None:
-        super().__init__()
-        processed_items = []
-        for i, item in enumerate(items):
-            if isinstance(item, dict):
-                enhanced_item = item.copy()
-                enhanced_item["first"] = i == 0
-                enhanced_item["last"] = i == len(items) - 1
-                processed_items.append(enhanced_item)
-            else:
-                processed_items.append({"value": item, "first": (i == 0), "last": (i == len(items) - 1)})
-
-        self.extend(processed_items)
-
-        for i, item in enumerate(processed_items):
-            setattr(self, str(i), item)
-        setattr(self, "length", len(processed_items))
 
 
 class TemplateContext(ChainMap[str, Any]):
     """Type-safe template context extending ChainMap for scope chaining."""
 
     def __init__(self, *maps: dict[str, Any]) -> None:
-        converted_maps = [convert_lists_to_indexed(mapping) for mapping in maps]
-        for mapping in converted_maps:
+        for mapping in maps:
             self._validate_mapping(mapping)
-        super().__init__(*converted_maps)
+        super().__init__(*maps)
 
     @staticmethod
     def _validate_mapping(mapping: dict[str, Any]) -> None:

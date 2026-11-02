@@ -1,6 +1,6 @@
 {{h3}}Read Permissions
 {{#read_paths}}
-- {{value}}
+- {{.}}
 {{/read_paths}}
 {{^read_paths}}
 - {{client_working_dir}}
@@ -8,5 +8,5 @@
 
 {{h3}}Write Permissions
 {{#project.allowed_write_paths}}
-- {{value}}
+- {{.}}
 {{/project.allowed_write_paths}}

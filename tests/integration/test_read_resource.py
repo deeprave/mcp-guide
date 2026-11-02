@@ -12,6 +12,7 @@ from mcp_guide.models import Category
 from mcp_guide.render import rendering
 from mcp_guide.render.recommendations import parse_recommendation
 from mcp_guide.result_constants import (
+    AGENT_ERROR,
     AGENT_INFO,
     INSTRUCTION_AGENT_INFORMATION,
     INSTRUCTION_DISPLAY_ONLY,
@@ -34,6 +35,7 @@ from mcp_guide.tools.tool_resource import (
         ("guide://docs", "docs content"),
         ("guide://docs/readme", "docs content"),
         ("guide://_project", "resource-project verbose"),
+        ("guide://_openspec/show/my-change?v", "Show my-change verbose"),
         ("guide://_openspec/show/my-change?verbose=true", "Show my-change verbose"),
         ("guide://_project?table=true", "resource-project verbose table"),
         (
@@ -56,6 +58,36 @@ async def test_skill_entrypoint_reports_its_rendered_virtual_file(resource_proje
     assert result.success, result.error
     assert result.message == "Rendered skill file: workflow-status/SKILL.md"
     assert result.value == "Read the current Guide workflow and OpenSpec status."
+
+
+@pytest.mark.anyio
+async def test_frontmatter_diagnostics_fail_command_and_skill_entrypoints(resource_project):
+    """Renderable frontmatter failures must not deliver incomplete instructions."""
+    docroot = resource_project.resolve_document_path("")
+    (docroot / "_commands/broken.mustache").write_text(
+        "---\ninstruction: '{{#_error}}Command configuration is invalid{{/_error}}'\n---\nCommand body"
+    )
+    skill = docroot / "_skills/broken/SKILL.md.mustache"
+    skill.parent.mkdir(parents=True)
+    skill.write_text(
+        "---\n"
+        "name: broken\n"
+        "description: '{{#_error}}Skill configuration is invalid{{/_error}}'\n"
+        "usage: Use only for this test.\n"
+        "---\n"
+        "Skill body"
+    )
+
+    for uri, field, diagnostic in (
+        ("guide://_broken", "instruction", "Command configuration is invalid"),
+        ("guide://$broken", "description", "Skill configuration is invalid"),
+    ):
+        result = await internal_read_resource(ReadResourceArgs(uri=uri), resource_project)
+        assert not result.success
+        assert result.error_type == "validation_error"
+        assert result.disposition == AGENT_ERROR
+        assert diagnostic in result.error
+        assert result.error_data == {"errors": [f"Frontmatter field '{field}': {diagnostic}"]}
 
 
 @pytest.mark.anyio

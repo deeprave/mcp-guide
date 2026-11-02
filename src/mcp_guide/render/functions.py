@@ -2,8 +2,10 @@
 
 from collections import ChainMap
 from datetime import datetime, timezone
-from typing import Any, Callable, cast
+from typing import Any, Awaitable, Callable, cast
 from urllib.parse import quote
+
+import chevron
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import get_prompt_name
@@ -16,35 +18,21 @@ logger = get_logger(__name__)
 _MISSING = object()
 
 
-class SyntaxHighlighter:
-    """Syntax highlighter with Pygments integration."""
-
-    def __init__(self) -> None:
-        """Initialize and check for Pygments availability."""
-        self.pygments_available = self._check_pygments()
-
-    def _check_pygments(self) -> bool:
-        """Check if Pygments is available."""
-        import importlib.util
-
-        return importlib.util.find_spec("pygments") is not None
-
-
 class TemplateFunctions:
     """Template lambda functions with ChainMap context integration."""
 
     def __init__(self, context: ChainMap[str, Any], *, recommendations_enabled: bool = True) -> None:
         """Initialize with ChainMap context."""
         self.context = context
-        self.highlighter = SyntaxHighlighter()
         self.errors: list[str] = []
         self.recommendations: list[Recommendation] = []
         self.recommendations_enabled = recommendations_enabled
 
-    def _error(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.compat
+    async def _error(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
         """Signal an application-level error: {{#_error}}message{{/_error}}"""
         try:
-            message = render(text) if render else text
+            message = await render(text) if render else text
         except Exception as e:
             logger.warning("_error lambda: render failed: %s", e)
             return ""
@@ -52,11 +40,12 @@ class TemplateFunctions:
             self.errors.append(message)
         return ""
 
-    def recommend(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.compat
+    async def recommend(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
         """Render a typed Guide recommendation and retain its source for a footnote."""
         if not self.recommendations_enabled:
             raise RuntimeError("Recommendation rendering requires an active session")
-        recommendation = parse_recommendation(render(text) if render else text)
+        recommendation = parse_recommendation(await render(text) if render else text)
         if recommendation not in self.recommendations:
             self.recommendations.append(recommendation)
         return f'Guide {recommendation.kind} "{recommendation.name}"[^{recommendation.label}]'
@@ -97,7 +86,7 @@ class TemplateFunctions:
         Supports:
         - plain top-level names: `created_at`
         - dotted dict access: `workflow.issue`
-        - indexed list access into IndexedList/list: `args.0.value`
+        - indexed list access: `args.0.value`
         """
         self._validate_variable_name(var_name, var_name)
 
@@ -155,7 +144,8 @@ class TemplateFunctions:
 
         return set(workflow_phase_names(workflow))
 
-    def format_date(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.compat
+    def format_date(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
         """Format dates: {{#format_date}}%Y-%m-%d{{created_at}}{{/format_date}}"""
         format_str, var_name = self._parse_template_args(text)
         date_value = self._resolve_required_path(var_name)
@@ -164,7 +154,8 @@ class TemplateFunctions:
 
         return str(date_value.strftime(format_str))
 
-    def truncate(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.compat
+    def truncate(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
         """Truncate with ellipses: {{#truncate}}50{{description}}{{/truncate}}"""
         length_str, var_name = self._parse_template_args(text)
 
@@ -179,8 +170,9 @@ class TemplateFunctions:
         value = str(self._resolve_required_path(var_name))
         return value[:max_len] + "..." if len(value) > max_len else value
 
-    def highlight_code(self, text: str, render: Callable[[str], str] | None = None) -> str:
-        """Syntax highlight: {{#highlight_code}}python{{code_snippet}}{{/highlight_code}}"""
+    @chevron.compat
+    def highlight_code(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
+        """Format a language-labelled Markdown code fence."""
         language, var_name = self._parse_template_args(text)
 
         if not language.strip() or not language.replace("-", "").replace("+", "").isalnum():
@@ -189,7 +181,8 @@ class TemplateFunctions:
         code = str(self._resolve_required_path(var_name))
         return f"```{language}\n{code}\n```"
 
-    def pad_right(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.compat
+    def pad_right(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
         """Pad string to fixed width: {{#pad_right}}20{{command_name}}{{/pad_right}}"""
         try:
             width_str, var_name = self._parse_template_args(text)
@@ -200,18 +193,8 @@ class TemplateFunctions:
         except ValueError as e:
             return f"[Pad Error: {e}]"
 
-    def contains(self, text: str, render: Callable[[str], str] | None = None) -> str:
-        """Check if value contains substring: {{#contains}}substring{{variable}}{{/contains}}"""
-        substring, var_name = self._parse_template_args(text)
-
-        actual_value = self._resolve_path(var_name)
-        if actual_value is _MISSING:
-            return ""
-
-        actual = str(actual_value)
-        return render(text) if render and substring.strip() in actual else ""
-
-    def workflow_contains(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.section
+    def workflow_contains(self, text: str) -> str:
         """Check if a phase exists in configured workflow phases.
 
         Usage:
@@ -222,18 +205,20 @@ class TemplateFunctions:
         if candidate is _MISSING:
             return ""
 
-        return render(body) if render and str(candidate) in self._get_workflow_phases() else ""
+        return body if str(candidate) in self._get_workflow_phases() else ""
 
-    def workflow_notcontains(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.section
+    def workflow_notcontains(self, text: str) -> str:
         """Inverse of workflow_contains for phase membership checks."""
         var_name, body = self._parse_section_leading_var(text)
         candidate = self._resolve_path(var_name)
         if candidate is _MISSING:
             return ""
 
-        return render(body) if render and str(candidate) not in self._get_workflow_phases() else ""
+        return body if str(candidate) not in self._get_workflow_phases() else ""
 
-    def time_ago(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.compat
+    def time_ago(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
         """Format timestamp as relative time: {{#time_ago}}{{timestamp}}{{/time_ago}}"""
         _, var_name = self._parse_template_args(text)
 
@@ -292,7 +277,7 @@ class TemplateFunctions:
         body_start = text.find("}}") + 2
         return expected.strip(), var_name, body_start
 
-    def _render_comparison(self, text: str, render: Callable[[str], str] | None, *, negate: bool = False) -> str:
+    def _comparison_section_body(self, text: str, *, negate: bool = False) -> str:
         expected_or_var, var_name, body_start = self._parse_comparison_args(text)
         actual_value = self._resolve_path(var_name)
 
@@ -309,31 +294,32 @@ class TemplateFunctions:
         if not matches:
             return ""
 
-        if render:
-            return str(render(text[body_start:]))
-        return ""
+        return text[body_start:]
 
-    def equals(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.section
+    def equals(self, text: str) -> str:
         """Compare values: {{#equals}}value{{variable}}{{/equals}}
 
         Returns the rendered section content if values match, empty string otherwise.
         """
-        return self._render_comparison(text, render)
+        return self._comparison_section_body(text)
 
-    def notequals(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.section
+    def notequals(self, text: str) -> str:
         """Compare values: {{#notequals}}value{{variable}}{{/notequals}}
 
         Returns the rendered section content if values do not match, empty string otherwise.
         """
-        return self._render_comparison(text, render, negate=True)
+        return self._comparison_section_body(text, negate=True)
 
-    def resource(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.section
+    def resource(self, text: str) -> str:
         """Render content reference: {{#resource}}expression{{/resource}}
 
         Returns guide://expression URI by default, or tool_prefix + get_content("expression")
         when the format-resource flag is true.
         """
-        expression = render(text).strip() if render else text.strip()
+        expression = text.strip()
         if not expression:
             return ""
 
@@ -350,15 +336,16 @@ class TemplateFunctions:
         return f"{prompt_name} :"
 
     @staticmethod
-    def _parse_csv_items(text: str, render: Callable[[str], str] | None = None) -> list[str]:
-        value = render(text).strip() if render else text.strip()
+    async def _parse_csv_items(text: str, render: Callable[[str], Awaitable[str]] | None = None) -> list[str]:
+        value = (await render(text)).strip() if render else text.strip()
         if not value:
             return []
         return [item.strip() for item in value.split(",") if item.strip()]
 
-    def command(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.section
+    def command(self, text: str) -> str:
         """Render command start: {{#command}}status{{/command}}."""
-        command_name = render(text).strip() if render else text.strip()
+        command_name = text.strip()
         if not command_name:
             return ""
         flags = self.context.get("flags", {})
@@ -366,9 +353,10 @@ class TemplateFunctions:
             return f"{self._get_prompt_reference_prefix()}{command_name}"
         return f"guide://_{command_name}"
 
-    def command_args(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.compat
+    async def command_args(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
         """Render command args fragment."""
-        items = self._parse_csv_items(text, render)
+        items = await self._parse_csv_items(text, render)
         if not items:
             return ""
 
@@ -377,9 +365,10 @@ class TemplateFunctions:
             return "".join(f" {item}" for item in items)
         return "".join(f"/{quote(item, safe='')}" for item in items)
 
-    def command_flags(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.compat
+    async def command_flags(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
         """Render command flags fragment."""
-        items = self._parse_csv_items(text, render)
+        items = await self._parse_csv_items(text, render)
         if not items:
             return ""
 
@@ -406,9 +395,10 @@ class TemplateFunctions:
                 query_items.append(quote(item, safe=""))
         return f"?{'&'.join(query_items)}"
 
-    def command_alias(self, text: str, render: Callable[[str], str] | None = None) -> str:
+    @chevron.compat
+    async def command_alias(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
         """Render aliases for a command reference."""
-        items = self._parse_csv_items(text, render)
+        items = await self._parse_csv_items(text, render)
         if not items:
             return ""
 

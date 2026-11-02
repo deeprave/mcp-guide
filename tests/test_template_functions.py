@@ -4,7 +4,6 @@ from collections import ChainMap
 from datetime import datetime
 from unittest.mock import patch
 
-import chevron
 import pytest
 
 from mcp_guide.core.tool_decorator import get_tool_prefix
@@ -12,6 +11,10 @@ from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.functions import TemplateFunctions
 from mcp_guide.render.recommendations import parse_recommendation
 from mcp_guide.render.renderer import render_template_content
+
+
+async def _identity(value: str) -> str:
+    return value
 
 
 class TestTemplateFunctions:
@@ -35,8 +38,8 @@ class TestTemplateFunctions:
         assert result == "This is a very long ..."
 
 
-class TestSyntaxHighlighter:
-    """Test SyntaxHighlighter class."""
+class TestCodeFence:
+    """Tests for the language-labelled Markdown code-fence section."""
 
     def test_highlight_code_lambda(self):
         """Test highlight_code lambda function."""
@@ -162,11 +165,12 @@ class TestSafeLambdaWrapper:
     @pytest.mark.anyio
     async def test_safe_lambda_error_handling(self):
         """Test that safe lambda wrapper catches and formats errors."""
-        context = ChainMap({"invalid_date": "not_a_date"})
+        context = TemplateContext({"invalid_date": "not_a_date"})
 
         result = await render_template_content("Date: {{#format_date}}%Y-{{invalid_date}}{{/format_date}}", context)
 
         assert result.is_ok()
+        assert result.value is not None
         rendered_content = result.value.content
         assert "[Template Error (" in rendered_content
         assert "not a datetime object" in rendered_content
@@ -175,11 +179,12 @@ class TestSafeLambdaWrapper:
     async def test_safe_lambda_error_handling_truncate(self):
         """Test that safe lambda wrapper catches and formats errors for truncate."""
         # Negative length should trigger a validation error inside truncate
-        context = ChainMap({"text": "Some example content"})
+        context = TemplateContext({"text": "Some example content"})
 
         result = await render_template_content("{{#truncate}}-5{{text}}{{/truncate}}", context)
 
         assert result.is_ok()
+        assert result.value is not None
         rendered_content = result.value.content
         assert "[Template Error (" in rendered_content
 
@@ -187,47 +192,14 @@ class TestSafeLambdaWrapper:
     async def test_safe_lambda_error_handling_highlight_code(self):
         """Test that safe lambda wrapper catches and formats errors for highlight_code."""
         # Invalid language name (contains invalid characters) should trigger a validation error
-        context = ChainMap({"code": "print('hello')"})
+        context = TemplateContext({"code": "print('hello')"})
 
         result = await render_template_content("{{#highlight_code}}py@thon{{code}}{{/highlight_code}}", context)
 
         assert result.is_ok()
+        assert result.value is not None
         rendered_content = result.value.content
         assert "[Template Error (" in rendered_content
-
-    def test_full_template_rendering_with_lambdas(self):
-        """Test complete template rendering pipeline with lambda functions."""
-        # Template with multiple lambda functions
-        template = """# Project Report
-Created: {{#format_date}}%B %d, %Y{{event_date}}{{/format_date}}
-Description: {{#truncate}}50{{description}}{{/truncate}}
-
-## Code Sample
-{{#highlight_code}}python{{code_snippet}}{{/highlight_code}}"""
-
-        # Context with data and lambda functions
-        base_context = ChainMap(
-            {
-                "event_date": datetime(2023, 12, 25, 14, 30, 0),
-                "description": "This is a very long project description that should be truncated for display",
-                "code_snippet": 'def main():\n    print("Hello World")',
-            }
-        )
-
-        functions = TemplateFunctions(base_context)
-        context = base_context.new_child(
-            {
-                "format_date": functions.format_date,
-                "truncate": functions.truncate,
-                "highlight_code": functions.highlight_code,
-            }
-        )
-
-        result = chevron.render(template, context)
-
-        assert "December 25, 2023" in result
-        assert "This is a very long project description that shoul..." in result
-        assert "```python\ndef main():" in result
 
 
 class TestTimeAgoLambda:
@@ -277,30 +249,39 @@ class TestErrorLambda:
     def _make(self, extra: dict | None = None) -> TemplateFunctions:
         return TemplateFunctions(ChainMap(extra or {}))
 
-    def test_error_appends_message(self):
+    @pytest.mark.anyio
+    async def test_error_appends_message(self):
         fn = self._make()
-        result = fn._error("something went wrong", render=lambda t: t)
+        result = await fn._error("something went wrong", render=_identity)
         assert result == ""
         assert fn.errors == ["something went wrong"]
 
-    def test_error_returns_empty_string(self):
+    @pytest.mark.anyio
+    async def test_error_returns_empty_string(self):
         fn = self._make()
-        assert fn._error("msg", render=lambda t: t) == ""
+        assert await fn._error("msg", render=_identity) == ""
 
-    def test_error_accumulates_multiple(self):
+    @pytest.mark.anyio
+    async def test_error_accumulates_multiple(self):
         fn = self._make()
-        fn._error("first", render=lambda t: t)
-        fn._error("second", render=lambda t: t)
+        await fn._error("first", render=_identity)
+        await fn._error("second", render=_identity)
         assert fn.errors == ["first", "second"]
 
-    def test_error_empty_message_not_appended(self):
+    @pytest.mark.anyio
+    async def test_error_empty_message_not_appended(self):
         fn = self._make()
-        fn._error("", render=lambda t: t)
+        await fn._error("", render=_identity)
         assert fn.errors == []
 
-    def test_error_uses_render_callable(self):
+    @pytest.mark.anyio
+    async def test_error_uses_render_callable(self):
         fn = self._make({"name": "world"})
-        fn._error("hello {{name}}", render=lambda t: "hello world")
+
+        async def render(_text: str) -> str:
+            return "hello world"
+
+        await fn._error("hello {{name}}", render=render)
         assert fn.errors == ["hello world"]
 
     @pytest.mark.anyio
@@ -345,10 +326,11 @@ class TestErrorLambda:
 class TestRecommendLambda:
     """Tests for embedded typed recommendations."""
 
-    def test_recommend_renders_a_skill_reference_and_records_its_name(self):
+    @pytest.mark.anyio
+    async def test_recommend_renders_a_skill_reference_and_records_its_name(self):
         functions = TemplateFunctions(ChainMap())
 
-        rendered = functions.recommend("skill:workflow-review", render=lambda text: text)
+        rendered = await functions.recommend("skill:workflow-review", render=_identity)
 
         recommendation = parse_recommendation("skill:workflow-review")
         assert rendered == f'Guide skill "workflow-review"[^{recommendation.label}]'
@@ -394,19 +376,21 @@ class TestRecommendLambda:
         )
         assert result.value.content.count(content.label) == 2
 
-    def test_empty_recommendation_is_an_error(self):
+    @pytest.mark.anyio
+    async def test_empty_recommendation_is_an_error(self):
         functions = TemplateFunctions(ChainMap())
 
         with pytest.raises(ValueError, match="must name"):
-            functions.recommend("   ")
+            await functions.recommend("   ")
         assert functions.recommendations == []
 
     @pytest.mark.parametrize("value", ["unknown:target", ":target", "skill:"])
-    def test_recommend_rejects_invalid_type_or_target(self, value):
+    @pytest.mark.anyio
+    async def test_recommend_rejects_invalid_type_or_target(self, value):
         functions = TemplateFunctions(ChainMap())
 
         with pytest.raises(ValueError):
-            functions.recommend(value)
+            await functions.recommend(value)
 
 
 class TestResourceLambda:
@@ -436,7 +420,7 @@ class TestResourceLambda:
         context = ChainMap({"flags": flags})
         functions = TemplateFunctions(context)
 
-        result = functions.resource(expression, lambda t: t)
+        result = functions.resource(expression)
         assert result == expected
 
     def test_flag_true_with_tool_prefix(self):
@@ -446,7 +430,7 @@ class TestResourceLambda:
 
         get_tool_prefix.cache_clear()
         with patch.dict("os.environ", {"MCP_TOOL_PREFIX": "mcp_guide"}):
-            result = functions.resource("guidelines", lambda t: t)
+            result = functions.resource("guidelines")
         get_tool_prefix.cache_clear()
         assert result == 'mcp_guide_get_content("guidelines")'
 
@@ -455,11 +439,11 @@ class TestResourceLambda:
         context = ChainMap({})
         functions = TemplateFunctions(context)
 
-        result = functions.resource("guidelines", lambda t: t)
+        result = functions.resource("guidelines")
         assert result == "guide://guidelines"
 
-    def test_render_none_uses_raw_text(self):
-        """When render is None, should use raw text directly."""
+    def test_uses_raw_section_text(self):
+        """The section callback preserves variable interpolation for Chevron."""
         context = ChainMap({"flags": {}})
         functions = TemplateFunctions(context)
 
@@ -478,40 +462,95 @@ class TestCommandLambda:
             result = await render_template_content("{{prompt}}", context)
 
         assert result.is_ok()
+        assert result.value is not None
         rendered_content = result.value.content
         assert rendered_content == "g"
 
+    @pytest.mark.anyio
+    async def test_prompt_function_renders_its_result(self):
+        """The explicit prompt function follows Chevron's interpolation protocol."""
+        context = TemplateContext({"name": "Guide"})
+
+        with patch.dict("os.environ", {"MCP_PROMPT_NAME": "{{name}}"}):
+            result = await render_template_content("{{prompt}}", context)
+
+        assert result.is_ok()
+        assert result.value is not None
+        assert result.value.content == "Guide"
+
+    @pytest.mark.anyio
+    async def test_tool_prefix_variable_uses_prefix_override(self):
+        """The explicit tool-prefix function resolves and escapes its configured prefix."""
+        context = TemplateContext({})
+        get_tool_prefix.cache_clear()
+        try:
+            with patch.dict("os.environ", {"MCP_TOOL_PREFIX": "<mcp>"}):
+                result = await render_template_content("{{tool_prefix}}get_content", context)
+        finally:
+            get_tool_prefix.cache_clear()
+
+        assert result.is_ok()
+        assert result.value is not None
+        assert result.value.content == "&lt;mcp&gt;_get_content"
+
+    @pytest.mark.parametrize(
+        ("configured_prefix", "expected"),
+        [("", "None"), ("mcp", "mcp_")],
+    )
+    @pytest.mark.anyio
+    async def test_tool_prefix_display_uses_status_fallback(self, monkeypatch, configured_prefix, expected):
+        """The status-display function owns the blank-prefix fallback."""
+        get_tool_prefix.cache_clear()
+        try:
+            monkeypatch.setenv("MCP_TOOL_PREFIX", configured_prefix)
+            result = await render_template_content("{{tool_prefix_display}}", TemplateContext({}))
+        finally:
+            get_tool_prefix.cache_clear()
+
+        assert result.is_ok()
+        assert result.value is not None
+        assert result.value.content == expected
+
     def test_command_defaults_to_uri(self):
         functions = TemplateFunctions(ChainMap({"flags": {}}))
-        assert functions.command("status", lambda t: t) == "guide://_status"
+        assert functions.command("status") == "guide://_status"
 
-    def test_command_true_renders_prompt_style(self):
+    @pytest.mark.anyio
+    async def test_command_true_renders_prompt_style(self):
         functions = TemplateFunctions(ChainMap({"flags": {"format-command": True}, "@": "@"}))
-        assert functions.command("status", lambda t: t) == "@guide :status"
-        assert functions.command_args("now,later", lambda t: t) == " now later"
-        assert functions.command_flags("verbose=true,force", lambda t: t) == " --verbose=true --force"
+        assert functions.command("status") == "@guide :status"
+        assert await functions.command_args("now,later", _identity) == " now later"
+        assert await functions.command_flags("verbose=true,force", _identity) == " --verbose=true --force"
 
-    def test_command_false_renders_uri_fragments(self):
+    @pytest.mark.anyio
+    async def test_command_false_renders_uri_fragments(self):
         functions = TemplateFunctions(ChainMap({"flags": {"format-command": False}}))
-        assert functions.command("status", lambda t: t) == "guide://_status"
-        assert functions.command_args("now,later", lambda t: t) == "/now/later"
-        assert functions.command_flags("verbose=true,from=hello,force", lambda t: t) == "?verbose&from=hello&force"
+        assert functions.command("status") == "guide://_status"
+        assert await functions.command_args("now,later", _identity) == "/now/later"
+        assert await functions.command_flags("verbose=true,from=hello,force", _identity) == "?verbose&from=hello&force"
 
-    def test_command_args_uri_encode_path_like_values(self):
+    @pytest.mark.anyio
+    async def test_command_args_uri_encode_path_like_values(self):
         functions = TemplateFunctions(ChainMap({"flags": {"format-command": False}}))
-        assert functions.command_args("docs/,/external/data", lambda t: t) == "/docs%2F/%2Fexternal%2Fdata"
+        assert await functions.command_args("docs/,/external/data", _identity) == "/docs%2F/%2Fexternal%2Fdata"
 
     def test_command_uses_prompt_name_override(self):
         functions = TemplateFunctions(ChainMap({"flags": {"format-command": True}, "@": "/"}))
         with patch.dict("os.environ", {"MCP_PROMPT_NAME": "g"}):
-            assert functions.command("status", lambda t: t) == "/g :status"
+            assert functions.command("status") == "/g :status"
 
-    def test_command_alias_uses_selected_mode(self):
+    @pytest.mark.anyio
+    async def test_command_alias_uses_selected_mode(self):
         uri_functions = TemplateFunctions(ChainMap({"flags": {}}))
         prompt_functions = TemplateFunctions(ChainMap({"flags": {"format-command": True}, "@": "@"}))
 
-        assert uri_functions.command_alias("h,project/perm", lambda t: t) == " (`guide://_h`, `guide://_project/perm`)"
-        assert prompt_functions.command_alias("h,project/perm", lambda t: t) == " (`@guide :h`, `@guide :project/perm`)"
+        assert (
+            await uri_functions.command_alias("h,project/perm", _identity) == " (`guide://_h`, `guide://_project/perm`)"
+        )
+        assert (
+            await prompt_functions.command_alias("h,project/perm", _identity)
+            == " (`@guide :h`, `@guide :project/perm`)"
+        )
 
 
 class TestEqualsLambdas:
@@ -529,14 +568,14 @@ class TestEqualsLambdas:
         context = ChainMap({"workflow": {"issue": value}})
         functions = TemplateFunctions(context)
 
-        assert functions.equals("same-issue{{workflow.issue}}MATCH", lambda t: t) == expected_equals
-        assert functions.notequals("same-issue{{workflow.issue}}DIFFERENT", lambda t: t) == expected_notequals
+        assert functions.equals("same-issue{{workflow.issue}}MATCH") == expected_equals
+        assert functions.notequals("same-issue{{workflow.issue}}DIFFERENT") == expected_notequals
 
     def test_notequals_renders_section_when_actual_value_is_missing(self):
         context = ChainMap({"workflow": {}})
         functions = TemplateFunctions(context)
 
-        result = functions.notequals("same-issue{{workflow.issue}}DIFFERENT", lambda t: t)
+        result = functions.notequals("same-issue{{workflow.issue}}DIFFERENT")
         assert result == "DIFFERENT"
 
     def test_equals_renders_section_when_two_variables_match(self):
@@ -548,7 +587,7 @@ class TestEqualsLambdas:
         )
         functions = TemplateFunctions(context)
 
-        result = functions.equals("{{args.0.value}}{{workflow.issue}}MATCH", lambda t: t)
+        result = functions.equals("{{args.0.value}}{{workflow.issue}}MATCH")
         assert result == "MATCH"
 
     def test_notequals_renders_section_when_two_variables_differ(self):
@@ -560,7 +599,7 @@ class TestEqualsLambdas:
         )
         functions = TemplateFunctions(context)
 
-        result = functions.notequals("{{args.0.value}}{{workflow.issue}}DIFFERENT", lambda t: t)
+        result = functions.notequals("{{args.0.value}}{{workflow.issue}}DIFFERENT")
         assert result == "DIFFERENT"
 
 
@@ -584,6 +623,7 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
+        assert result.value is not None
         rendered_content = result.value.content
         errors = result.value.errors
         assert rendered_content == "OK: planning"
@@ -606,6 +646,7 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
+        assert result.value is not None
         rendered_content = result.value.content
         errors = result.value.errors
         assert rendered_content == ""
@@ -628,6 +669,7 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
+        assert result.value is not None
         rendered_content = result.value.content
         errors = result.value.errors
         assert rendered_content == ""
@@ -650,6 +692,7 @@ class TestWorkflowContainsLambdas:
         )
 
         assert result.is_ok()
+        assert result.value is not None
         rendered_content = result.value.content
         errors = result.value.errors
         assert rendered_content == ""

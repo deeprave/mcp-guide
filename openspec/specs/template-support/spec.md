@@ -88,25 +88,20 @@ Text truncation SHALL:
 - **THEN** truncate to 20 characters and append "..."
 
 #### Lambda Function: highlight_code
-The system SHALL provide syntax highlighting capabilities through `highlight_code` lambda function.
+The system SHALL provide language-labelled Markdown code fencing through the
+`highlight_code` lambda function.
 
-Code highlighting SHALL:
+Code fencing SHALL:
 - Accept programming language as parameter
 - Parse code content from variable references
 - Generate markdown code blocks with language specification
-- Support optional Pygments integration for enhanced highlighting
-- Provide fallback to plain markdown code blocks
 
 **Usage Pattern**: `{{#highlight_code}}python{{code_snippet}}{{/highlight_code}}`
 
-#### Scenario: Code highlighting with markdown
+#### Scenario: Code fencing with markdown
 - **WHEN** template contains `{{#highlight_code}}python{{code_snippet}}{{/highlight_code}}`
 - **AND** context contains Python code in `code_snippet`
 - **THEN** render as markdown code block with python language tag
-
-#### Scenario: Pygments availability detection
-- **WHEN** SyntaxHighlighter initializes
-- **THEN** detect Pygments availability and set `pygments_available` flag
 
 ### Requirement: Template Detection and Rendering
 

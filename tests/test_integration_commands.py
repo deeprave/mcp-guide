@@ -21,8 +21,8 @@ async def command_project(runtime, tmp_path):
         "Test command executed successfully!\n"
         "{{#kwargs.verbose}}Verbose mode enabled.{{/kwargs.verbose}}\n"
         "Args: {{#args}}{{value}} {{/args}}\n"
-        "Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}"
-        "{{^last}} {{/last}}{{#last}} LAST{{/last}}{{/args}}"
+        "Indexed args: {{#args}}{{#.first}}FIRST: {{/.first}}{{value}}"
+        "{{^.last}} {{/.last}}{{#.last}} LAST{{/.last}}{{/args}}"
     )
     session = await create_bound_test_session(runtime, "test-project")
     for name in ["docs", "examples", "tests"]:
@@ -86,6 +86,20 @@ async def test_help_discovers_actual_commands(command_project):
     assert "Available commands:" in result["value"]
     assert "test: Test command" in result["value"]
     assert "help: Show help information" in result["value"]
+
+
+@pytest.mark.anyio
+async def test_help_reports_rendering_diagnostics(command_project):
+    commands, invoke = command_project
+    (commands / "help.mustache").write_text(
+        "---\ndescription: '{{#_error}}Help configuration is invalid{{/_error}}'\n---\nHelp"
+    )
+
+    result = await invoke(":help", "test")
+
+    assert result["success"] is False
+    assert result["error_type"] == "validation_error"
+    assert result["error_data"] == {"errors": ["Frontmatter field 'description': Help configuration is invalid"]}
 
 
 @pytest.mark.anyio

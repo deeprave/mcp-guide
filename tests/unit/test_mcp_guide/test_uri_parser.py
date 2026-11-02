@@ -57,6 +57,21 @@ class TestCommandUri:
         result = parse_guide_uri("guide://_status?verbose=true", COMMANDS)
         assert result == GuideUri(is_command=True, expression="status", kwargs={"verbose": True})
 
+    @pytest.mark.parametrize(
+        ("option", "expected"),
+        [
+            ("v", "verbose"),
+            ("h", "help"),
+            ("q", "quiet"),
+            ("f", "force"),
+            ("d", "debug"),
+            ("t", "table"),
+        ],
+    )
+    def test_command_short_option_aliases_are_normalised(self, option: str, expected: str) -> None:
+        result = parse_guide_uri(f"guide://_status?{option}", COMMANDS)
+        assert result.kwargs == {expected: True}
+
     def test_command_alias_path_resolves_using_canonical_lookup(self) -> None:
         result = parse_guide_uri("guide://_project", ["project/project", "project"])
         assert result == GuideUri(is_command=True, expression="project")
@@ -128,6 +143,10 @@ class TestQueryParams:
             expression="workflow/status",
             kwargs={"mode": "summary", "dry_run": True},
         )
+
+    def test_skill_short_query_names_are_preserved(self) -> None:
+        result = parse_guide_uri("guide://$workflow/status?v")
+        assert result.kwargs == {"v": True}
 
     def test_multiple_params(self) -> None:
         result = parse_guide_uri("guide://_openspec/show?change=my-feature&verbose=true", COMMANDS)

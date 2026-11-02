@@ -2,9 +2,9 @@
 
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import anyio
 import yaml
@@ -24,6 +24,7 @@ __all__ = [
     "Frontmatter",
     "Content",
     "ProcessedFrontmatter",
+    "RenderedFrontmatterFields",
     "RENDERED_FRONTMATTER_FIELDS",
     "resolve_instruction",
     "parse_content_with_frontmatter",
@@ -44,27 +45,64 @@ RENDERED_FRONTMATTER_FIELDS = ("instruction", "description", "elicitation")
 IMPORTANT_PREFIX_PATTERN = re.compile(r"^\^\s*")
 
 
-def _render_frontmatter_value(value: Any, context: dict[str, Any]) -> Any:
+async def _render_frontmatter_value(
+    value: Any,
+    context: dict[str, Any],
+    lambdas: dict[str, Callable[..., Any]],
+    path: str,
+) -> tuple[Any, list[str]]:
     """Render template strings recursively without changing frontmatter structure."""
     import chevron
 
     if isinstance(value, str):
-        return chevron.render(value, context)
+        try:
+            return await chevron.async_render(value, context, partials_path=None, lambdas=lambdas), []
+        except Exception as error:
+            return value, [f"Frontmatter field '{path}' could not be rendered: {error}"]
     if isinstance(value, list):
-        return [_render_frontmatter_value(item, context) for item in value]
+        rendered: list[Any] = []
+        errors: list[str] = []
+        for index, item in enumerate(value):
+            item_value, item_errors = await _render_frontmatter_value(item, context, lambdas, f"{path}[{index}]")
+            rendered.append(item_value)
+            errors.extend(item_errors)
+        return rendered, errors
     if isinstance(value, dict):
-        return {key: _render_frontmatter_value(item, context) for key, item in value.items()}
-    return value
+        rendered: dict[str, Any] = {}
+        errors: list[str] = []
+        for key, item in value.items():
+            item_value, item_errors = await _render_frontmatter_value(item, context, lambdas, f"{path}.{key}")
+            rendered[key] = item_value
+            errors.extend(item_errors)
+        return rendered, errors
+    return value, []
 
 
-def render_frontmatter_fields(frontmatter: Frontmatter, render_context: "TemplateContext") -> Frontmatter:
-    """Return a copy with the universally renderable frontmatter values rendered."""
+@dataclass
+class RenderedFrontmatterFields:
+    """Rendered frontmatter values and diagnostics emitted by their extensions."""
+
+    frontmatter: Frontmatter
+    errors: list[str]
+
+
+async def render_frontmatter_fields(
+    frontmatter: Frontmatter, render_context: "TemplateContext"
+) -> RenderedFrontmatterFields:
+    """Return rendered delivery fields while retaining per-field diagnostics."""
+    from mcp_guide.render.bindings import build_frontmatter_lambda_registry
+
     rendered = Frontmatter(frontmatter)
     context = dict(render_context)
+    functions, lambdas = build_frontmatter_lambda_registry(render_context)
+    errors: list[str] = []
     for field in RENDERED_FRONTMATTER_FIELDS:
         if field in rendered:
-            rendered[field] = _render_frontmatter_value(rendered[field], context)
-    return rendered
+            prior_error_count = len(functions.errors)
+            rendered[field], field_errors = await _render_frontmatter_value(rendered[field], context, lambdas, field)
+            errors.extend(field_errors)
+            errors.extend(f"Frontmatter field '{field}': {error}" for error in functions.errors[prior_error_count:])
+    return RenderedFrontmatterFields(rendered, errors)
 
 
 def _normalize_requires_actual_value(flag_name: str, actual_value: Any) -> Any:
@@ -126,6 +164,7 @@ class ProcessedFrontmatter:
     content: str
     frontmatter_length: int
     content_length: int
+    errors: list[str] = field(default_factory=list)
 
 
 def parse_content_with_frontmatter(content: str) -> Content:
@@ -277,17 +316,18 @@ async def process_frontmatter(
         return None
 
     # Render the shared delivery and interactive fields after requirement gating.
+    errors: list[str] = []
     if render_context:
-        try:
-            parsed.frontmatter = render_frontmatter_fields(parsed.frontmatter, render_context)
-        except Exception as error:
-            logger.warning("Failed to render frontmatter fields: %s", error)
+        rendered_frontmatter = await render_frontmatter_fields(parsed.frontmatter, render_context)
+        parsed.frontmatter = rendered_frontmatter.frontmatter
+        errors = rendered_frontmatter.errors
 
     return ProcessedFrontmatter(
         frontmatter=parsed.frontmatter,
         content=parsed.content,
         frontmatter_length=parsed.frontmatter_length,
         content_length=parsed.content_length,
+        errors=errors,
     )
 
 
