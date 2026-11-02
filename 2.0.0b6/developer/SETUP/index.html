@@ -1504,7 +1504,7 @@ uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span
 uv<span class="w"> </span>run<span class="w"> </span>pytest<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>mypy<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>check<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>ruff<span class="w"> </span>format
 </code></pre></div>
 
-<p><strong>HIGHLY RECOMMENDED</strong>: Use <a href="https://pre-commit.com">pre-commit</a> as git hooks, all of these checks are within <code>.pre-commit-config.yaml</code>.</p>
+<p><strong>HIGHLY RECOMMENDED</strong>: Install <a href="https://pre-commit.com">pre-commit</a> in your local development environment, then use it as git hooks. It is not installed by this package; the hook configuration is in <code>.pre-commit-config.yaml</code>.</p>
 <h3 id="logging">Logging<a class="headerlink" href="#logging" title="Permanent link">&para;</a></h3>
 <p>Development logs can be written to <code>/tmp/mcp-guide.log</code> or wherever desired (configurable via <code>--log-file</code>).</p>
 <p>Use <code>TRACE</code> level for detailed debugging:</p>
