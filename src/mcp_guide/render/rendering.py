@@ -18,6 +18,15 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+class TemplateRenderError(RuntimeError):
+    """A rendered template reported authoring diagnostics."""
+
+    def __init__(self, path: Path, errors: list[str]) -> None:
+        self.errors = errors
+        diagnostics = "\n".join(errors)
+        super().__init__(f"Template {path} has rendering diagnostics:\n{diagnostics}")
+
+
 async def discover_single_file(
     resolver: Callable[[str | Path], Path],
     category_dir: str,
@@ -133,6 +142,6 @@ async def render_content(
         return None
 
     if rendered.errors:
-        rendered.log_discarded_errors(f"Template {files[0].path}")
+        raise TemplateRenderError(files[0].path, rendered.errors)
 
     return rendered

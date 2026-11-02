@@ -126,7 +126,13 @@ async def get_command_help(
             return Result.failure("Failed to render help template", error_type=ERROR_RENDER)
 
         if rendered.errors:
-            rendered.log_discarded_errors("get_command_help")
+            errors = rendered.errors
+            return Result.failure(
+                "\n".join(errors),
+                error_type=ERROR_VALIDATION,
+                disposition=AGENT_ERROR,
+                error_data={"errors": errors},
+            )
 
         return Result.ok(rendered.content, instruction=rendered.instruction, disposition=rendered.disposition)
 

@@ -33,7 +33,7 @@ from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext, keyword_context
 from mcp_guide.render.document_properties import DocumentProperties
 from mcp_guide.render.frontmatter import check_frontmatter_requirements, parse_content_with_frontmatter
-from mcp_guide.render.rendering import discover_single_file, render_content
+from mcp_guide.render.rendering import TemplateRenderError, discover_single_file, render_content
 from mcp_guide.render.template import InteractiveDocumentProperties, collect_interactive_document_properties
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
@@ -368,6 +368,13 @@ async def _read_guide_skill(
         )
     except FileNotFoundError:
         return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
+    except TemplateRenderError as error:
+        return Result.failure(
+            "\n".join(error.errors),
+            error_type=ERROR_VALIDATION,
+            disposition=AGENT_ERROR,
+            error_data={"errors": error.errors},
+        )
     except RuntimeError as error:
         return Result.failure(str(error), error_type=ERROR_VALIDATION)
     if rendered is None:

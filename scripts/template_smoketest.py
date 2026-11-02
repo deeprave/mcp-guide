@@ -20,13 +20,14 @@ from mcp_guide.core.path_security import resolve_safe_path
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import process_frontmatter
+from mcp_guide.render.recommendations import Recommendation
 from mcp_guide.render.renderer import render_template_content
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TEMPLATE_ROOT = REPOSITORY_ROOT / "src" / "mcp_guide" / "templates"
 
 
-async def _ignore_recommendation_footnotes(_: list[object]) -> str:
+async def _ignore_recommendation_footnotes(_: list[Recommendation]) -> str:
     """Enable recommendation syntax without needing a live session in this check."""
     return ""
 
@@ -36,7 +37,7 @@ def _context(values: Mapping[str, Any] | None = None) -> TemplateContext:
     base: dict[str, Any] = {
         "agent": {"prefix": "@", "name": "Example Agent"},
         "auth": {"active": False, "authenticated": True, "user": True, "admin": True},
-        "args": [{"value": "example"}],
+        "args": [{"value": "discussion"}],
         "kwargs": {"table": False},
         "project": {"name": "example-project", "root": "/workspace/example-project"},
         "session": {"id": "example-session"},
@@ -152,6 +153,7 @@ class SmokeRender:
 
     content: str
     frontmatter: Mapping[str, Any]
+    errors: tuple[str, ...]
 
 
 async def _render_template(
@@ -190,7 +192,11 @@ async def _render_template(
     )
     if not result.success or result.value is None:
         raise RuntimeError(result.error or "render produced no value")
-    return SmokeRender(result.value.content, processed.frontmatter)
+    return SmokeRender(
+        result.value.content,
+        processed.frontmatter,
+        tuple((*processed.errors, *result.value.errors)),
+    )
 
 
 async def _render_inventory(template_root: Path, *, verbose: bool) -> list[str]:
@@ -198,7 +204,9 @@ async def _render_inventory(template_root: Path, *, verbose: bool) -> list[str]:
     failures: list[str] = []
     for path in _template_paths(template_root):
         try:
-            await _render_template(path, template_root)
+            rendered = await _render_template(path, template_root)
+            if rendered is not None:
+                failures.extend(f"{path.relative_to(template_root)}: {error}" for error in rendered.errors)
             if verbose:
                 print(path.relative_to(template_root))
         except Exception as error:

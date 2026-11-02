@@ -35,7 +35,7 @@ from mcp_guide.tools.tool_resource import (
         ("guide://docs", "docs content"),
         ("guide://docs/readme", "docs content"),
         ("guide://_project", "resource-project verbose"),
-        ("guide://_project?v", "resource-project verbose"),
+        ("guide://_openspec/show/my-change?v", "Show my-change verbose"),
         ("guide://_openspec/show/my-change?verbose=true", "Show my-change verbose"),
         ("guide://_project?table=true", "resource-project verbose table"),
         (

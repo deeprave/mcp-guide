@@ -119,8 +119,3 @@ class RenderedContent(Content):
     def disposition(self) -> str | None:
         """Resolve delivery disposition from this document and rendered partials."""
         return self.document_properties.disposition
-
-    def log_discarded_errors(self, source: str) -> None:
-        """Log and acknowledge any template errors that won't be surfaced to the client."""
-        if self.errors:
-            logger.warning("%s: template signaled errors that will be discarded: %s", source, self.errors)

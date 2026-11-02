@@ -89,6 +89,20 @@ async def test_help_discovers_actual_commands(command_project):
 
 
 @pytest.mark.anyio
+async def test_help_reports_rendering_diagnostics(command_project):
+    commands, invoke = command_project
+    (commands / "help.mustache").write_text(
+        "---\ndescription: '{{#_error}}Help configuration is invalid{{/_error}}'\n---\nHelp"
+    )
+
+    result = await invoke(":help", "test")
+
+    assert result["success"] is False
+    assert result["error_type"] == "validation_error"
+    assert result["error_data"] == {"errors": ["Frontmatter field 'description': Help configuration is invalid"]}
+
+
+@pytest.mark.anyio
 async def test_subcommand_partials_use_current_project_context(command_project):
     commands, invoke = command_project
     info = commands / "info"

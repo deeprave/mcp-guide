@@ -4,6 +4,7 @@ import pytest
 
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.renderer import render_template_content
+from mcp_guide.render.rendering import render_content
 from tests.helpers import create_bound_test_session
 
 
@@ -25,3 +26,18 @@ async def test_flag_changes_update_rendered_project_conditionals(runtime):
         assert result.value.content == expected
         assert result.value.partial_contributions == []
         assert result.value.errors == []
+
+
+@pytest.mark.anyio
+async def test_render_content_raises_for_frontmatter_diagnostics(runtime, tmp_path):
+    docroot = tmp_path / "docs"
+    templates = docroot / "templates"
+    templates.mkdir(parents=True)
+    (templates / "broken.mustache").write_text(
+        "---\ndescription: '{{#_error}}Template configuration is invalid{{/_error}}'\n---\nBody"
+    )
+    runtime.configuration_service().config_file.write_text(f"docroot: {docroot}\nprojects: {{}}\n")
+    session = await create_bound_test_session(runtime, "render-diagnostics")
+
+    with pytest.raises(RuntimeError, match="Template configuration is invalid"):
+        await render_content(session, "broken", "templates")
