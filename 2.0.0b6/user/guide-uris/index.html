@@ -1331,8 +1331,10 @@
 <p>Commands can accept positional arguments via path segments and keyword arguments via query parameters:</p>
 <div class="codehilite"><pre><span></span><code>guide://_help/flags              # Positional: help for the "flags" command
 guide://_flags/project/set/workflow?value=true   # Positional + keyword arguments
+guide://_project?v               # Short option: verbose output
 </code></pre></div>
 
+<p>Command query options use the same standard short aliases as prompt commands: <code>v</code>, <code>h</code>, <code>q</code>, <code>f</code>, <code>d</code>, and <code>t</code> mean <code>verbose</code>, <code>help</code>, <code>quiet</code>, <code>force</code>, <code>debug</code>, and <code>table</code> respectively.</p>
 <p>When a command argument contains a slash as part of the argument value, encode it so it remains a single path segment. For example, use <code>guide://_project/perm/write/add/src%2F</code> for the directory <code>src/</code>, and <code>guide://_project/perm/read/add/%2Fexternal%2Fdata</code> for the absolute path <code>/external/data</code>.</p>
 <h2 id="using-read_resource-as-a-fallback">Using <code>read_resource</code> as a Fallback<a class="headerlink" href="#using-read_resource-as-a-fallback" title="Permanent link">&para;</a></h2>
 <p>If your agent doesn't support reading MCP resources directly, you can use the <code>read_resource</code> tool to fetch any <code>guide://</code> URI:</p>

@@ -1049,6 +1049,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#lists-and-iterator-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lists and iterator metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#frontmatter-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1330,6 +1341,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#lists-and-iterator-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lists and iterator metadata
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#frontmatter-fields" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1586,23 +1608,26 @@
 <span class="nx">Hello</span><span class="w"> </span><span class="p">{{</span><span class="nx">name</span><span class="p">}}!</span>
 
 <span class="p">{{</span><span class="err">#</span><span class="nx">items</span><span class="p">}}</span>
-<span class="o">-</span><span class="w"> </span><span class="p">{{</span><span class="nx">value</span><span class="p">}}</span>
+<span class="o">-</span><span class="w"> </span><span class="p">{{.}}</span>
 <span class="p">{{</span><span class="o">/</span><span class="nx">items</span><span class="p">}}</span>
 </code></pre></div>
 
-<blockquote>
-<p><strong>Note</strong>: lists are represented internally as objects:
-<code>python
-{
-  value: str,       # value of the item
-  first: bool,      # true if first in list, otherwise false
-  last: bool        # true if last in list, otherwise false
-}</code>
-This allows smart formatting since you can add a prefix to the first item,
-<code>{{#first}}prefix{{/first}}{{value}}</code>
-and add text between each item
-<code>{{value}}{{^last}}, {{/last}}</code></p>
-</blockquote>
+<h3 id="lists-and-iterator-metadata">Lists and iterator metadata<a class="headerlink" href="#lists-and-iterator-metadata" title="Permanent link">&para;</a></h3>
+<p>Lists retain their native items: Guide does not wrap them in <code>value</code>, <code>first</code>,
+or <code>last</code> objects. This works for every list type. Within a list section, use
+<code>{{.}}</code> for the current scalar item, or ordinary properties such as <code>{{name}}</code>
+when each item is a mapping.</p>
+<p>Chevron also exposes iterator metadata inside the current list section. For
+example, prefix the first item and add separators between later items:</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">{{</span><span class="err">#</span><span class="nv">items</span><span class="cp">}}</span>
+<span class="cp">{{</span><span class="err">#</span><span class="nv">.first</span><span class="cp">}}</span><span class="x">Items: </span><span class="cp">{{</span><span class="o">/</span><span class="nv">.first</span><span class="cp">}}</span><span class="x">`</span><span class="cp">{{</span><span class="err">.</span><span class="cp">}}</span><span class="x">`</span><span class="cp">{{</span><span class="err">^</span><span class="nv">.last</span><span class="cp">}}</span><span class="x">, </span><span class="cp">{{</span><span class="o">/</span><span class="nv">.last</span><span class="cp">}}</span>
+<span class="cp">{{</span><span class="o">/</span><span class="nv">items</span><span class="cp">}}</span>
+</code></pre></div>
+
+<p>Use <code>{{#.first}}...{{/.first}}</code> for first-item content and
+<code>{{^.last}}...{{/.last}}</code> for content after every item except the last. The
+same section also exposes <code>.index</code> and <code>.ordinal</code>; finite list values expose
+<code>.length</code>.</p>
 <h3 id="frontmatter-fields">Frontmatter Fields<a class="headerlink" href="#frontmatter-fields" title="Permanent link">&para;</a></h3>
 <p>Common frontmatter fields:</p>
 <ul>

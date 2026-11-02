@@ -1608,7 +1608,7 @@ in skill frontmatter.</p>
 </ul>
 <h3 id="arguments">Arguments<a class="headerlink" href="#arguments" title="Permanent link">&para;</a></h3>
 <ul>
-<li><code>{{args}}</code> - List of positional arguments</li>
+<li><code>{{args}}</code> - Ordered list of positional-argument mappings, each exposing a <code>value</code> field; use <code>{{#args}}{{value}}{{/args}}</code> to iterate or <code>{{args.0.value}}</code> to access an indexed argument</li>
 <li><code>{{kwargs}}</code> - Clean keyword arguments (without underscore prefix)</li>
 <li><code>{{raw_kwargs}}</code> - Original kwargs with underscore prefixes</li>
 </ul>
@@ -1662,9 +1662,13 @@ in skill frontmatter.</p>
 <li><code>{{variable}}</code> - Variable interpolation</li>
 <li><code>{{#section}}...{{/section}}</code> - Conditional sections (truthy)</li>
 <li><code>{{^section}}...{{/section}}</code> - Inverted sections (falsy)</li>
-<li><code>{{#list}}{{.}}{{/list}}</code> - Iterate over lists</li>
+<li><code>{{#list}}{{.}}{{/list}}</code> - Iterate over a list of scalar values</li>
+<li><code>{{#list}}{{#.first}}First: {{/.first}}{{.}}{{^.last}}, {{/.last}}{{/list}}</code> - Use <code>.first</code> and <code>.last</code> metadata inside any list section</li>
 <li><code>{{! comment }}</code> - Comments (not rendered)</li>
 </ul>
+<p>List entries retain their original type: use <code>{{.}}</code> for scalar values and
+their ordinary properties for mappings. Guide does not wrap list items in
+<code>value</code>, <code>first</code>, or <code>last</code> objects.</p>
 <h2 id="error-handling_1">Error Handling<a class="headerlink" href="#error-handling_1" title="Permanent link">&para;</a></h2>
 <p>Template errors include line context for debugging:</p>
 <div class="codehilite"><pre><span></span><code><span class="x">Template syntax error in _commands/example.mustache: Unclosed section 'missing'</span>

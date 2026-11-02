@@ -1802,6 +1802,16 @@ Phase: {{workflow.phase}}
 {{/project.categories}}
 </code></pre></div>
 
+<p>Lists keep their original item type. For a list of scalar values, use <code>{{.}}</code>;
+for a list of mappings, use its properties such as <code>{{name}}</code>. Every list
+section also provides <code>.first</code> and <code>.last</code> iterator metadata, which is useful
+for headings and separators:</p>
+<div class="codehilite"><pre><span></span><code>{{#project.allowed_write_paths}}
+{{#.first}}Allowed paths: {{/.first}}`{{.}}`{{^.last}}, {{/.last}}
+{{/project.allowed_write_paths}}
+</code></pre></div>
+
+<p>Guide does not wrap list entries in <code>value</code>, <code>first</code>, or <code>last</code> objects.</p>
 <h3 id="partials">Partials<a class="headerlink" href="#partials" title="Permanent link">&para;</a></h3>
 <p>A partial is a template snippet that you can include in other templates. Partials must be declared in the frontmatter <code>includes</code> list:</p>
 <div class="codehilite"><pre><span></span><code>---
