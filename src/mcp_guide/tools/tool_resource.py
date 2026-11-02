@@ -37,6 +37,7 @@ from mcp_guide.render.rendering import discover_single_file, render_content
 from mcp_guide.render.template import InteractiveDocumentProperties, collect_interactive_document_properties
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
+    AGENT_ERROR,
     AGENT_INFO,
     ERROR_NOT_FOUND,
     ERROR_VALIDATION,
@@ -335,6 +336,8 @@ async def _read_guide_skill(
         except (OSError, ValueError) as error:
             return Result.failure(f"Guide skill preflight failed: {error}", error_type=ERROR_VALIDATION)
         if interactive_properties is not None:
+            if interactive_properties.errors:
+                return Result.failure("\n".join(interactive_properties.errors), error_type=ERROR_VALIDATION)
             if interactive_properties.elicitation.diagnostic:
                 return Result.failure(interactive_properties.elicitation.diagnostic, error_type=ERROR_VALIDATION)
             resolved_kwargs = await resolve_elicitations(
@@ -375,7 +378,13 @@ async def _read_guide_skill(
             (rendered.properties, interactive_properties.delivery_properties)
         )
     if rendered.errors:
-        rendered.log_discarded_errors(f"Template {rendered.template_path}")
+        errors = rendered.errors
+        return Result.failure(
+            "\n".join(errors),
+            error_type=ERROR_VALIDATION,
+            disposition=AGENT_ERROR,
+            error_data={"errors": errors},
+        )
     return Result.ok(
         rendered.content,
         message=f"Rendered skill file: {skill.name}/{member_path}",

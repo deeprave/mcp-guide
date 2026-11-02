@@ -12,7 +12,7 @@ from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_OPENSPEC, FLAG_OPENSPEC_STATE
 from mcp_guide.feature_flags.types import FeatureValue, RawFeatureValue
 from mcp_guide.feature_flags.validators import is_value_true
-from mcp_guide.openspec.rendering import render_openspec_template
+from mcp_guide.openspec.rendering import openspec_template_context, render_openspec_template
 from mcp_guide.openspec.state import OpenSpecState, parse_openspec_state, serialise_openspec_state
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
@@ -451,7 +451,7 @@ class OpenSpecTask(InitialisableMixin):
 
                 # Render and return the show format
                 rendered = await render_openspec_template(
-                    self._session, "_show-format", extra_context=TemplateContext(json_data)
+                    self._session, "_show-format", extra_context=openspec_template_context(json_data)
                 )
                 if rendered:
                     return EventResult(
@@ -507,4 +507,8 @@ class OpenSpecTask(InitialisableMixin):
         Returns:
             RenderedContent with formatted content, or None if filtered by requires-*
         """
-        return await render_openspec_template(self._session, "_error-format", extra_context=TemplateContext(data))
+        return await render_openspec_template(
+            self._session,
+            "_error-format",
+            extra_context=openspec_template_context(data),
+        )

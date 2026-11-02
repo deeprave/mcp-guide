@@ -86,6 +86,19 @@ Iterate over lists:
 {{/project.categories}}
 ```
 
+Lists keep their original item type. For a list of scalar values, use `{{.}}`;
+for a list of mappings, use its properties such as `{{name}}`. Every list
+section also provides `.first` and `.last` iterator metadata, which is useful
+for headings and separators:
+
+```markdown
+{{#project.allowed_write_paths}}
+{{#.first}}Allowed paths: {{/.first}}`{{.}}`{{^.last}}, {{/.last}}
+{{/project.allowed_write_paths}}
+```
+
+Guide does not wrap list entries in `value`, `first`, or `last` objects.
+
 ### Partials
 
 A partial is a template snippet that you can include in other templates. Partials must be declared in the frontmatter `includes` list:

@@ -41,8 +41,6 @@ _._reminder_instruction_id
 _._version_this_session
 
 # Syntax highlighting
-_.pygments_available
-_.highlighter
 
 # CLI / prompt internals
 _.raw_input

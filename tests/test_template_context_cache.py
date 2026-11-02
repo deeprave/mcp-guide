@@ -43,7 +43,7 @@ async def test_complete_context_contains_real_project_category_and_system(sessio
     category = (await get_template_contexts(session, "docs"))["category"]
     assert category["name"] == "docs"
     assert category["dir"] == "./docs/"
-    assert category["patterns"][0]["value"] == "*.md"
+    assert category["patterns"][0] == "*.md"
     missing = (await get_template_contexts(session, "missing"))["category"]
     assert missing["name"] == ""
     assert missing["patterns"] == []

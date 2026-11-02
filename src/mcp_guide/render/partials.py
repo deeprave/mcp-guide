@@ -55,7 +55,7 @@ async def load_partial_content(
     *,
     resolver: Callable[[str | Path], Path] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
-) -> tuple[str, "Frontmatter"]:
+) -> tuple[str, "Frontmatter", list[str]]:
     """Load content from a partial template file with frontmatter processing.
 
     Args:
@@ -63,11 +63,13 @@ async def load_partial_content(
         base_path: Including template directory for relative partial references
         context: Template context for frontmatter requirements checking
         resolver: Server-side document-root resolver required for filesystem reads
+        max_content_limit: Maximum permitted partial size in bytes
 
     Returns:
-        Tuple of (content, frontmatter) where:
+        Tuple of (content, frontmatter, errors) where:
         - content: Content of the partial file (without frontmatter if requirements met, empty if not met)
         - frontmatter: Frontmatter dictionary (may be empty if no frontmatter)
+        - errors: Frontmatter rendering diagnostics
 
     Raises:
         PartialNotFoundError: If the partial file does not exist
@@ -115,11 +117,11 @@ async def load_partial_content(
             from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 
             parsed = parse_content_with_frontmatter(content)
-            return ("", parsed.frontmatter)
+            return ("", parsed.frontmatter, [])
 
         logger.trace(f"Successfully loaded partial content ({len(processed.content)} chars): {final_path}")
         # Return content and frontmatter
-        return (processed.content, processed.frontmatter)
+        return (processed.content, processed.frontmatter, processed.errors)
 
     except Exception as e:
         logger.trace(f"Failed to read partial content from {final_path}: {e}")

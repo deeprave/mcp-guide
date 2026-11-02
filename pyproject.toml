@@ -11,12 +11,11 @@ dependencies = [
     "pydantic>=2.0",
     "anyio>=4.5",
     "pyyaml>=6.0",
-    "chevron>=0.14.0",
+    "chevron-ng>=0.20.0,<0.21.0",
     "click>=8.3.0",
     "uuid7>=0.1.0",
     "patch-ng>=1.19.0",
     "packaging>=24.0",
-    "pygments>=2.19.2",
 ]
 
 classifiers = [

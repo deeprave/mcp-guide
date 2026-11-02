@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from urllib.parse import parse_qs, unquote, urlparse
 
+from mcp_guide.commands.arguments import normalise_command_option_name
+
 
 @dataclass(frozen=True)
 class GuideUri:
@@ -21,8 +23,12 @@ class GuideUri:
         return self.expression if self.is_command else None
 
 
-def parse_query_kwargs(query: str) -> dict[str, str | bool]:
-    """Parse query string into kwargs with boolean inference."""
+def parse_query_kwargs(query: str, *, command_options: bool = False) -> dict[str, str | bool]:
+    """Parse query string into kwargs with boolean inference.
+
+    Command queries normalise the shared short option aliases, such as ``v``
+    to ``verbose``. Other query consumers preserve one-character names.
+    """
     if not query:
         return {}
     kwargs: dict[str, str | bool] = {}
@@ -30,7 +36,7 @@ def parse_query_kwargs(query: str) -> dict[str, str | bool]:
     for key, values in parse_qs(query, keep_blank_values=True).items():
         if not key:
             raise ValueError("Empty query parameter key is not supported")
-        normalized_key = key.replace("-", "_")
+        normalized_key = normalise_command_option_name(key) if command_options else key.replace("-", "_")
         existing_key = seen_raw_keys.get(normalized_key)
         if existing_key is not None and existing_key != key:
             raise ValueError(
@@ -102,7 +108,7 @@ def parse_guide_uri(uri: str, command_names: list[str] | None = None) -> GuideUr
         segments = _decode_path_segments([s for s in full_path[1:].split("/") if s])
         if not segments:
             raise ValueError("Empty command path in guide:// URI")
-        kwargs = parse_query_kwargs(parsed.query)
+        kwargs = parse_query_kwargs(parsed.query, command_options=True)
         if command_names is None:
             # First-pass detection only — no command resolution
             return GuideUri(is_command=True, expression="/".join(segments), kwargs=kwargs)

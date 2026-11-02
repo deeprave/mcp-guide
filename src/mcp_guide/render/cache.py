@@ -114,13 +114,6 @@ class TemplateContextCache(SessionListener):
             "@": "@"  # @ symbol always available
         }
 
-        # Add tool_prefix from MCP_TOOL_PREFIX environment variable
-        # Import here to avoid circular dependency with tool_decorator module
-        from mcp_guide.core.tool_decorator import get_tool_prefix
-
-        tool_prefix = get_tool_prefix()
-        agent_vars["tool_prefix"] = tool_prefix
-
         # Try to get agent and styling information from session
         styling_value = FeatureValue("plain")
         try:

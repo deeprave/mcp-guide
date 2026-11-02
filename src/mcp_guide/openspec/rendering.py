@@ -1,6 +1,7 @@
 """OpenSpec template rendering utilities."""
 
-from typing import TYPE_CHECKING, Optional
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Any, Optional
 
 from mcp_guide.config_constants import OPENSPEC_DIR
 from mcp_guide.render.content import RenderedContent
@@ -9,6 +10,11 @@ from mcp_guide.render.rendering import render_content
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
+
+
+def openspec_template_context(data: Mapping[str, Any]) -> TemplateContext:
+    """Return OpenSpec response data as a template context."""
+    return TemplateContext(dict(data))
 
 
 async def render_openspec_template(

@@ -3,6 +3,8 @@
 from collections import deque
 from typing import TypedDict
 
+from mcp_guide.commands.arguments import COMMON_SHORT_OPTION_ALIASES, normalise_command_option_name
+
 
 class ParsedCommand(TypedDict):
     """Parsed command result structure."""
@@ -45,17 +47,14 @@ def parse_command_arguments(
     if short_flag_map is None:
         short_flag_map = {}
 
+    for short_name, option_name in COMMON_SHORT_OPTION_ALIASES.items():
+        short_flag_map.setdefault(short_name, option_name)
+
     if argrequired is None:
         argrequired = []
 
     # Normalize argrequired to use underscores (matching how flag names are processed)
     argrequired_normalized = {name.replace("-", "_") for name in argrequired}
-
-    # Add common short flag mappings
-    common_mappings = {"v": "verbose", "h": "help", "q": "quiet", "f": "force", "d": "debug", "t": "table"}
-    for short, long in common_mappings.items():
-        if short not in short_flag_map:
-            short_flag_map[short] = long
 
     # Auto-generate short mappings for long flags found in argv, but don't overwrite explicit mappings
     for arg in argv[1:]:
@@ -74,7 +73,7 @@ def parse_command_arguments(
 
     def resolve_short_flag(short_flag: str) -> str:
         """Resolve short flag to long form, with fallback to the short flag itself."""
-        return short_flag_map.get(short_flag, short_flag)
+        return normalise_command_option_name(short_flag, short_flag_map)
 
     def process_flag(flag_name: str, value: str | bool | None = None) -> tuple[str, bool | str]:
         """Process flag name and value, handling no- prefix and normalization."""

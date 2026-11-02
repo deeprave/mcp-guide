@@ -13,7 +13,7 @@ path directly: do not look for it with a glob, repository search, or tracked-fil
 listing. Such discovery can omit dotfiles and ignored files. If a direct read
 confirms the file is absent, create it to record the current workflow state.
 ```yaml
-phase: [{{#workflow.phase_list}}{{value}}{{^last}}|{{/last}}{{/workflow.phase_list}}]
+phase: [{{#workflow.phase_list}}{{.}}{{^.last}}|{{/.last}}{{/workflow.phase_list}}]
 issue: <optional-dash-delimited-current-work-phrase>
 plan: <optional-relative-plan-document-path>
 tracking: <optional-external-tracker-reference>

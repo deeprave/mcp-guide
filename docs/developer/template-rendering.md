@@ -25,22 +25,30 @@ requires-feature: workflow
 Hello {{name}}!
 
 {{#items}}
-- {{value}}
+- {{.}}
 {{/items}}
 ```
 
-> **Note**: lists are represented internally as objects:
-> ```python
-> {
->   value: str,       # value of the item
->   first: bool,      # true if first in list, otherwise false
->   last: bool        # true if last in list, otherwise false
-> }
-> ```
-> This allows smart formatting since you can add a prefix to the first item,
-> `{{#first}}prefix{{/first}}{{value}}`
-> and add text between each item
-> `{{value}}{{^last}}, {{/last}}`
+### Lists and iterator metadata
+
+Lists retain their native items: Guide does not wrap them in `value`, `first`,
+or `last` objects. This works for every list type. Within a list section, use
+`{{.}}` for the current scalar item, or ordinary properties such as `{{name}}`
+when each item is a mapping.
+
+Chevron also exposes iterator metadata inside the current list section. For
+example, prefix the first item and add separators between later items:
+
+```mustache
+{{#items}}
+{{#.first}}Items: {{/.first}}`{{.}}`{{^.last}}, {{/.last}}
+{{/items}}
+```
+
+Use `{{#.first}}...{{/.first}}` for first-item content and
+`{{^.last}}...{{/.last}}` for content after every item except the last. The
+same section also exposes `.index` and `.ordinal`; finite list values expose
+`.length`.
 
 ### Frontmatter Fields
 

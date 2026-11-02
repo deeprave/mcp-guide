@@ -183,25 +183,27 @@ class TestPartialFrontmatter:
         partial_file = tmp_path / "_test.mustache"
         partial_file.write_text("---\ntype: user/information\ninstruction: '^ Display this'\n---\nContent here")
 
-        content, frontmatter = await load_partial_content(
+        content, frontmatter, errors = await load_partial_content(
             partial_file, tmp_path, resolver=document_root_resolver(tmp_path)
         )
         assert content == "Content here"
         assert isinstance(frontmatter, Frontmatter)
         assert frontmatter.get("type") == "user/information"
         assert frontmatter.get("instruction") == "^ Display this"
+        assert errors == []
 
     async def test_load_partial_without_frontmatter(self, tmp_path):
         """Test partial without frontmatter returns empty dict."""
         partial_file = tmp_path / "_test.mustache"
         partial_file.write_text("Just content")
 
-        content, frontmatter = await load_partial_content(
+        content, frontmatter, errors = await load_partial_content(
             partial_file, tmp_path, resolver=document_root_resolver(tmp_path)
         )
         assert content == "Just content"
         assert isinstance(frontmatter, Frontmatter)
         assert len(frontmatter) == 0
+        assert errors == []
 
     async def test_load_partial_rejects_symlink_escape(self, tmp_path):
         """An in-root partial symlink may not target content outside docroot."""
@@ -244,7 +246,7 @@ class TestPartialFrontmatter:
         (tmp_path / "_child").mkdir()
         (tmp_path / "_child.mustache").write_text("partial content")
 
-        content, _ = await load_partial_content(
+        content, _, _ = await load_partial_content(
             Path("_child"),
             tmp_path,
             resolver=document_root_resolver(tmp_path),
@@ -274,11 +276,12 @@ class TestPartialFrontmatter:
         partial_file.write_text("---\nrequires-feature: true\ninstruction: Show this\n---\nContent")
 
         context = {"feature": True}
-        content, frontmatter = await load_partial_content(
+        content, frontmatter, errors = await load_partial_content(
             partial_file, tmp_path, context, resolver=document_root_resolver(tmp_path)
         )
         assert content == "Content"
         assert frontmatter.get("instruction") == "Show this"
+        assert errors == []
 
     async def test_load_partial_with_requirements_not_met(self, tmp_path):
         """Test partial with unmet requirements returns empty content."""
@@ -286,12 +289,13 @@ class TestPartialFrontmatter:
         partial_file.write_text("---\nrequires-feature: true\ninstruction: Show this\n---\nContent")
 
         context = {"feature": False}
-        content, frontmatter = await load_partial_content(
+        content, frontmatter, errors = await load_partial_content(
             partial_file, tmp_path, context, resolver=document_root_resolver(tmp_path)
         )
         assert content == ""
         # Frontmatter should still be returned even if requirements not met
         assert frontmatter.get("instruction") == "Show this"
+        assert errors == []
 
 
 @pytest.mark.anyio
@@ -329,13 +333,36 @@ async def test_partial_instruction_rendered_with_context(tmp_path):
     partial_file.write_text("---\ninstruction: 'Hello {{name}}'\ndescription: 'Project {{project}}'\n---\nContent")
 
     context = {"name": "World", "project": "test"}
-    content, frontmatter = await load_partial_content(
+    content, frontmatter, errors = await load_partial_content(
         partial_file, tmp_path, context, resolver=document_root_resolver(tmp_path)
     )
 
     assert content == "Content"
     assert frontmatter.get("instruction") == "Hello World"
     assert frontmatter.get("description") == "Project test"
+    assert errors == []
+
+
+@pytest.mark.anyio
+async def test_partial_frontmatter_errors_propagate_to_parent_render(tmp_path):
+    """A declared partial's frontmatter diagnostics reach the parent result."""
+    (tmp_path / "_child.mustache").write_text(
+        "---\ninstruction: '{{#_error}}Partial configuration is invalid{{/_error}}'\n---\nChild"
+    )
+
+    result = await render_template_content(
+        "{{>child}}",
+        {},
+        file_path=str(tmp_path / "parent.mustache"),
+        metadata=Frontmatter({"includes": ["child"]}),
+        base_dir=tmp_path,
+        resolver=document_root_resolver(tmp_path),
+    )
+
+    assert result.is_ok()
+    assert result.value is not None
+    assert result.value.content == "Child"
+    assert result.value.errors == ["Partial 'child': Frontmatter field 'instruction': Partial configuration is invalid"]
 
 
 @pytest.mark.anyio
@@ -429,7 +456,7 @@ async def test_requirement_gated_partial_retains_the_full_template_context(tmp_p
 
 
 @pytest.mark.anyio
-async def test_partial_instruction_placeholders_resolved(tmp_path):
+async def test_partial_instruction_placeholders_resolved(tmp_path, monkeypatch):
     """Bug fix: placeholders like {{tool_prefix}} in partial instructions must be resolved."""
 
     template_content = "{{>agent-detect}}"
@@ -440,22 +467,29 @@ async def test_partial_instruction_placeholders_resolved(tmp_path):
     )
 
     metadata = Frontmatter({"includes": ["agent-detect"]})
-    context = TemplateContext({"tool_prefix": "my_"})
+    context = TemplateContext({})
+    monkeypatch.setenv("MCP_TOOL_PREFIX", "my")
+    from mcp_guide.core.tool_decorator import get_tool_prefix
 
-    result = await render_template_content(
-        template_content,
-        context,
-        file_path=str(tmp_path / "parent.mustache"),
-        metadata=dict(metadata),
-        base_dir=tmp_path,
-        resolver=document_root_resolver(tmp_path),
-    )
+    get_tool_prefix.cache_clear()
 
-    assert result.is_ok()
-    partial_contributions = result.value.partial_contributions
-    assert len(partial_contributions) == 1
-    # Placeholder must be resolved
-    assert partial_contributions[0].frontmatter.get("instruction") == "Run my_client_info"
+    try:
+        result = await render_template_content(
+            template_content,
+            context,
+            file_path=str(tmp_path / "parent.mustache"),
+            metadata=dict(metadata),
+            base_dir=tmp_path,
+            resolver=document_root_resolver(tmp_path),
+        )
+
+        assert result.is_ok()
+        partial_contributions = result.value.partial_contributions
+        assert len(partial_contributions) == 1
+        # Placeholder must be resolved
+        assert partial_contributions[0].frontmatter.get("instruction") == "Run my_client_info"
+    finally:
+        get_tool_prefix.cache_clear()
 
 
 @pytest.mark.anyio

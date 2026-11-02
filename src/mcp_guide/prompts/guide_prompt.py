@@ -38,7 +38,7 @@ from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render import render_template
 from mcp_guide.render.cache import get_template_contexts
-from mcp_guide.render.context import TemplateContext, convert_lists_to_indexed, keyword_context
+from mcp_guide.render.context import TemplateContext, keyword_context
 from mcp_guide.render.document_properties import DocumentProperties
 from mcp_guide.render.template import collect_interactive_document_properties
 from mcp_guide.result import Result
@@ -237,7 +237,7 @@ def _command_path_without_query(command_path: object) -> str | None:
 def _command_path_query_kwargs(command_path: str) -> dict[str, str | bool]:
     """Parse prompt command-path query kwargs, if present."""
     _, separator, query = command_path.partition("?")
-    return parse_query_kwargs(query) if separator else {}
+    return parse_query_kwargs(query, command_options=True) if separator else {}
 
 
 def _matches_alias(command_path: object, alias: CommandAliasMetadata) -> bool:
@@ -348,7 +348,10 @@ def _build_command_context(
     context_data = {
         **keyword_context(kwargs),
         "elicitation": {"defaulted_forms": {form: True for form in getattr(kwargs, "defaulted_forms", frozenset())}},
-        "args": args,
+        # Command templates expose named argument values.  This is an explicit
+        # command-context shape, not a generic list wrapper: ordinary template
+        # sequences remain native values for Chevron's enhanced iterators.
+        "args": [{"value": argument} for argument in args],
         "args_str": args_string,
         "command": {"name": command_path, "path": str(file_info.path)},
         "executed_command": command_path,
@@ -360,7 +363,7 @@ def _build_command_context(
     if command_help:
         context_data["command_help"] = command_help
 
-    return base_context.new_child(convert_lists_to_indexed(context_data))
+    return base_context.new_child(context_data)
 
 
 async def _is_help_command(command_path: str, request_context: RequestContext) -> bool:
@@ -484,6 +487,10 @@ async def _execute_command(
                 f"Command preflight failed: {error}", error_type=ERROR_FILE_ERROR, disposition=AGENT_ERROR
             )
     if interactive_properties is not None:
+        if interactive_properties.errors:
+            return Result.failure(
+                "\n".join(interactive_properties.errors), error_type=ERROR_VALIDATION, disposition=AGENT_ERROR
+            )
         if interactive_properties.elicitation.diagnostic:
             return Result.failure(interactive_properties.elicitation.diagnostic, error_type=ERROR_VALIDATION)
         try:

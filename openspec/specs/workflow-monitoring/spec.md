@@ -77,7 +77,7 @@ The system SHALL support detection of the following change types with from/to co
 - **AND** system SHALL indicate whether description was added, changed, or cleared
 
 ### Requirement: Workflow Content Processing
-The workflow monitoring task SHALL process workflow file content by comparing against previous state and generating semantic change responses. When parsing succeeds and no semantic workflow-change response is available, the task SHALL render the workflow state-format template and use a non-`None` render as the file-content response, preserving its content, instruction, and disposition. The task SHALL update cached state only after processing changes.
+The workflow monitoring task SHALL process workflow file content by comparing valid state against cached previous state and generating semantic change responses. When parsing succeeds and no semantic workflow-change response is available, the task SHALL render the workflow state-format template and use a non-`None` render as the file-content response, preserving its content, instruction, and disposition. The task SHALL update cached state only after processing valid changes. Invalid submitted content SHALL return a clear failure and SHALL not replace cached state or be acknowledged as a successful workflow-file receipt.
 
 #### Scenario: Content processing workflow
 - **WHEN** workflow file content is received
@@ -103,6 +103,13 @@ The workflow monitoring task SHALL process workflow file content by comparing ag
 - **WHEN** workflow file content produces a semantic workflow-change response
 - **THEN** system SHALL return the semantic workflow-change response
 - **AND** system SHALL NOT replace it with workflow state-format guidance
+
+#### Scenario: Invalid workflow-file submission
+- **WHEN** submitted workflow file content is invalid YAML, is not a mapping, omits `phase`, names an unknown or disabled phase, or has a field with an invalid schema type
+- **THEN** the file-content operation SHALL return a failure identifying the invalid workflow file
+- **AND** the system SHALL NOT cache submitted state
+- **AND** the system SHALL NOT acknowledge the submission as successfully received
+- **AND** an unsupported phase error SHALL identify the valid recognised or enabled phase choices as applicable
 
 #### Scenario: Error handling during comparison
 - **WHEN** workflow content parsing or comparison fails

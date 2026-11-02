@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
@@ -45,6 +45,7 @@ class InteractiveDocumentProperties:
 
     elicitation: DocumentElicitation
     delivery_properties: DocumentProperties | None
+    errors: list[str] = field(default_factory=list)
 
 
 def _document_source_path(path: Path, resolver: Callable[[str | Path], Path]) -> str:
@@ -75,12 +76,17 @@ async def collect_interactive_document_properties(
     )
     if processed is None:
         return None
+    if processed.errors:
+        return InteractiveDocumentProperties(DocumentElicitation(), None, processed.errors)
 
     # Frontmatter values are part of the parent context for both their own
     # delivery fields and any listed partials.  Re-render only the universally
     # renderable values so preflight has the same contract as ordinary delivery.
     preflight_context = (context or TemplateContext({})).new_child(dict(processed.frontmatter))
-    preflight_frontmatter = render_frontmatter_fields(processed.frontmatter, preflight_context)
+    preflight_result = await render_frontmatter_fields(processed.frontmatter, preflight_context)
+    if preflight_result.errors:
+        return InteractiveDocumentProperties(DocumentElicitation(), None, preflight_result.errors)
+    preflight_frontmatter = preflight_result.frontmatter
 
     parent_properties = DocumentProperties.from_frontmatter(
         preflight_frontmatter,
@@ -100,7 +106,7 @@ async def collect_interactive_document_properties(
     for include_path in includes or []:
         partial_path = declared_partial_path(include_path)
         try:
-            _, partial_frontmatter = await load_partial_content(
+            _, partial_frontmatter, partial_errors = await load_partial_content(
                 partial_path,
                 file_info.path.parent,
                 requirements_context,
@@ -121,6 +127,8 @@ async def collect_interactive_document_properties(
             continue
         if not partial_frontmatter:
             continue
+        if partial_errors:
+            return InteractiveDocumentProperties(DocumentElicitation(), None, partial_errors)
         if not check_frontmatter_requirements(partial_frontmatter, requirements_context):
             continue
         partial_property_sets.append(
@@ -273,6 +281,7 @@ async def render_template(
             ),
             partials=pre_partials,
             pre_rendered_partial_contributions=pre_partial_contributions,
+            frontmatter_errors=processed.errors,
             max_content_limit=max_content_limit,
         )
         if not result.success:
@@ -285,7 +294,7 @@ async def render_template(
     else:
         rendered_content = processed.content
         partial_contributions = []
-        template_errors = []
+        template_errors = processed.errors
 
     ensure_within_limit(len(rendered_content.encode("utf-8")), limit_name="max-content-limit", limit=max_content_limit)
     return RenderedContent(

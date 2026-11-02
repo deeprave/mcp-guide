@@ -96,7 +96,9 @@ The system SHALL validate all tool arguments using Pydantic models.
 - **AND** operation does not proceed
 
 ### Requirement: Tool Results
-The system SHALL return structured results using Result[T] pattern.
+The system SHALL return structured results using Result[T] pattern. A task failure
+produced while handling submitted filesystem content SHALL be preserved as a
+failure result and SHALL not be replaced with a generic successful receipt.
 
 #### Scenario: Success result with data
 - **WHEN** tool operation succeeds
@@ -112,6 +114,12 @@ The system SHALL return structured results using Result[T] pattern.
 - **AND** error field contains clear error message
 - **AND** error_type indicates failure category (security, validation, system)
 - **AND** includes instruction for agent on how to proceed
+
+#### Scenario: Submitted content triggers task validation failure
+- **WHEN** a file-content submission triggers a task validation failure
+- **THEN** the file-content tool SHALL return that failure to the agent
+- **AND** it SHALL preserve the validation message
+- **AND** it SHALL NOT return a generic successful receipt for the file
 
 #### Scenario: Partial success with warnings
 - **WHEN** tool operation completes with warnings

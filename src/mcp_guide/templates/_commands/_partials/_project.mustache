@@ -5,14 +5,14 @@
 | Collection | Description | Categories |
 |------------|-------------|------------|
 {{#project.collections}}
-| `{{name}}` | {{description}} | {{#categories}}`{{value}}`{{^last}}, {{/last}}{{/categories}} |
+| `{{name}}` | {{description}} | {{#categories}}`{{.}}`{{^.last}}, {{/.last}}{{/categories}} |
 {{/project.collections}}
 {{/kwargs.table}}
 {{^kwargs.table}}
 {{#project.collections}}
 - {{b}}`{{name}}`{{b}}: {{description}}
 {{#kwargs.verbose}}
-{{#categories}}{{#first}} - {{/first}}`{{value}}`{{^last}}, {{/last}}{{/categories}}
+{{#categories}}{{#.first}} - {{/.first}}`{{.}}`{{^.last}}, {{/.last}}{{/categories}}
 {{/kwargs.verbose}}
 {{/project.collections}}
 {{/kwargs.table}}
@@ -22,13 +22,13 @@
 | Category | Description | Directory | Patterns |
 |----------|-------------|-----------|----------|
 {{#project.categories}}
-| `{{name}}` | {{description}} | `{{dir}}` | {{#patterns}}`{{value}}`{{^last}}, {{/last}}{{/patterns}} |
+| `{{name}}` | {{description}} | `{{dir}}` | {{#patterns}}`{{.}}`{{^.last}}, {{/.last}}{{/patterns}} |
 {{/project.categories}}
 {{/kwargs.table}}
 {{^kwargs.table}}
 {{#project.categories}}
 - `{{name}}`: {{#kwargs.verbose}}dir=`{{dir}}` {{/kwargs.verbose}}{{description}}
-{{#kwargs.verbose}}{{#patterns}}  - `{{value}}`
+{{#kwargs.verbose}}{{#patterns}}  - `{{.}}`
 {{/patterns}}
 {{/kwargs.verbose}}{{/project.categories}}
 {{/kwargs.table}}

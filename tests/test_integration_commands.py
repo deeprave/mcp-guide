@@ -21,8 +21,8 @@ async def command_project(runtime, tmp_path):
         "Test command executed successfully!\n"
         "{{#kwargs.verbose}}Verbose mode enabled.{{/kwargs.verbose}}\n"
         "Args: {{#args}}{{value}} {{/args}}\n"
-        "Indexed args: {{#args}}{{#first}}FIRST: {{/first}}{{value}}"
-        "{{^last}} {{/last}}{{#last}} LAST{{/last}}{{/args}}"
+        "Indexed args: {{#args}}{{#.first}}FIRST: {{/.first}}{{value}}"
+        "{{^.last}} {{/.last}}{{#.last}} LAST{{/.last}}{{/args}}"
     )
     session = await create_bound_test_session(runtime, "test-project")
     for name in ["docs", "examples", "tests"]:

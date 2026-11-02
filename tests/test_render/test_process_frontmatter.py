@@ -51,6 +51,62 @@ Content"""
 
 
 @pytest.mark.anyio
+async def test_process_frontmatter_awaits_registered_extension() -> None:
+    """Renderable delivery fields use the same declared extension registry as bodies."""
+    result = await process_frontmatter(
+        """---
+instruction: 'Use {{#command-args}}{{values}}{{/command-args}}.'
+---
+Content""",
+        {},
+        TemplateContext({"flags": {}, "values": "one,two"}),
+    )
+
+    assert result is not None
+    assert result.frontmatter["instruction"] == "Use /one/two."
+
+
+@pytest.mark.anyio
+async def test_process_frontmatter_retains_siblings_when_recommend_is_unsupported() -> None:
+    """A rejected frontmatter extension does not discard sibling rendering."""
+    result = await process_frontmatter(
+        """---
+instruction: 'Use {{#command-args}}{{values}}{{/command-args}}.'
+description: '{{#recommend}}skill:workflow-review{{/recommend}}'
+---
+Content""",
+        {},
+        TemplateContext({"flags": {}, "values": "one,two"}),
+    )
+
+    assert result is not None
+    assert result.frontmatter["instruction"] == "Use /one/two."
+    assert result.frontmatter["description"] == "{{#recommend}}skill:workflow-review{{/recommend}}"
+    assert result.errors == [
+        "Frontmatter field 'description' could not be rendered: `recommend` is not supported in renderable frontmatter because it requires an active delivery session"
+    ]
+
+
+@pytest.mark.anyio
+async def test_process_frontmatter_preserves_error_lambda_diagnostics() -> None:
+    """_error in frontmatter remains visible to the eventual document result."""
+    result = await process_frontmatter(
+        """---
+instruction: '{{#_error}}Missing required setting{{/_error}}'
+description: 'Hello {{name}}'
+---
+Content""",
+        {},
+        TemplateContext({"name": "World"}),
+    )
+
+    assert result is not None
+    assert result.frontmatter["instruction"] == ""
+    assert result.frontmatter["description"] == "Hello World"
+    assert result.errors == ["Frontmatter field 'instruction': Missing required setting"]
+
+
+@pytest.mark.anyio
 async def test_process_frontmatter_empty_context():
     """Test that empty render context doesn't trigger field rendering."""
     content = """---

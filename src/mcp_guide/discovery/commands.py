@@ -92,7 +92,7 @@ def _parse_alias(alias: str) -> CommandAlias:
     if any(not segment or segment in {".", ".."} for segment in segments):
         raise ValueError("alias path contains invalid segments")
 
-    implied_kwargs = parse_query_kwargs(query) if separator else {}
+    implied_kwargs = parse_query_kwargs(query, command_options=True) if separator else {}
     return CommandAlias(raw=alias, path=path, implied_kwargs=implied_kwargs)
 
 

@@ -46,6 +46,29 @@ async def test_render_template_rejects_recommendations_without_a_session(tmp_pat
 
 
 @pytest.mark.anyio
+async def test_render_template_propagates_frontmatter_errors(render_template, tmp_path):
+    """Frontmatter diagnostics reach RenderedContent just like body diagnostics."""
+    template = tmp_path / "frontmatter-error.mustache"
+    template.write_text(
+        "---\ninstruction: '{{#_error}}Missing configuration{{/_error}}'\ndescription: 'Hello {{name}}'\n---\nContent"
+    )
+    stat = template.stat()
+    file_info = FileInfo(template, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), template.name)
+
+    result = await render_template(
+        file_info=file_info,
+        base_dir=tmp_path,
+        project_flags={},
+        context=TemplateContext({"name": "World"}),
+        resolver=lambda path: tmp_path / path,
+    )
+
+    assert result is not None
+    assert result.description == "Hello World"
+    assert result.errors == ["Frontmatter field 'instruction': Missing configuration"]
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "scenario,project_flags,expected_result",
     [
