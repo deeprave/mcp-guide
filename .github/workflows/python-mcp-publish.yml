@@ -189,7 +189,13 @@ jobs:
         if: ${{ inputs.dry-run == true }}
         run: |
           echo "Would execute:"
-          echo "docker buildx build --platform linux/amd64,linux/arm64 \\\n+            --build-arg PYTHON_VERSION=${{ vars.PYTHON_VERSION || '3.14' }} \\\n+            --tag <dockerhub-username>/mcp-guide:${{ needs.verify-release.outputs.version }} \\\n+            --tag <dockerhub-username>/mcp-guide:latest \\\n+            --push -f docker/Dockerfile ."
+          printf '%s \\\n' "docker buildx build --platform linux/amd64,linux/arm64"
+          printf '%s \\\n' "  --build-arg PYTHON_VERSION=${{ vars.PYTHON_VERSION || '3.14' }}"
+          printf '%s \\\n' "  --tag <dockerhub-username>/mcp-guide:${{ needs.verify-release.outputs.version }}"
+          if [ "${{ inputs.prerelease }}" != "true" ]; then
+            printf '%s \\\n' "  --tag <dockerhub-username>/mcp-guide:latest"
+          fi
+          printf '%s\n' "  --push -f docker/Dockerfile ."
 
   publish-pypi:
     needs: [verify-release, build-package]
