@@ -46,13 +46,13 @@ Session API enhancements SHALL include:
 
 ### Requirement: Template Lambda Functions (IMPLEMENTED ✅)
 
-The system SHALL provide advanced template functionality through lambda functions that support complex data formatting and processing.
+The system SHALL provide advanced template functionality through lambda
+functions that support complex data formatting and processing.
 
 Template lambda functions SHALL:
-- Follow Mustache lambda specification (receive text and render parameters)
+- Follow Chevron's declared extension protocols
 - Integrate with ChainMap context system for data access
 - Support class-based architecture for clean dependency management
-- Provide graceful fallback for optional dependencies
 - Handle parsing errors gracefully with clear error messages
 
 #### Lambda Function: format_date
