@@ -106,7 +106,7 @@ uv run ruff format
 uv run pytest && uv run mypy && uv run ruff check && uv run ruff format
 ```
 
-**HIGHLY RECOMMENDED**: Use [pre-commit](https://pre-commit.com) as git hooks, all of these checks are within `.pre-commit-config.yaml`.
+**HIGHLY RECOMMENDED**: Install [pre-commit](https://pre-commit.com) in your local development environment, then use it as git hooks. It is not installed by this package; the hook configuration is in `.pre-commit-config.yaml`.
 
 ### Logging
 
