@@ -2,19 +2,9 @@ name: Test
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - '.github/workflows/python-mcp-test.yml'
+    branches: [main]
   pull_request:
-    branches: [ main ]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'pyproject.toml'
-      - '.github/workflows/python-mcp-test.yml'
+    branches: [main]
 
 permissions:
   contents: read
@@ -23,36 +13,56 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.13", "3.14"]
+        python-version: ["3.13", "3.14", "3.15"]
 
     steps:
-    - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-    - name: Install uv
-      uses: astral-sh/setup-uv@v7
-      with:
-        enable-cache: true
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v7
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: uv sync --dev --extra auth-ref --python ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync --frozen --dev --extra auth-ref --python ${{ matrix.python-version }}
 
-    - name: Run tests with pytest
-      run: uv run pytest tests/ -v -Walways
-      env:
-        NO_COLOR: "1"
-        TERM: "dumb"
+      - name: Run tests with pytest
+        run: uv run pytest tests/ -v -Walways
+        env:
+          NO_COLOR: "1"
+          TERM: "dumb"
 
-    - name: Lint with ruff
-      run: uv run ruff check
+  quality:
+    runs-on: ubuntu-latest
 
-    - name: Check formatting with ruff
-      run: uv run ruff format --check src/ tests/ --exclude '*.md'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-    - name: Type check with ty
-      run: uv run ty check src/
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync --frozen --dev --extra auth-ref --python 3.14
+
+      - name: Lint with Ruff
+        run: uv run ruff check
+
+      - name: Check formatting with Ruff
+        run: uv run ruff format --check src/ tests/ --exclude '*.md'
+
+      - name: Type check with Ty
+        run: uv run ty check src/

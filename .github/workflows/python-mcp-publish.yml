@@ -1,126 +1,179 @@
 name: Publish Python MCP Package
 
-# Required Secrets:
-#   DOCKERHUB_USERNAME - Docker Hub username for image publishing
-#   DOCKERHUB_TOKEN - Docker Hub access token
-#
-# PyPI Publishing:
-#   Uses Trusted Publishing (OIDC) - no API token required
-#   Configure at: https://pypi.org/manage/account/publishing/
-#
-# Optional Variables:
-#   PYTHON_VERSION - Python version for builds (default: "3.14")
-#
-# Inputs:
-#   dry-run - Show commands without publishing (default: false)
-#   prerelease - Mark GitHub release as pre-release (default: false)
-
 on:
   workflow_dispatch:
     inputs:
       dry-run:
-        description: 'Dry run mode (show commands without publishing)'
+        description: Show release actions without publishing
         required: false
         type: boolean
         default: false
       prerelease:
-        description: 'Mark as pre-release'
+        description: Mark GitHub release as a pre-release
         required: false
         type: boolean
         default: false
 
 permissions:
-  contents: write
-  id-token: write  # Required for Trusted Publishing
+  contents: read
 
 jobs:
-  validate-and-build:
+  verify-release:
     runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
     outputs:
-      version: ${{ steps.get-version.outputs.version }}
+      commit_sha: ${{ steps.commit.outputs.sha }}
+      version: ${{ steps.version.outputs.value }}
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Python
-        uses: actions/setup-python@v7
+      - name: Require main branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "Publishing is allowed only from main; received ${GITHUB_REF}." >&2
+          exit 1
+
+      - name: Record release commit
+        id: commit
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Read package version
+        id: version
+        run: |
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Verify successful test workflow for release commit
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          RELEASE_SHA: ${{ steps.commit.outputs.sha }}
         with:
-          python-version: ${{ vars.PYTHON_VERSION || '3.14' }}
+          script: |
+            const { data } = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: "python-mcp-test.yml",
+              head_sha: process.env.RELEASE_SHA,
+              status: "completed",
+              per_page: 100,
+            });
+            const successfulRun = data.workflow_runs.find(
+              (run) => run.conclusion === "success" && run.event === "push" && run.head_branch === "main",
+            );
+            if (!successfulRun) {
+              core.setFailed(
+                `No successful python-mcp-test.yml push run for release commit ${process.env.RELEASE_SHA} was found.`,
+              );
+            }
+
+      - name: Require an unreleased version
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        with:
+          script: |
+            const tag = `v${process.env.VERSION}`;
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              });
+              core.setFailed(`GitHub Release ${tag} already exists.`);
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+            try {
+              await github.rest.git.getRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${tag}`,
+              });
+              core.setFailed(`Git tag ${tag} already exists.`);
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+            }
+
+      - name: Validate changelog entry
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          python3 - "$VERSION" <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          version = sys.argv[1]
+          changelog = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          pattern = rf"^## \[{re.escape(version)}\][^\n]*\n(?P<body>.*?)(?=^## \[|\Z)"
+          match = re.search(pattern, changelog, re.MULTILINE | re.DOTALL)
+          if match is None or not match.group("body").strip():
+              raise SystemExit(
+                  f"Changelog section for version {version} is missing or empty. "
+                  f"Add a '## [{version}]' section before publishing."
+              )
+          notes = match.group("body").strip()
+          if re.search(r"(?:a|b|rc)\d+$", version):
+              notes = f"**Note**: This is a pre-release version ({version})\n\n{notes}"
+          Path("release-notes.md").write_text(f"{notes}\n", encoding="utf-8")
+          PY
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-notes
+          path: release-notes.md
+
+  build-package:
+    needs: verify-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify-release.outputs.commit_sha }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Install dependencies
-        run: uv sync --frozen --all-extras --group dev
-
-      - name: Run tests
-        run: uv run pytest
-
-      - name: Run linting
-        run: uv run ruff check src/ tests/
-
-      - name: Check formatting
-        run: uv run ruff format --check src/ tests/ --exclude '*.md'
-
-      - name: Run type checking
-        run: uv run ty check src/
-
-      - name: Get version
-        id: get-version
-        run: |
-          VERSION=$(uv run python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Check version increment
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          CURRENT_VERSION="${{ steps.get-version.outputs.version }}"
-          LATEST_RELEASE=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // ""' || echo "")
-
-          if [ -z "$LATEST_RELEASE" ] || [ "$LATEST_RELEASE" = "null" ]; then
-            echo "No previous release found, proceeding with version $CURRENT_VERSION"
-            exit 0
-          fi
-
-          LATEST_VERSION="${LATEST_RELEASE#v}"
-
-          if [ "$CURRENT_VERSION" = "$LATEST_VERSION" ]; then
-            echo "Error: Version $CURRENT_VERSION already released"
-            exit 1
-          fi
-
-          echo "Version check passed: $LATEST_VERSION -> $CURRENT_VERSION"
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
       - name: Build package
         run: uv build
 
-      - name: Upload dist artifacts
-        uses: actions/upload-artifact@v7
+      - name: Upload package distributions
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: dist
+          name: package-distributions
           path: dist/
 
   publish-docker:
-    needs: validate-and-build
+    needs: verify-release
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.verify-release.outputs.commit_sha }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to Docker Hub
-        if: ${{ github.event.inputs.dry-run != 'true' }}
-        uses: docker/login-action@v4
+        if: ${{ inputs.dry-run != true }}
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push Docker images
-        if: ${{ github.event.inputs.dry-run != 'true' }}
-        uses: docker/build-push-action@v7
+        if: ${{ inputs.dry-run != true }}
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: docker/Dockerfile
@@ -129,95 +182,79 @@ jobs:
           build-args: |
             PYTHON_VERSION=${{ vars.PYTHON_VERSION || '3.14' }}
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:${{ needs.validate-and-build.outputs.version }}
-            ${{ github.event.inputs.prerelease != 'true' && format('{0}/mcp-guide:latest', secrets.DOCKERHUB_USERNAME) || '' }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/mcp-guide:${{ needs.verify-release.outputs.version }}
+            ${{ inputs.prerelease != true && format('{0}/mcp-guide:latest', secrets.DOCKERHUB_USERNAME) || '' }}
 
-      - name: Show Docker commands (dry-run)
-        if: ${{ github.event.inputs.dry-run == 'true' }}
+      - name: Show Docker commands
+        if: ${{ inputs.dry-run == true }}
         run: |
           echo "Would execute:"
-          echo "docker buildx build --platform linux/amd64,linux/arm64 \\"
-          echo "  --build-arg PYTHON_VERSION=${{ vars.PYTHON_VERSION || '3.14' }} \\"
-          echo "  --tag <dockerhub-username>/mcp-guide:${{ needs.validate-and-build.outputs.version }} \\"
-          echo "  --tag <dockerhub-username>/mcp-guide:latest \\"
-          echo "  --push \\"
-          echo "  -f docker/Dockerfile ."
+          printf '%s \\\n' "docker buildx build --platform linux/amd64,linux/arm64"
+          printf '%s \\\n' "  --build-arg PYTHON_VERSION=${{ vars.PYTHON_VERSION || '3.14' }}"
+          printf '%s \\\n' "  --tag <dockerhub-username>/mcp-guide:${{ needs.verify-release.outputs.version }}"
+          if [ "${{ inputs.prerelease }}" != "true" ]; then
+            printf '%s \\\n' "  --tag <dockerhub-username>/mcp-guide:latest"
+          fi
+          printf '%s\n' "  --push -f docker/Dockerfile ."
 
   publish-pypi:
-    needs: validate-and-build
+    needs: [verify-release, build-package]
     runs-on: ubuntu-latest
-    environment: pypi  # Optional: use environment for additional protection
+    environment: pypi
+    permissions:
+      id-token: write
 
     steps:
-      - name: Download dist artifacts
-        uses: actions/download-artifact@v8
+      - name: Download package distributions
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
-          name: dist
+          name: package-distributions
           path: dist/
 
       - name: Publish to PyPI
-        if: ${{ github.event.inputs.dry-run != 'true' }}
-        uses: pypa/gh-action-pypi-publish@release/v1
+        if: ${{ inputs.dry-run != true }}
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           attestations: true
 
-      - name: Show PyPI commands (dry-run)
-        if: ${{ github.event.inputs.dry-run == 'true' }}
+      - name: Show PyPI commands
+        if: ${{ inputs.dry-run == true }}
         run: |
           echo "Would execute:"
           echo "twine upload dist/*"
-          echo ""
-          echo "Files to upload:"
           ls -lh dist/
 
   create-release:
-    needs: [validate-and-build, publish-docker, publish-pypi]
+    needs: [verify-release, publish-docker, publish-pypi]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
-      - uses: actions/checkout@v7
-
-      - name: Extract changelog
-        id: changelog
-        run: |
-          set -euo pipefail
-          VERSION="${{ needs.validate-and-build.outputs.version }}"
-
-          if ! awk "/^## \[$VERSION\]/ {flag=1; next} /^## \[/ {flag=0} flag" CHANGELOG.md > release-notes.md; then
-            echo "Error: Failed to extract changelog section for version $VERSION"
-            exit 1
-          fi
-          if [ ! -s release-notes.md ]; then
-            echo "Error: Changelog section for version $VERSION is missing or empty"
-            echo "Please add a '## [$VERSION]' section to CHANGELOG.md before publishing"
-            exit 1
-          fi
-
-          # Add pre-release note if applicable
-          if [[ "$VERSION" =~ (a|b|rc)[0-9]+$ ]]; then
-            echo "**Note**: This is a pre-release version ($VERSION)" | cat - release-notes.md > temp && mv temp release-notes.md
-          fi
-
-          cat release-notes.md
+      - name: Download release notes
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-notes
+          path: .
 
       - name: Create GitHub Release
-        if: ${{ github.event.inputs.dry-run != 'true' }}
         env:
+          DRY_RUN: ${{ inputs.dry-run }}
+          PRERELEASE: ${{ inputs.prerelease }}
           GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ needs.verify-release.outputs.commit_sha }}
+          VERSION: ${{ needs.verify-release.outputs.version }}
         run: |
-          gh release create "v${{ needs.validate-and-build.outputs.version }}" \
-            --title "Release v${{ needs.validate-and-build.outputs.version }}" \
-            --notes-file release-notes.md \
-            ${{ github.event.inputs.prerelease == 'true' && '--prerelease' || '--latest' }}
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Would create GitHub Release v${VERSION} for ${RELEASE_SHA}."
+            cat release-notes.md
+            exit 0
+          fi
 
-      - name: Show release commands (dry-run)
-        if: ${{ github.event.inputs.dry-run == 'true' }}
-        run: |
-          echo "Would execute:"
-          echo "gh release create v${{ needs.validate-and-build.outputs.version }} \\"
-          echo "  --title 'Release v${{ needs.validate-and-build.outputs.version }}' \\"
-          echo "  --notes-file release-notes.md \\"
-          echo "  ${{ github.event.inputs.prerelease == 'true' && '--prerelease' || '--latest' }}"
-          echo ""
-          echo "Release notes:"
-          cat release-notes.md
+          arguments=("v${VERSION}" --target "$RELEASE_SHA" --title "Release v${VERSION}" --notes-file release-notes.md)
+          if [ "$PRERELEASE" = "true" ]; then
+            arguments+=(--prerelease)
+          else
+            arguments+=(--latest)
+          fi
+          gh release create "${arguments[@]}" --repo "$GITHUB_REPOSITORY"
