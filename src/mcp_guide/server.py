@@ -178,8 +178,9 @@ def create_application(config: "ServerConfig") -> GuideApplication:
     async def start_runtime() -> None:
         """Apply process-level Guide configuration before serving begins."""
         from mcp_guide.lazy_path import LazyPath
+        from mcp_guide.session import initial_filesystem_sharing
 
-        LazyPath.client_filesystem_shared = None if config.transport_mode == "stdio" else False
+        LazyPath.client_filesystem_shared = initial_filesystem_sharing(config.transport_mode, config.use_pwd)
         if config.configdir:
             from mcp_guide.config_paths import set_config_dir
 

@@ -5,15 +5,23 @@ usage: "guide://_project/category/files/<category>"
 aliases:
   - category/files
 category: project-categories
+includes:
+  - ../../_partials/choose-category
 ---
 {{#args.0.value}}
-Use the category_list_files tool with:
+Use the {{tool_prefix}}category_list_files tool with:
 category: '{{args.0.value}}'
 {{/args.0.value}}
 {{^args.0.value}}
-{{#_error}}Missing required argument: name{{/_error}}
+{{#kwargs.name}}
+Use the {{tool_prefix}}category_list_files tool with:
+category: '{{kwargs.name}}'
+{{/kwargs.name}}
+{{^kwargs.name}}
+{{#_error}}Missing required argument: name. Available categories: {{#project.categories}}`{{name}}`{{^.last}}, {{/.last}}{{/project.categories}}{{^project.categories}}none configured{{/project.categories}}.{{/_error}}
 
 {{b}}Usage:{{b}} `{{#command}}project/category/files{{/command}} <name>`
 
 {{b}}Example:{{b}} `{{#command}}project/category/files{{/command}}{{#command-args}}docs{{/command-args}}`
+{{/kwargs.name}}
 {{/args.0.value}}

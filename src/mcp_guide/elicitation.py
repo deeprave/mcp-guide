@@ -5,15 +5,19 @@ import math
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import Annotated, Any, Literal, cast
+from typing import Annotated, Any, ClassVar, Literal, cast
 
+import anyio
 from fastmcp import Context
-from fastmcp.server.elicitation import AcceptedElicitation, CancelledElicitation
+from fastmcp.server.elicitation import AcceptedElicitation, CancelledElicitation, DeclinedElicitation
 from mcp_types import ElicitRequest, ElicitRequestFormParams, InputRequiredResult
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, ConfigDict, Field, create_model, model_validator
 
+from mcp_guide.core.mcp_log import TRACE_LEVEL, get_logger
 from mcp_guide.result import Result
 from mcp_guide.result_constants import ERROR_VALIDATION
+
+logger = get_logger(__name__)
 
 _PRIMITIVE_TYPES: dict[str, type[bool] | type[float] | type[int] | type[str]] = {
     "boolean": bool,
@@ -22,6 +26,18 @@ _PRIMITIVE_TYPES: dict[str, type[bool] | type[float] | type[int] | type[str]] = 
     "string": str,
 }
 Primitive = str | bool | float | int
+
+_FIELD_SCHEMA_KEYS = ("type", "enum", "description", "default", "minimum", "maximum", "pattern")
+
+_LEGACY_ELICITATION_TIMEOUT_SECONDS = 120.0
+
+
+def elicitation_timeout_seconds() -> float:
+    """Return how long a legacy client may take to answer an input request before it is treated as declined.
+
+    An unanswered request never applies defaults, because nobody chose them.
+    """
+    return _LEGACY_ELICITATION_TIMEOUT_SECONDS
 
 
 @dataclass(frozen=True)
@@ -127,6 +143,7 @@ def _validate_schema(identifier: str, value: object) -> Elicitation | Result[Any
     if not set(required).issubset(properties):
         return _failure(f"'{identifier}.schema.required' must name declared properties")
     normalised_properties: dict[str, dict[str, Any]] = {}
+    dropped: dict[str, list[str]] = {}
     for field, definition in properties.items():
         if not isinstance(field, str) or not field or field.startswith("_"):
             return _failure(f"'{identifier}.schema.properties' contains an invalid field name")
@@ -153,7 +170,9 @@ def _validate_schema(identifier: str, value: object) -> Elicitation | Result[Any
                 return _failure(f"'{identifier}.schema.properties.{field}.pattern' must be a valid regular expression")
         if "minimum" in definition and "maximum" in definition and definition["minimum"] > definition["maximum"]:
             return _failure(f"'{identifier}.schema.properties.{field}.minimum' must not exceed maximum")
-        normalised_definition = dict(definition)
+        normalised_definition = {key: value for key, value in definition.items() if key in _FIELD_SCHEMA_KEYS}
+        if ignored := sorted(str(key) for key in definition if key not in _FIELD_SCHEMA_KEYS and key != "source"):
+            dropped[field] = ignored
         enum = normalised_definition.get("enum")
         if enum is not None and (
             not isinstance(enum, list) or not enum or not all(_is_primitive(item) for item in enum)
@@ -170,8 +189,16 @@ def _validate_schema(identifier: str, value: object) -> Elicitation | Result[Any
                 return _failure(f"'{identifier}.schema.properties.{field}.default' must match its field definition")
             normalised_definition["default"] = normalised_default
         normalised_properties[field] = normalised_definition
-    normalised_schema = dict(schema)
+    if dropped:
+        logger.warning(
+            "Elicitation form '%s' ignores unsupported schema keys (not sent to clients): %s",
+            identifier,
+            "; ".join(f"{field}: {', '.join(keys)}" for field, keys in dropped.items()),
+        )
+    normalised_schema: dict[str, Any] = {key: schema[key] for key in ("$schema", "type") if key in schema}
     normalised_schema["properties"] = normalised_properties
+    if "required" in schema:
+        normalised_schema["required"] = list(required)
     when = (
         None
         if raw_when is None
@@ -526,7 +553,10 @@ def _selection_from_content(
         ):
             return Result.failure(f"Input form '{elicitation.identifier}' requires '{field}'.")
         if value is None:
-            continue
+            # A skipped optional field holds its declared default on every protocol generation.
+            value = definition.get("default")
+            if value is None:
+                continue
         normalised = _normalise_field_value(definition, value)
         if normalised is None:
             return Result.failure(f"Input form '{elicitation.identifier}' has an invalid '{field}' value.")
@@ -560,6 +590,33 @@ def _default_values(elicitation: Elicitation) -> dict[str, str | bool | float | 
     return values or None
 
 
+def _clean_legacy_schema(schema: dict[str, Any]) -> None:
+    """Reduce a generated schema to the keys Guide declares; strict clients (Codex) reject the rest."""
+    schema.pop("title", None)
+    for definition in schema.get("properties", {}).values():
+        definition.pop("title", None)
+        if definition.get("default", ...) is None:
+            definition.pop("default")
+        if "const" in definition:
+            # Pydantic renders a one-value Literal as ``const``; clients accept only ``enum``.
+            definition["enum"] = [definition.pop("const")]
+
+
+class _LegacyForm(BaseModel):
+    """Base of every legacy form model: strict-client schema cleanup and null-tolerant optional fields."""
+
+    model_config = ConfigDict(json_schema_extra=_clean_legacy_schema)
+    optional_fields: ClassVar[frozenset[str]] = frozenset()
+
+    @model_validator(mode="before")
+    @classmethod
+    def _drop_null_answers(cls, data: Any) -> Any:
+        """Treat ``null`` for an optional property as not answered."""
+        if isinstance(data, dict):
+            return {name: value for name, value in data.items() if not (value is None and name in cls.optional_fields)}
+        return data
+
+
 def _legacy_model(elicitation: Elicitation) -> type[BaseModel]:
     """Build FastMCP's legacy elicitation model from a primitive schema."""
     fields: dict[str, tuple[Any, Any]] = {}
@@ -581,13 +638,221 @@ def _legacy_model(elicitation: Elicitation) -> type[BaseModel]:
         if field_kwargs:
             annotation = Annotated[annotation, Field(**field_kwargs)]
         default = ... if name in elicitation.required_fields else definition.get("default", None)
-        if name not in elicitation.required_fields:
-            annotation = annotation | None
         fields[name] = (annotation, default)
-    return cast(
-        type[BaseModel],
-        create_model(f"Elicitation_{elicitation.identifier.replace('-', '_')}", **cast(Any, fields)),
+    model = create_model(
+        f"Elicitation_{elicitation.identifier.replace('-', '_')}",
+        __base__=_LegacyForm,
+        **cast(Any, fields),
     )
+    model.optional_fields = frozenset(name for name in properties if name not in elicitation.required_fields)
+    return model
+
+
+def _shape(values: Mapping[str, Any]) -> dict[str, str]:
+    """Describe values by field name and string length (or type) so logs never carry user input."""
+    return {
+        name: f"str[{len(value)}]" if isinstance(value, str) else type(value).__name__ for name, value in values.items()
+    }
+
+
+def _log_client_capabilities(entrypoint: str, mcp_context: Context | None) -> None:
+    """Trace the capability objects behind the negotiated elicitation support."""
+    request_context = getattr(mcp_context, "request_context", None)
+    session = getattr(mcp_context, "session", None)
+    logger.trace(
+        "Elicitation %s: request_capabilities=%r session_capabilities=%r client_params_capabilities=%r",
+        entrypoint,
+        getattr(request_context, "capabilities", None),
+        getattr(session, "capabilities", None),
+        getattr(getattr(session, "client_params", None), "capabilities", None),
+    )
+
+
+@dataclass
+class _Resolution:
+    """Mutable state shared by the modern, legacy and no-elicitation resolution paths."""
+
+    entrypoint: str
+    forms: tuple[Elicitation, ...]
+    uri_keywords: Mapping[str, Any]
+    known: dict[str, Any]
+    defaulted: set[str]
+    completed: set[str]
+
+    def pending(self) -> tuple[Elicitation, ...]:
+        """Return the forms that still need input."""
+        return _pending_forms(self.forms, self.known, self.completed)
+
+    def incomplete_condition(self) -> Result[Any] | None:
+        """Reject a completed supplier that left a dependent condition unresolved."""
+        return _completed_form_missing_condition_value(self.forms, self.known, self.completed, self.defaulted)
+
+    def keywords(self) -> ResolvedElicitationKeywords:
+        """Return the resolved template keywords."""
+        return ResolvedElicitationKeywords(self.known, defaulted_forms=frozenset(self.defaulted))
+
+    def accept(self, elicitation: Elicitation, selection: Mapping[str, Any]) -> None:
+        """Record validated values from an answered form; explicit URI keywords always win."""
+        self.known.update({key: value for key, value in selection.items() if key not in self.uri_keywords})
+        self.completed.add(elicitation.identifier)
+
+    def settle(self, elicitation: Elicitation, outcome: str, *, use_defaults: bool) -> bool:
+        """Resolve an unanswered form from its defaults or render fallback; return whether one applied."""
+        defaults = _default_values(elicitation) if use_defaults else None
+        if defaults is not None:
+            self.known.update({key: value for key, value in defaults.items() if key not in self.uri_keywords})
+            resolution = "defaults"
+        elif elicitation.fallback == "render":
+            resolution = "fallback render"
+        else:
+            return False
+        self.defaulted.add(elicitation.identifier)
+        self.completed.add(elicitation.identifier)
+        logger.debug(
+            "Elicitation %s: form %s %s; using %s", self.entrypoint, elicitation.identifier, outcome, resolution
+        )
+        return True
+
+
+def _apply_responses(
+    state: _Resolution, restored: _ContinuationState | None, responses: Mapping[str, Any], mcp_context: Context | None
+) -> Result[Any] | None:
+    """Fold a modern client's input responses into the state; return a failure to stop on."""
+    logger.debug(
+        "Elicitation %s: received responses %s",
+        state.entrypoint,
+        {name: getattr(response, "action", None) for name, response in responses.items()},
+    )
+    if logger.isEnabledFor(TRACE_LEVEL):
+        for name, response in responses.items():
+            content = getattr(response, "content", None)
+            logger.trace(
+                "Elicitation %s: response %s content=%s",
+                state.entrypoint,
+                name,
+                _shape(content) if isinstance(content, Mapping) else None,
+            )
+    modern = getattr(getattr(mcp_context, "request_context", None), "protocol_version", None) == "2026-07-28"
+    if restored is None and hasattr(mcp_context, "request_state") and modern:
+        return Result.failure("Elicitation response does not match the original request.")
+    if restored is not None and not set(responses).issubset(restored.requested_forms):
+        return Result.failure("Elicitation response does not match the original request.")
+    for elicitation in state.forms:
+        response = responses.get(elicitation.identifier)
+        if response is None:
+            continue
+        action = getattr(response, "action", None)
+        if action in _UNANSWERED_ACTIONS and state.settle(
+            elicitation, _UNANSWERED_ACTIONS[action], use_defaults=action == "cancel"
+        ):
+            continue
+        selection = _selection_from_response(elicitation, response)
+        if isinstance(selection, Result):
+            logger.debug(
+                "Elicitation %s: form %s response %s rejected: %s",
+                state.entrypoint,
+                elicitation.identifier,
+                action,
+                selection.error,
+            )
+            return selection
+        state.accept(elicitation, selection)
+    return None
+
+
+_UNANSWERED_ACTIONS = {"cancel": "cancelled", "decline": "declined"}
+
+
+def _resolve_without_elicitation(
+    state: _Resolution, missing: tuple[Elicitation, ...]
+) -> ResolvedElicitationKeywords | Result[Any]:
+    """Resolve forms from defaults or render fallbacks when the client cannot elicit."""
+    logger.debug("Elicitation %s: client cannot elicit; forms %s", state.entrypoint, [e.identifier for e in missing])
+    while True:
+        settled = [state.settle(elicitation, "unsupported", use_defaults=True) for elicitation in missing]
+        incomplete_condition = state.incomplete_condition()
+        if incomplete_condition is not None:
+            return incomplete_condition
+        missing = state.pending()
+        if not missing:
+            return state.keywords()
+        if not any(settled):
+            required = ", ".join(sorted(_unresolved_input_fields(missing, state.forms, state.known)))
+            return Result.failure(f"This entrypoint requires input; pass URI keywords: {required}.")
+
+
+def _request_modern(
+    state: _Resolution, missing: tuple[Elicitation, ...], args: Sequence[str]
+) -> InputRequiredResult | Result[Any]:
+    """Return one input_required result for every missing form."""
+    request_state = _continuation_state(
+        state.entrypoint,
+        state.uri_keywords,
+        args,
+        state.known,
+        state.defaulted,
+        state.completed,
+        [elicitation.identifier for elicitation in missing],
+    )
+    if isinstance(request_state, Result):
+        return request_state
+    logger.debug(
+        "Elicitation %s: returning input_required for forms %s", state.entrypoint, [e.identifier for e in missing]
+    )
+    for elicitation in missing:
+        logger.trace(
+            "Elicitation %s: input request %s schema=%r", state.entrypoint, elicitation.identifier, elicitation.schema
+        )
+    return _input_request(missing, request_state)
+
+
+async def _ask_legacy(
+    mcp_context: Context, entrypoint: str, elicitation: Elicitation
+) -> AcceptedElicitation[Any] | DeclinedElicitation | CancelledElicitation | None:
+    """Ask a legacy client one form; return None when it does not answer in time."""
+    model = _legacy_model(elicitation)
+    logger.trace(
+        "Elicitation %s: legacy request %s schema=%r", entrypoint, elicitation.identifier, model.model_json_schema()
+    )
+    try:
+        with anyio.fail_after(elicitation_timeout_seconds()):
+            return await mcp_context.elicit(elicitation.message, model)
+    except TimeoutError:
+        return None
+
+
+async def _elicit_legacy(
+    state: _Resolution, mcp_context: Context, missing: tuple[Elicitation, ...]
+) -> ResolvedElicitationKeywords | Result[Any]:
+    """Ask a legacy client for each missing form in turn, rechecking conditions after every answer."""
+    logger.debug(
+        "Elicitation %s: requesting forms %s sequentially (legacy)", state.entrypoint, [e.identifier for e in missing]
+    )
+    pending = list(missing)
+    while pending:
+        elicitation = pending.pop(0)
+        outcome = await _ask_legacy(mcp_context, state.entrypoint, elicitation)
+        if isinstance(outcome, AcceptedElicitation):
+            selection = _selection_from_content(elicitation, outcome.data.model_dump())
+            if isinstance(selection, Result):
+                return selection
+            state.accept(elicitation, selection)
+            incomplete_condition = state.incomplete_condition()
+            if incomplete_condition is not None:
+                return incomplete_condition
+        else:
+            if outcome is None:
+                settled = state.settle(elicitation, "unanswered", use_defaults=False)
+            elif isinstance(outcome, CancelledElicitation):
+                settled = state.settle(elicitation, "cancelled", use_defaults=True)
+            elif isinstance(outcome, DeclinedElicitation):
+                settled = state.settle(elicitation, "declined", use_defaults=False)
+            else:
+                settled = False
+            if not settled:
+                return Result.failure(f"Input form '{elicitation.identifier}' was not completed.")
+        pending = list(state.pending())
+    return state.keywords()
 
 
 async def resolve_elicitations(
@@ -604,7 +869,19 @@ async def resolve_elicitations(
         return parsed
     normalised_kwargs = _normalise_uri_kwargs(parsed, kwargs)
     if isinstance(normalised_kwargs, Result):
+        logger.debug("Elicitation %s: URI keyword validation failed: %s", entrypoint, normalised_kwargs.error)
         return normalised_kwargs
+    can_elicit = mcp_context is not None and _client_supports_elicitation(mcp_context)
+    protocol = getattr(getattr(mcp_context, "request_context", None), "protocol_version", None)
+    logger.debug(
+        "Elicitation %s: protocol=%s elicitation=%s forms=%s uri_keywords=%s",
+        entrypoint,
+        protocol,
+        can_elicit,
+        [elicitation.identifier for elicitation in parsed],
+        sorted(normalised_kwargs),
+    )
+    _log_client_capabilities(entrypoint, mcp_context)
     restored = _restore_continuation_state(
         getattr(mcp_context, "request_state", None) if mcp_context is not None else None,
         entrypoint,
@@ -612,116 +889,31 @@ async def resolve_elicitations(
         args,
     )
     if isinstance(restored, Result):
+        logger.debug("Elicitation %s: continuation state rejected: %s", entrypoint, restored.error)
         return restored
-    known: dict[str, Any] = dict(restored.known if restored is not None else normalised_kwargs)
-    defaulted_forms: set[str] = set(restored.defaulted_forms if restored is not None else ())
-    completed_forms: set[str] = set(restored.completed_forms if restored is not None else ())
+    state = _Resolution(
+        entrypoint=entrypoint,
+        forms=parsed,
+        uri_keywords=normalised_kwargs,
+        known=dict(restored.known if restored is not None else normalised_kwargs),
+        defaulted=set(restored.defaulted_forms if restored is not None else ()),
+        completed=set(restored.completed_forms if restored is not None else ()),
+    )
     responses = getattr(mcp_context, "input_responses", None) if mcp_context is not None else None
     if responses:
-        if (
-            restored is None
-            and hasattr(mcp_context, "request_state")
-            and getattr(mcp_context.request_context, "protocol_version", None) == "2026-07-28"
-        ):
-            return Result.failure("Elicitation response does not match the original request.")
-        if restored is not None and not set(responses).issubset(restored.requested_forms):
-            return Result.failure("Elicitation response does not match the original request.")
-        for elicitation in parsed:
-            response = responses.get(elicitation.identifier)
-            if response is None:
-                continue
-            if getattr(response, "action", None) == "cancel":
-                defaults = _default_values(elicitation)
-                if defaults is not None:
-                    known.update({key: value for key, value in defaults.items() if key not in normalised_kwargs})
-                    defaulted_forms.add(elicitation.identifier)
-                    completed_forms.add(elicitation.identifier)
-                    continue
-                if elicitation.fallback == "render":
-                    defaulted_forms.add(elicitation.identifier)
-                    completed_forms.add(elicitation.identifier)
-                    continue
-            selection = _selection_from_response(elicitation, response)
-            if isinstance(selection, Result):
-                return selection
-            known.update({key: value for key, value in selection.items() if key not in normalised_kwargs})
-            completed_forms.add(elicitation.identifier)
-
-    incomplete_condition = _completed_form_missing_condition_value(parsed, known, completed_forms, defaulted_forms)
+        failure = _apply_responses(state, restored, responses, mcp_context)
+        if failure is not None:
+            return failure
+    incomplete_condition = state.incomplete_condition()
     if incomplete_condition is not None:
         return incomplete_condition
-    missing = _pending_forms(parsed, known, completed_forms)
+    missing = state.pending()
+    if logger.isEnabledFor(TRACE_LEVEL):
+        logger.trace("Elicitation %s: known values=%s", entrypoint, _shape(state.known))
     if not missing:
-        return ResolvedElicitationKeywords(known, defaulted_forms=frozenset(defaulted_forms))
-    if mcp_context is None or not _client_supports_elicitation(mcp_context):
-        while True:
-            resolved_any = False
-            for elicitation in missing:
-                defaults = _default_values(elicitation)
-                if defaults is not None:
-                    known.update({key: value for key, value in defaults.items() if key not in normalised_kwargs})
-                    defaulted_forms.add(elicitation.identifier)
-                    completed_forms.add(elicitation.identifier)
-                    resolved_any = True
-                elif elicitation.fallback == "render":
-                    defaulted_forms.add(elicitation.identifier)
-                    completed_forms.add(elicitation.identifier)
-                    resolved_any = True
-            missing = _pending_forms(parsed, known, completed_forms)
-            incomplete_condition = _completed_form_missing_condition_value(
-                parsed, known, completed_forms, defaulted_forms
-            )
-            if incomplete_condition is not None:
-                return incomplete_condition
-            if not missing:
-                return ResolvedElicitationKeywords(known, defaulted_forms=frozenset(defaulted_forms))
-            if resolved_any:
-                continue
-            required = ", ".join(sorted(_unresolved_input_fields(missing, parsed, known)))
-            return Result.failure(f"This entrypoint requires input; pass URI keywords: {required}.")
-
-    if getattr(mcp_context.request_context, "protocol_version", None) == "2026-07-28":
-        request_state = _continuation_state(
-            entrypoint,
-            normalised_kwargs,
-            args,
-            known,
-            defaulted_forms,
-            completed_forms,
-            [elicitation.identifier for elicitation in missing],
-        )
-        if isinstance(request_state, Result):
-            return request_state
-        return _input_request(missing, request_state)
-
-    values: dict[str, Any] = dict(known)
-    pending = list(missing)
-    while pending:
-        elicitation = pending.pop(0)
-        outcome = await mcp_context.elicit(elicitation.message, _legacy_model(elicitation))
-        if isinstance(outcome, CancelledElicitation):
-            defaults = _default_values(elicitation)
-            if defaults is not None:
-                values.update({key: value for key, value in defaults.items() if key not in normalised_kwargs})
-                defaulted_forms.add(elicitation.identifier)
-                completed_forms.add(elicitation.identifier)
-                pending = list(_pending_forms(parsed, values, completed_forms))
-                continue
-            if elicitation.fallback == "render":
-                defaulted_forms.add(elicitation.identifier)
-                completed_forms.add(elicitation.identifier)
-                pending = list(_pending_forms(parsed, values, completed_forms))
-                continue
-            return Result.failure(f"Input form '{elicitation.identifier}' was not completed.")
-        if not isinstance(outcome, AcceptedElicitation):
-            return Result.failure(f"Input form '{elicitation.identifier}' was not completed.")
-        selection = _selection_from_content(elicitation, outcome.data.model_dump())
-        if isinstance(selection, Result):
-            return selection
-        values.update({key: value for key, value in selection.items() if key not in normalised_kwargs})
-        completed_forms.add(elicitation.identifier)
-        incomplete_condition = _completed_form_missing_condition_value(parsed, values, completed_forms, defaulted_forms)
-        if incomplete_condition is not None:
-            return incomplete_condition
-        pending = list(_pending_forms(parsed, values, completed_forms))
-    return ResolvedElicitationKeywords(values, defaulted_forms=frozenset(defaulted_forms))
+        return state.keywords()
+    if mcp_context is None or not can_elicit:
+        return _resolve_without_elicitation(state, missing)
+    if protocol == "2026-07-28":
+        return _request_modern(state, missing, args)
+    return await _elicit_legacy(state, mcp_context, missing)

@@ -533,6 +533,42 @@ def use_pwd_enabled() -> bool:
     return os.environ.get("MG_USE_PWD", "").strip().lower() in _USE_PWD_TRUTHY
 
 
+def inherited_pwd_is_server_cwd() -> bool:
+    """Whether the inherited ``PWD`` is evidence of a directory the server really runs in.
+
+    ``PWD`` must be set, absolute and an existing directory, and must be the same
+    directory as the server's working directory. They are compared by identity
+    because ``PWD`` is the logical path and ``getcwd()`` the physical one.
+    """
+    pwd = os.environ.get("PWD")
+    if not pwd or not os.path.isabs(pwd):
+        return False
+    try:
+        return os.path.isdir(pwd) and os.path.samefile(pwd, os.getcwd())
+    except (OSError, ValueError):
+        return False
+
+
+def initial_filesystem_sharing(transport_mode: str, use_pwd: bool) -> bool | None:
+    """Return the client-filesystem sharing state to assume when the server starts.
+
+    Only a stdio process that opted in to the inherited-``PWD`` bind (``--use-pwd`` or
+    ``MG_USE_PWD``, which are equivalent), and whose ``PWD``
+    is the server's own working directory, treats the filesystem as shared immediately;
+    the sharing probe is then unnecessary. Any other stdio process leaves the state
+    unverified (``None``) for the probe, and every other transport is never shared.
+    """
+    if transport_mode != "stdio":
+        return False
+    if not (use_pwd or use_pwd_enabled()):
+        return None
+    if inherited_pwd_is_server_cwd():
+        logger.debug("Inherited PWD matches the server working directory; client filesystem assumed shared")
+        return True
+    logger.debug("--use-pwd ignored: PWD is unset, not absolute, not a directory, or not the server working directory")
+    return None
+
+
 async def bind_session_project(session: Session, project_path: str | Path) -> Project:
     """Bind a resolved Session through Guide's single project-binding path.
 
@@ -624,17 +660,12 @@ async def request_context_scope(
         and LazyPath.client_filesystem_shared is True
         and use_pwd_enabled()
         and session_id is None
-        and protocol_revision == "2026-07-28"
         and getattr(ctx, "transport", None) == "stdio"
         and bool(pwd)
         and LazyPath(pwd).is_absolute()
     )
 
-    if resolved_session_id is None and mint_session_if_unbound and isinstance(ctx, Context):
-        session = await runtime.create_session(ctx)
-        minted_session_id = session.session_id
-        resolved_session_id = minted_session_id
-    elif resolved_session_id is None and pwd_bind and isinstance(ctx, Context):
+    if resolved_session_id is None and (mint_session_if_unbound or pwd_bind) and isinstance(ctx, Context):
         session = await runtime.create_session(ctx)
         minted_session_id = session.session_id
         resolved_session_id = minted_session_id

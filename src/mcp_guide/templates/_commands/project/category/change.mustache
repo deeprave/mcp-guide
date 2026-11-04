@@ -10,9 +10,12 @@ argrequired:
   - new-patterns
   - new-description
 category: project-categories
+includes:
+  - ../../_partials/choose-category
 ---
 {{#args.0.value}}
-Use the category_change tool with:
+Use the {{tool_prefix}}category_collection_change tool with:
+type: 'category'
 name: '{{args.0.value}}'
 {{#kwargs.new_name}}
 new_name: '{{kwargs.new_name}}'
@@ -28,9 +31,28 @@ new_description: '{{kwargs.new_description}}'
 {{/kwargs.new_description}}
 {{/args.0.value}}
 {{^args.0.value}}
-{{#_error}}Missing required argument: name{{/_error}}
+{{#kwargs.name}}
+Use the {{tool_prefix}}category_collection_change tool with:
+type: 'category'
+name: '{{kwargs.name}}'
+{{#kwargs.new_name}}
+new_name: '{{kwargs.new_name}}'
+{{/kwargs.new_name}}
+{{#kwargs.new_dir}}
+new_dir: '{{kwargs.new_dir}}'
+{{/kwargs.new_dir}}
+{{#kwargs.new_patterns}}
+new_patterns: {{kwargs.new_patterns}}
+{{/kwargs.new_patterns}}
+{{#kwargs.new_description}}
+new_description: '{{kwargs.new_description}}'
+{{/kwargs.new_description}}
+{{/kwargs.name}}
+{{^kwargs.name}}
+{{#_error}}Missing required argument: name. Available categories: {{#project.categories}}`{{name}}`{{^.last}}, {{/.last}}{{/project.categories}}{{^project.categories}}none configured{{/project.categories}}.{{/_error}}
 
 {{b}}Usage:{{b}} `{{#command}}project/category/change{{/command}} <name> [--new-name=<name>] [--new-dir=<path>] [--new-patterns=<patterns>] [--new-description=<text>]`
 
 {{b}}Example:{{b}} `{{#command}}project/category/change{{/command}}{{#command-args}}docs{{/command-args}}{{#command-flags}}new-name=documentation,new-dir=docs/{{/command-flags}}`
+{{/kwargs.name}}
 {{/args.0.value}}

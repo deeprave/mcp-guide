@@ -45,17 +45,58 @@ elicitation:
 
 Supported property types are `string`, `integer`, `number`, and `boolean`. `enum` values and
 defaults must use the declared primitive type. `required` must name properties in that same form.
-The MCP client receives the schema unchanged, apart from command-only dynamic properties described
-below, so descriptive property metadata such as a title or description may improve the UI when the
-client supports it.
+Guide sends clients only the MCP form-schema subset: `type`, `properties` and `required` (and
+`$schema`) at the top level, and `type`, `enum`, `description`, `default`, `minimum`, `maximum` and
+`pattern` on each property. Other keys, including `title`, are dropped on both protocol generations
+because strict clients reject them; Guide logs one warning per form naming any dropped keys (for
+example `maxLength` or `format`), so a constraint that is not enforced is visible to the author. Use
+`description` to help the user understand a field.
+Dynamic properties, described below, are filled by Guide for commands and skills.
 
-### Command-only dynamic sources
+### Dynamic choice sources
 
-Commands may use `source: workflow-phases` on a string property to derive an enum from the enabled
-workflow phases before the form is delivered. The active phase is omitted from an interactive choice,
-while an explicit positional or URI phase remains available for normal command validation. Guide
-removes this command-only `source` marker before delivery. Skills do not perform command
-specialisation and therefore must not use it.
+Commands and skills may mark a string property with `source` to derive its `enum` from the bound
+project before the form is delivered. Guide removes the marker, so the client receives an ordinary
+`enum`.
+
+| Source | Choices |
+| --- | --- |
+| `workflow-phases` | The enabled workflow phases, omitting the active phase. |
+| `project-categories` | The names of the project's categories. |
+| `project-collections` | The names of the project's collections. |
+
+```yaml
+elicitation:
+  choose-category:
+    message: Choose a category from this project.
+    fallback: render
+    schema:
+      type: object
+      properties:
+        name: {type: string, source: project-categories}
+      required: [name]
+```
+
+A form is omitted, rather than requested, when a positional argument or keyword already supplies its
+value, or when its source has no choices (for example a project without collections). The command or
+skill then applies its own validation, so a missing name is reported as it would be without a form.
+An unrecognised `source` is logged and its marker removed; a static `enum` declared on the same
+property is still sent to the client, so omit it if the property should be free text.
+
+Shipped commands share the `_partials/_choose-category` and `_partials/_choose-collection` partials.
+Because a partial's form identifier and field names must be unique within an entrypoint, those forms
+use the field `name`; a command lists the partial in `includes` and reads the answer from
+`kwargs.name` when no positional argument was supplied:
+
+```mustache
+{{#args.0.value}}Use the {{tool_prefix}}category_collection_remove tool with type: 'category' and name: '{{args.0.value}}'{{/args.0.value}}
+{{^args.0.value}}{{#kwargs.name}}Use the {{tool_prefix}}category_collection_remove tool with type: 'category' and name: '{{kwargs.name}}'{{/kwargs.name}}{{/args.0.value}}
+```
+
+Sources read the template context built for the current request and are resolved on every
+request, including each continuation on the modern protocol. They therefore reflect the
+configuration at that moment; a name that no longer exists is rejected by the command's own
+validation.
 
 An `enum` is the portable way to express a simple choice. A client may display it as a select,
 radio group, or another suitable control; the precise visual presentation is client-specific and is
@@ -118,9 +159,16 @@ No target was supplied; using the documented default.
 ```
 
 Alternatively, `fallback: render` lets the entrypoint render without unresolved values when it can
-obtain the missing information in its own instructions. An explicit decline remains a decline; it
-does not silently apply defaults. Without a complete default or `fallback: render`, Guide returns
-a validation failure naming the URI keywords the caller must supply.
+obtain the missing information in its own instructions. A cancelled form uses its defaults when
+they are complete, otherwise the render fallback. A declined form with `fallback: render` also
+renders, but never applies defaults; some clients (for example Claude Code on MCP 2026-07-28)
+decline an input request automatically without showing a form, so the entrypoint must carry its
+own instructions for asking the user. A declined form without `fallback: render` remains a
+failure. On the legacy path, a request the client leaves unanswered for the response timeout
+(currently 120 seconds, from `elicitation_timeout_seconds()`) is treated like a decline: it renders
+the `fallback: render` path, or fails without one, and never applies defaults, because nobody chose
+them. Without a complete default or `fallback: render`, Guide returns a validation failure
+naming the URI keywords the caller must supply.
 
 ## Branches and matching
 
@@ -185,6 +233,27 @@ request. A changed or cross-entrypoint state is rejected before its values are u
 This is a framework integrity boundary, not an author-facing encryption feature: authors should
 not place secrets in forms merely because continuation state is sealed. Treat all accepted values as
 ordinary user input and use only the declared, validated primitive fields.
+
+### Client behaviour to expect
+
+Observed results below come from manual runs against each client during the `fix-elicitation-forms` change.
+Entries marked *not yet verified* have not been observed; do not rely on them.
+
+| Client | Protocol | Observed behaviour |
+| --- | --- | --- |
+| Cursor | legacy (2025-11-25) | Shows the form and returns the answer; the command then runs. One earlier run never answered and the cause is unexplained. |
+| Codex | legacy (2025-06-18) | Shows the form once MCP elicitations are enabled in its approval policy (`mcp_elicitations = true`) and Guide sends only the form-schema subset. Before the schema fix it cancelled instantly. Codex CLI is *not yet verified*. |
+| Claude Code | 2026-07-28 | Declines agent-initiated tool and resource calls without showing a form. A user-initiated prompt shows the form, and the answer completes the command. |
+| Claude Desktop | 2026-07-28 | Declines agent-initiated calls without showing a form (the user sees the fallback list). The prompt route is *not yet verified*: the composer rejects `_` and `:` command text and a prompt needs a bound `session_id`. |
+| Antigravity (IDE and CLI) | 2026-07-28 | Both share one client (`antigravity-client v1.0.0`) and cancel `input_required` immediately without showing a form. The agent builds the choice list from the fallback guidance. |
+
+General rules that follow from these results:
+
+- Guide sends only `type`, `properties` and `required` at the top level of a form schema, and no
+  generated `title` on properties. Strict clients such as Codex reject any other key and cancel the
+  request without showing a form.
+- A declined, cancelled or unanswered form falls through to `fallback: render`, so the entrypoint must
+  carry its own instructions for asking the user.
 
 ## Rendering accepted values
 

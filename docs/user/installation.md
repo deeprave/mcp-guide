@@ -74,8 +74,7 @@ By default mcp-guide does not infer a project from inherited `PWD` or from the
 server process working directory. HTTP, container, and desktop hosts must not treat
 server `getcwd()` as the client filesystem. A CLI agent that starts a local stdio
 server from the project directory may opt in with `--use-pwd` or
-`MG_USE_PWD=1`, but this shortcut additionally requires already verified filesystem
-sharing. It cannot replace the first absolute-root binding after server startup.
+`MG_USE_PWD=1` (stdio only) to bind from `PWD` without a `set_project` call.
 Guide still does not use MCP roots for binding.
 
 When the interaction is not already bound, the agent must call `set_project` with the
@@ -119,7 +118,7 @@ Add to `~/.codex/config.json`:
 }
 ```
 
-Once connected, the agent should call `set_project` with the absolute client project path. The optional stdio `PWD` shortcut requires both `MG_USE_PWD` and already verified filesystem sharing. After binding, `guide://` URIs become the primary way to access content and commands — see [Guide URIs](guide-uris.md) for details.
+Once connected, the agent should call `set_project` with the absolute client project path. The optional `--use-pwd` / `MG_USE_PWD` shortcut (stdio only) can skip this call. After binding, `guide://` URIs become the primary way to access content and commands — see [Guide URIs](guide-uris.md) for details.
 
 ### Streamable HTTP
 

@@ -1,0 +1,14 @@
+---
+elicitation:
+  choose-collection:
+    message: Choose a collection from this project.
+    fallback: render
+    schema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A collection configured for this project.
+          source: project-collections
+      required: [name]
+---

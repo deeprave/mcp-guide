@@ -8,9 +8,12 @@ argrequired:
   - add-patterns
   - remove-patterns
 category: project-categories
+includes:
+  - ../../_partials/choose-category
 ---
 {{#args.0.value}}
-Use the category_update tool with:
+Use the {{tool_prefix}}category_collection_update tool with:
+type: 'category'
 name: '{{args.0.value}}'
 {{#kwargs.add_patterns}}
 add_patterns: {{kwargs.add_patterns}}
@@ -20,9 +23,22 @@ remove_patterns: {{kwargs.remove_patterns}}
 {{/kwargs.remove_patterns}}
 {{/args.0.value}}
 {{^args.0.value}}
-{{#_error}}Missing required argument: name{{/_error}}
+{{#kwargs.name}}
+Use the {{tool_prefix}}category_collection_update tool with:
+type: 'category'
+name: '{{kwargs.name}}'
+{{#kwargs.add_patterns}}
+add_patterns: {{kwargs.add_patterns}}
+{{/kwargs.add_patterns}}
+{{#kwargs.remove_patterns}}
+remove_patterns: {{kwargs.remove_patterns}}
+{{/kwargs.remove_patterns}}
+{{/kwargs.name}}
+{{^kwargs.name}}
+{{#_error}}Missing required argument: name. Available categories: {{#project.categories}}`{{name}}`{{^.last}}, {{/.last}}{{/project.categories}}{{^project.categories}}none configured{{/project.categories}}.{{/_error}}
 
 {{b}}Usage:{{b}} `{{#command}}project/category/update{{/command}} <name> [--add-patterns=<patterns>] [--remove-patterns=<patterns>]`
 
 {{b}}Example:{{b}} `{{#command}}project/category/update{{/command}}{{#command-args}}docs{{/command-args}}{{#command-flags}}add-patterns=CHANGELOG,AUTHORS,remove-patterns=old-file{{/command-flags}}`
+{{/kwargs.name}}
 {{/args.0.value}}
