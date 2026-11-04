@@ -7,7 +7,6 @@ import pytest
 
 from mcp_guide.core.path_security import resolve_safe_path
 from mcp_guide.discovery.files import FileInfo
-from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import Frontmatter
 from mcp_guide.render.partials import UnsafePartialPathError, load_partial_content
@@ -74,8 +73,8 @@ async def test_interactive_partial_load_errors_are_logged_without_hiding_composi
 
 
 @pytest.mark.anyio
-async def test_interactive_delivery_properties_preserve_static_values(tmp_path) -> None:
-    """The parent and listed partials contribute static delivery properties."""
+async def test_interactive_preflight_does_not_retain_delivery_properties(tmp_path) -> None:
+    """A listed partial can contribute inputs without adding delivery metadata."""
     parent = tmp_path / "parent.mustache"
     parent.write_text("---\ncache: short, private\nincludes: [input]\n---\nParent")
     (tmp_path / "_input.mustache").write_text("---\ncache: short, private\n---\n")
@@ -90,8 +89,7 @@ async def test_interactive_delivery_properties_preserve_static_values(tmp_path) 
     )
 
     assert properties is not None
-    assert properties.delivery_properties is not None
-    assert properties.delivery_properties.cache_policy == CachePolicy.parse("short, private")[0]
+    assert not hasattr(properties, "delivery_properties")
 
 
 @pytest.mark.anyio
@@ -147,8 +145,8 @@ async def test_malformed_interactive_includes_are_logged_and_ignored(tmp_path, c
 
 
 @pytest.mark.anyio
-async def test_form_only_partial_preserves_another_partial_explicit_cache_policy(tmp_path) -> None:
-    """Only explicit property-only cache declarations reach the delivered document."""
+async def test_form_only_partial_combines_inputs_without_delivery_properties(tmp_path) -> None:
+    """Multiple listed form partials combine inputs without preflight metadata."""
     parent = tmp_path / "parent.mustache"
     parent.write_text("---\nincludes: [cached, form]\n---\nParent")
     (tmp_path / "_cached.mustache").write_text(
@@ -170,8 +168,8 @@ async def test_form_only_partial_preserves_another_partial_explicit_cache_policy
     )
 
     assert properties is not None
-    assert properties.delivery_properties is not None
-    assert properties.delivery_properties.cache_policy == CachePolicy.parse("short, private")[0]
+    assert set(properties.elicitation.forms) == {"target", "reference"}
+    assert not hasattr(properties, "delivery_properties")
 
 
 @pytest.mark.anyio

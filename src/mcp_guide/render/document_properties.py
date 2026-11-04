@@ -235,23 +235,6 @@ class DocumentProperties:
             ]
         )
 
-    def preflight_delivery_properties(self) -> Self:
-        """Return delivery properties from preflight-only partials.
-
-        Explicit cache declarations remain delivery properties. Implicit
-        no-cache defaults exist only to make preflight property composition
-        safe and must not alter a rendered response.
-        """
-        return type(self)(
-            [
-                property
-                for property in self.properties
-                if not isinstance(property, DocumentElicitation)
-                and (not isinstance(property, DocumentCache) or property.explicit)
-                and (not isinstance(property, DocumentDisposition) or property.explicit)
-            ]
-        )
-
     @classmethod
     def combine(cls, properties: Iterable[Self]) -> Self:
         """Combine matching typed properties across rendered contributors."""

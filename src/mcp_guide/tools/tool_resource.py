@@ -32,7 +32,6 @@ from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext, keyword_context
-from mcp_guide.render.document_properties import DocumentProperties
 from mcp_guide.render.frontmatter import check_frontmatter_requirements, parse_content_with_frontmatter
 from mcp_guide.render.rendering import TemplateRenderError, discover_single_file, render_content
 from mcp_guide.render.template import InteractiveDocumentProperties, collect_interactive_document_properties
@@ -383,11 +382,6 @@ async def _read_guide_skill(
         return Result.failure(str(error), error_type=ERROR_VALIDATION)
     if rendered is None:
         return Result.failure(f"Guide skill '{skill_path}' is unavailable for this project", error_type=ERROR_NOT_FOUND)
-    if interactive_properties is not None and interactive_properties.delivery_properties is not None:
-        assert rendered.properties is not None
-        rendered.properties = DocumentProperties.combine(
-            (rendered.properties, interactive_properties.delivery_properties)
-        )
     if rendered.errors:
         errors = rendered.errors
         return Result.failure(

@@ -1,7 +1,6 @@
 """Behaviour tests for composed frontmatter-declared elicitation."""
 
-from mcp_guide.render.cache_policy import CachePolicy
-from mcp_guide.render.document_properties import DocumentCache, DocumentElicitation, DocumentProperties
+from mcp_guide.render.document_properties import DocumentElicitation, DocumentProperties
 
 
 def test_distinct_parent_and_partial_forms_combine() -> None:
@@ -39,40 +38,37 @@ def test_duplicate_form_property_has_a_composition_diagnostic() -> None:
     assert "mode partial" in combined.diagnostic
 
 
-def test_property_only_partial_retains_an_explicit_cache_policy() -> None:
-    """Preflight delivery properties preserve an author's explicit cache restriction."""
+def test_property_only_partial_keeps_its_elicitation() -> None:
+    """A cache declaration does not prevent preflight form discovery."""
     partial = DocumentProperties.from_frontmatter(
         {"cache": "short, private", "elicitation": {"target": {}}},
         source="property-only partial",
     )
 
-    delivery = partial.preflight_delivery_properties()
-
-    assert delivery.cache_policy == CachePolicy.parse("short, private")[0]
+    assert set(partial.elicitation.forms) == {"target"}
 
 
-def test_property_only_partial_drops_its_implicit_no_cache_default() -> None:
-    """A preflight-only implicit no-cache default must not alter delivery."""
+def test_property_only_partial_discovers_elicitation_without_a_cache() -> None:
+    """A form remains discoverable without an explicit cache declaration."""
     partial = DocumentProperties.from_frontmatter({"elicitation": {"target": {}}}, source="property-only partial")
 
-    delivery = partial.preflight_delivery_properties()
-
-    assert not any(isinstance(property, DocumentCache) for property in delivery.properties)
+    assert set(partial.elicitation.forms) == {"target"}
 
 
-def test_form_only_partial_does_not_override_another_explicit_cache_policy() -> None:
-    """Implicit preflight cache state never changes another contributor's delivery policy."""
-    explicit = DocumentProperties.from_frontmatter(
-        {"cache": "short, private", "elicitation": {"target": {}}},
-        source="explicit partial",
+def test_form_only_partials_combine_elicitations() -> None:
+    """Form-only contributors combine their inputs without delivery composition."""
+    first = DocumentProperties.from_frontmatter(
+        {"cache": "short, private", "elicitation": {"target": {"schema": {"properties": {"target": {}}}}}},
+        source="first partial",
     )
-    form_only = DocumentProperties.from_frontmatter({"elicitation": {"reference": {}}}, source="form-only partial")
-
-    delivery = DocumentProperties.combine(
-        (explicit.preflight_delivery_properties(), form_only.preflight_delivery_properties())
+    second = DocumentProperties.from_frontmatter(
+        {"elicitation": {"reference": {"schema": {"properties": {"reference": {}}}}}},
+        source="second partial",
     )
 
-    assert delivery.cache_policy == CachePolicy.parse("short, private")[0]
+    combined = DocumentProperties.combine((first, second))
+
+    assert set(combined.elicitation.forms) == {"target", "reference"}
 
 
 def test_source_on_a_non_string_property_has_a_composition_diagnostic() -> None:

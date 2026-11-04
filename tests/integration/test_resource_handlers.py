@@ -137,7 +137,7 @@ async def test_command_collects_a_listed_property_only_partial_before_rendering(
 
     assert payload["success"] is True
     assert payload["value"] == "Project branch"
-    assert payload["disposition"] == "user/information"
+    assert payload["disposition"] == "agent/instruction"
 
 
 @pytest.mark.anyio

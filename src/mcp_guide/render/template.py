@@ -21,8 +21,8 @@ from mcp_guide.render.document_properties import DocumentContribution, DocumentE
 from mcp_guide.render.frontmatter import (
     check_frontmatter_requirements,
     get_frontmatter_includes,
+    parse_content_with_frontmatter,
     process_frontmatter,
-    render_frontmatter_fields,
 )
 from mcp_guide.render.partials import (
     PartialNotFoundError,
@@ -41,10 +41,9 @@ logger = get_logger(__name__)
 
 @dataclass(frozen=True)
 class InteractiveDocumentProperties:
-    """Pre-render forms plus the listed partial properties not rendered in a body."""
+    """Pre-render forms collected from the entrypoint and eligible declared partials."""
 
     elicitation: DocumentElicitation
-    delivery_properties: DocumentProperties | None
     errors: list[str] = field(default_factory=list)
 
 
@@ -69,24 +68,22 @@ async def collect_interactive_document_properties(
     This intentionally follows only the parent frontmatter's declared includes.
     It does not affect ordinary partial interpolation or output properties.
     """
+    raw_content = await file_info.read_raw(max_bytes=max_content_limit)
+    preflight_context = (context or TemplateContext({})).new_child(
+        dict(parse_content_with_frontmatter(raw_content).frontmatter)
+    )
     processed = await process_frontmatter(
-        await file_info.read_raw(max_bytes=max_content_limit),
+        raw_content,
         project_flags,
-        context,
+        preflight_context,
+        rendered_fields=("elicitation",),
     )
     if processed is None:
         return None
     if processed.errors:
-        return InteractiveDocumentProperties(DocumentElicitation(), None, processed.errors)
+        return InteractiveDocumentProperties(DocumentElicitation(), processed.errors)
 
-    # Frontmatter values are part of the parent context for both their own
-    # delivery fields and any listed partials.  Re-render only the universally
-    # renderable values so preflight has the same contract as ordinary delivery.
-    preflight_context = (context or TemplateContext({})).new_child(dict(processed.frontmatter))
-    preflight_result = await render_frontmatter_fields(processed.frontmatter, preflight_context)
-    if preflight_result.errors:
-        return InteractiveDocumentProperties(DocumentElicitation(), None, preflight_result.errors)
-    preflight_frontmatter = preflight_result.frontmatter
+    preflight_frontmatter = processed.frontmatter
 
     parent_properties = DocumentProperties.from_frontmatter(
         preflight_frontmatter,
@@ -112,6 +109,7 @@ async def collect_interactive_document_properties(
                 requirements_context,
                 resolver=resolver,
                 max_content_limit=max_content_limit,
+                rendered_fields=("elicitation",),
             )
         except PartialNotFoundError as error:
             logger.error("Partial template not found for interactive properties: %s - %s", include_path, error)
@@ -128,7 +126,7 @@ async def collect_interactive_document_properties(
         if not partial_frontmatter:
             continue
         if partial_errors:
-            return InteractiveDocumentProperties(DocumentElicitation(), None, partial_errors)
+            return InteractiveDocumentProperties(DocumentElicitation(), partial_errors)
         if not check_frontmatter_requirements(partial_frontmatter, requirements_context):
             continue
         partial_property_sets.append(
@@ -138,15 +136,7 @@ async def collect_interactive_document_properties(
             )
         )
     properties = DocumentProperties.combine((parent_properties, *partial_property_sets))
-    delivery_contributors = (
-        parent_properties.preflight_delivery_properties(),
-        *(partial_properties.preflight_delivery_properties() for partial_properties in partial_property_sets),
-    )
-    delivery_properties = DocumentProperties.combine(delivery_contributors)
-    return InteractiveDocumentProperties(
-        elicitation=properties.elicitation,
-        delivery_properties=delivery_properties if delivery_properties.properties else None,
-    )
+    return InteractiveDocumentProperties(elicitation=properties.elicitation)
 
 
 async def _recommendation_footnotes(

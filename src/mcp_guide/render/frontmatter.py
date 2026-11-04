@@ -87,7 +87,9 @@ class RenderedFrontmatterFields:
 
 
 async def render_frontmatter_fields(
-    frontmatter: Frontmatter, render_context: "TemplateContext"
+    frontmatter: Frontmatter,
+    render_context: "TemplateContext",
+    fields: tuple[str, ...] = RENDERED_FRONTMATTER_FIELDS,
 ) -> RenderedFrontmatterFields:
     """Return rendered delivery fields while retaining per-field diagnostics."""
     from mcp_guide.render.bindings import build_frontmatter_lambda_registry
@@ -96,7 +98,7 @@ async def render_frontmatter_fields(
     context = dict(render_context)
     functions, lambdas = build_frontmatter_lambda_registry(render_context)
     errors: list[str] = []
-    for field in RENDERED_FRONTMATTER_FIELDS:
+    for field in fields:
         if field in rendered:
             prior_error_count = len(functions.errors)
             rendered[field], field_errors = await _render_frontmatter_value(rendered[field], context, lambdas, field)
@@ -290,6 +292,8 @@ async def process_frontmatter(
     content: str,
     requirements_context: Optional[Dict[str, Any]],
     render_context: Optional["TemplateContext"] = None,
+    *,
+    rendered_fields: tuple[str, ...] = RENDERED_FRONTMATTER_FIELDS,
 ) -> Optional[ProcessedFrontmatter]:
     """Process frontmatter: parse, check requirements, render fields.
 
@@ -318,7 +322,11 @@ async def process_frontmatter(
     # Render the shared delivery and interactive fields after requirement gating.
     errors: list[str] = []
     if render_context:
-        rendered_frontmatter = await render_frontmatter_fields(parsed.frontmatter, render_context)
+        rendered_frontmatter = await render_frontmatter_fields(
+            parsed.frontmatter,
+            render_context,
+            rendered_fields,
+        )
         parsed.frontmatter = rendered_frontmatter.frontmatter
         errors = rendered_frontmatter.errors
 
