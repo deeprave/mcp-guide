@@ -125,6 +125,38 @@ async def test_interactive_preflight_preserves_structural_parent_values_for_part
 
 
 @pytest.mark.anyio
+async def test_interactive_preflight_parent_elicitation_uses_caller_context(tmp_path) -> None:
+    """Parent form rendering preserves caller-context precedence."""
+    parent = tmp_path / "parent.mustache"
+    parent.write_text(
+        "---\n"
+        "target: frontmatter\n"
+        "elicitation:\n"
+        "  choice:\n"
+        "    message: 'Choose {{target}}.'\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        choice:\n"
+        "          type: string\n"
+        "      required: [choice]\n"
+        "---\n"
+    )
+    stat = parent.stat()
+    file_info = FileInfo(parent, stat.st_size, stat.st_size, datetime.fromtimestamp(stat.st_mtime), parent.name)
+
+    properties = await collect_interactive_document_properties(
+        file_info,
+        project_flags={},
+        context=TemplateContext({"target": "caller"}),
+        resolver=document_root_resolver(tmp_path),
+    )
+
+    assert properties is not None
+    assert properties.elicitation.forms["choice"]["message"] == "Choose caller."
+
+
+@pytest.mark.anyio
 async def test_malformed_interactive_includes_are_logged_and_ignored(tmp_path, caplog) -> None:
     """A malformed includes value remains a tolerant authoring error."""
     parent = tmp_path / "parent.mustache"

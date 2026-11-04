@@ -21,7 +21,6 @@ from mcp_guide.render.document_properties import DocumentContribution, DocumentE
 from mcp_guide.render.frontmatter import (
     check_frontmatter_requirements,
     get_frontmatter_includes,
-    parse_content_with_frontmatter,
     process_frontmatter,
 )
 from mcp_guide.render.partials import (
@@ -69,13 +68,10 @@ async def collect_interactive_document_properties(
     It does not affect ordinary partial interpolation or output properties.
     """
     raw_content = await file_info.read_raw(max_bytes=max_content_limit)
-    preflight_context = (context or TemplateContext({})).new_child(
-        dict(parse_content_with_frontmatter(raw_content).frontmatter)
-    )
     processed = await process_frontmatter(
         raw_content,
         project_flags,
-        preflight_context,
+        context,
         rendered_fields=("elicitation",),
     )
     if processed is None:
