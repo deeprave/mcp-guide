@@ -268,12 +268,12 @@ frontmatter diagnostic rather than silently selecting one declaration.
 
 ### Requirement: Frontmatter-only elicitation partials
 
-The system SHALL allow a frontmatter partial to contribute document properties,
-including `elicitation`, without emitting body content. A partial named in the
-parent's frontmatter partial list SHALL be processed for effective properties even
-when it is not interpolated through a Mustache partial tag. Its body SHALL NOT be
-included in rendered output unless the parent also interpolates it through the
-existing partial mechanism.
+The system SHALL allow a frontmatter partial to contribute elicitation declarations
+without emitting body content. A partial named in the parent's frontmatter partial
+list SHALL be processed for eligible elicitation declarations even when it is not
+interpolated through a Mustache partial tag. Preflight SHALL NOT carry its delivery
+headers into the response. Its body SHALL NOT be included in rendered output unless
+the parent also interpolates it through the existing partial mechanism.
 
 #### Scenario: Property-only partial supplies a form
 
@@ -286,7 +286,7 @@ existing partial mechanism.
 
 - **WHEN** a parent lists a frontmatter-only partial that contributes no
   elicitation declaration
-- **THEN** Guide SHALL preserve the existing composed-property behaviour
+- **THEN** Guide SHALL contribute no elicitation or response metadata from preflight inspection of that partial
 - **AND** SHALL not change the rendered body solely because the partial was listed
 
 #### Scenario: Interactive partial cannot be loaded
@@ -302,6 +302,13 @@ existing partial mechanism.
 - **THEN** Guide SHALL log a source-aware warning
 - **AND** SHALL continue as if it had no preflight partial contributors
 - **AND** an absent `includes` declaration SHALL remain valid and produce no warning
+
+#### Scenario: Form-only delivery headers are discarded
+
+- **GIVEN** a command or skill lists an eligible form-only partial declaring `type`, `instruction`, or `cache`
+- **WHEN** its form is resolved and the partial is not rendered
+- **THEN** the resolved inputs SHALL be available to rendering
+- **AND** none of those delivery headers SHALL affect response metadata
 
 ### Requirement: Elicitation validation and conditional semantics
 

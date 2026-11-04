@@ -65,9 +65,13 @@ async def test_native_expression_resource_reads_categories_collections_and_combi
         for uri in ("guide://guidelines", "guide://guidelines/note"):
             resource = await client.read_resource(uri)
             payload = json.loads(resource[0].text)
-            assert payload["success"] is False
-            assert payload["error_type"] == "no_project"
-            assert payload["instruction"]
+            if mode == "legacy":
+                assert payload["success"] is True
+                assert "Fixture guidelines" in payload["value"]
+            else:
+                assert payload["success"] is False
+                assert payload["error_type"] == "no_project"
+                assert payload["instruction"]
 
         # Missing identifiers cannot disturb the caller's actual bound session.
         resource = await client.read_resource(f"guide://guidelines?session_id={session_id}")

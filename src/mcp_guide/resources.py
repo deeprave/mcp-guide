@@ -116,7 +116,7 @@ async def guide_skill_resource(
         return resource_response(Result.failure(f"Unexpected error: {error}"))
 
 
-@resourcefunc("guide://{collection}/{document}{?session_id}", require_session=True)
+@resourcefunc("guide://{collection}/{document}{?session_id}")
 async def guide_resource(
     collection: Annotated[
         str,
@@ -193,7 +193,7 @@ async def _read_content_resource(
         return resource_response(Result.failure(f"Unexpected error: {str(e)}"))
 
 
-@resourcefunc("guide://{expression}{?session_id}", require_session=True)
+@resourcefunc("guide://{expression}{?session_id}")
 async def guide_expression_resource(
     expression: Annotated[str, Field(description="Collection, category or comma-separated content expression.")],
     session_id: Annotated[Optional[str], Field(description=SESSION_ID_DESCRIPTION)] = None,

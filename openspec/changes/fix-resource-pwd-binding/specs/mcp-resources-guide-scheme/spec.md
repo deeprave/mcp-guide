@@ -15,11 +15,12 @@ used by the shared tool-argument contract before content rendering or command
 execution. It SHALL use the value as an opaque FastMCP Session ID, not a
 Guide-generated or separately mapped identifier.
 
-Native content resource requests SHALL require the explicit `session_id` query
-variable in both protocol eras. A request that omits it SHALL return the defined
-unbound guidance even when a retained connection already has a bound Session, unless
-that request has just completed the eligible inherited-PWD bootstrap. The bootstrap
-exception SHALL return its resulting Session ID for later resource URI queries.
+When a retained handshake-era resource request omits the query variable, the adapter
+SHALL use the public FastMCP connection `session_id` as the defined legacy fallback.
+For a modern request, omitting the query variable SHALL not create replacement
+cross-request state; a project-bound resource SHALL return the defined unbound
+guidance unless the request completes the eligible inherited-PWD bootstrap. That
+bootstrap SHALL return its resulting Session ID for later resource URI queries.
 
 #### Scenario: Guide content resource request
 
