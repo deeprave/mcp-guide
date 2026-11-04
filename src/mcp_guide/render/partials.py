@@ -55,6 +55,7 @@ async def load_partial_content(
     *,
     resolver: Callable[[str | Path], Path] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
+    rendered_fields: tuple[str, ...] | None = None,
 ) -> tuple[str, "Frontmatter", list[str]]:
     """Load content from a partial template file with frontmatter processing.
 
@@ -109,7 +110,15 @@ async def load_partial_content(
         from mcp_guide.render.frontmatter import process_frontmatter
 
         render_context = TemplateContext(context) if context else None
-        processed = await process_frontmatter(content, context, render_context)
+        if rendered_fields is None:
+            processed = await process_frontmatter(content, context, render_context)
+        else:
+            processed = await process_frontmatter(
+                content,
+                context,
+                render_context,
+                rendered_fields=rendered_fields,
+            )
 
         if processed is None:
             # Requirements not met - return empty content with empty frontmatter

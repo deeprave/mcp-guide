@@ -40,7 +40,6 @@ from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render import render_template
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext, keyword_context
-from mcp_guide.render.document_properties import DocumentProperties
 from mcp_guide.render.template import collect_interactive_document_properties
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
@@ -581,12 +580,6 @@ async def _execute_command(
             f"Command '{command_path}' not found",
             error_type=ERROR_NOT_FOUND,
             disposition=AGENT_ERROR,
-        )
-
-    if interactive_properties is not None and interactive_properties.delivery_properties is not None:
-        assert rendered.properties is not None
-        rendered.properties = DocumentProperties.combine(
-            (rendered.properties, interactive_properties.delivery_properties)
         )
 
     # Check for application-level errors signaled via {{#_error}} lambda
