@@ -1596,9 +1596,9 @@ Your Mustache template content here...
 <h2 id="elicitation">Elicitation<a class="headerlink" href="#elicitation" title="Permanent link">&para;</a></h2>
 <p>Commands use the shared elicitation contract. See <a href="../authoring-elicitation/">Elicitation Authoring</a>
 for the complete declaration reference, branching behaviour, protocol differences, and examples.
-Commands may additionally use the command-only <code>source: workflow-phases</code> property marker described
-there; Guide resolves it from the active workflow before asking the client. Do not use that marker
-in skill frontmatter.</p>
+Commands and skills may fill a form property's choices from project state with <code>source</code>
+(<code>workflow-phases</code>, <code>project-categories</code>, <code>project-collections</code>), described there. Shipped
+category and collection commands include the <code>_choose-category</code> and <code>_choose-collection</code> partials.</p>
 <h2 id="template-context">Template Context<a class="headerlink" href="#template-context" title="Permanent link">&para;</a></h2>
 <p>Commands have access to these template variables:</p>
 <h3 id="command-data">Command Data<a class="headerlink" href="#command-data" title="Permanent link">&para;</a></h3>

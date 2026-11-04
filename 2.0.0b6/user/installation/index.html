@@ -1749,8 +1749,7 @@ It requires uv, Python 3.13+ to be installed, and the "uvx" command to be availa
 server process working directory. HTTP, container, and desktop hosts must not treat
 server <code>getcwd()</code> as the client filesystem. A CLI agent that starts a local stdio
 server from the project directory may opt in with <code>--use-pwd</code> or
-<code>MG_USE_PWD=1</code>, but this shortcut additionally requires already verified filesystem
-sharing. It cannot replace the first absolute-root binding after server startup.
+<code>MG_USE_PWD=1</code> (stdio only) to bind from <code>PWD</code> without a <code>set_project</code> call.
 Guide still does not use MCP roots for binding.</p>
 <p>When the interaction is not already bound, the agent must call <code>set_project</code> with the
 absolute client filesystem path of the project root:</p>
@@ -1784,7 +1783,7 @@ verification</a>.</p>
 <span class="p">}</span>
 </code></pre></div>
 
-<p>Once connected, the agent should call <code>set_project</code> with the absolute client project path. The optional stdio <code>PWD</code> shortcut requires both <code>MG_USE_PWD</code> and already verified filesystem sharing. After binding, <code>guide://</code> URIs become the primary way to access content and commands — see <a href="../guide-uris/">Guide URIs</a> for details.</p>
+<p>Once connected, the agent should call <code>set_project</code> with the absolute client project path. The optional <code>--use-pwd</code> / <code>MG_USE_PWD</code> shortcut (stdio only) can skip this call. After binding, <code>guide://</code> URIs become the primary way to access content and commands — see <a href="../guide-uris/">Guide URIs</a> for details.</p>
 <h3 id="streamable-http">Streamable HTTP<a class="headerlink" href="#streamable-http" title="Permanent link">&para;</a></h3>
 <h4 id="http-transport">HTTP transport<a class="headerlink" href="#http-transport" title="Permanent link">&para;</a></h4>
 <p>MCP client configuration (HTTP):</p>

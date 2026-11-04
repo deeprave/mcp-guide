@@ -1384,8 +1384,27 @@ always disable shorthand and never send a probe, including localhost HTTP and
 container or remote servers. Their roots are normalised lexically without server
 symlink resolution. Resolve shorthand on the client and submit an absolute path.</p>
 <p>Server-owned configuration paths and docroot retain ordinary server-side expansion.
-The optional inherited-<code>PWD</code> bootstrap additionally requires already verified stdio
-sharing, so it cannot replace the first explicit binding after server startup.</p>
+The optional inherited-<code>PWD</code> bootstrap (<code>--use-pwd</code> or <code>MG_USE_PWD=1</code>) binds the first
+unbound interaction, on legacy and <code>2026-07-28</code> connections alike, without a <code>set_project</code> call. Guide
+treats the client filesystem as shared at startup, and skips the sharing probe, only when
+all of the following hold:</p>
+<ul>
+<li>the opt-in is set;</li>
+<li>the transport is stdio (it never applies to HTTP or HTTPS);</li>
+<li><code>PWD</code> is set, absolute, and an existing directory on the server; and</li>
+<li>that directory is the same directory as the server's working directory, compared by
+  identity so that a symlinked <code>PWD</code> still matches.</li>
+</ul>
+<p>If any condition fails the shortcut stays off: Guide leaves sharing unverified, the agent
+binds with <code>set_project</code>, and the normal probe applies. Because the shared state also
+enables relative roots, <code>~</code>, <code>~user</code> and <code>$VAR</code> expansion, opting in is a statement that
+the client and server share a filesystem.</p>
+<p>A matching <code>PWD</code> is strong but not conclusive evidence: <code>PWD</code> and the working directory are
+both inherited from the same launch, so a server started through <code>docker run -i</code> or
+<code>ssh host mcp-guide</code> can satisfy every condition while running on a different host from the
+client. The opt-in is the user's deliberate choice, made for launches where the client starts
+Guide in the project directory on its own machine; where that is not true, leave it off and
+bind with <code>set_project</code>.</p>
 <p>A different selection creates a fresh internal Session under the same public
 <code>session_id</code>; it does not reconnect the client. Selecting the current name and
 root is a no-op unless a previous Session is still expiring.</p>

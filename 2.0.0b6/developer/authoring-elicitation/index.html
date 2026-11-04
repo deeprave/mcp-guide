@@ -911,10 +911,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#command-only-dynamic-sources" class="md-nav__link">
+  <a href="#dynamic-choice-sources" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Command-only dynamic sources
+        Dynamic choice sources
       
     </span>
   </a>
@@ -967,6 +967,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Protocol behaviour and continuation state">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#client-behaviour-to-expect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client behaviour to expect
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1187,10 +1204,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#command-only-dynamic-sources" class="md-nav__link">
+  <a href="#dynamic-choice-sources" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Command-only dynamic sources
+        Dynamic choice sources
       
     </span>
   </a>
@@ -1243,6 +1260,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Protocol behaviour and continuation state">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#client-behaviour-to-expect" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Client behaviour to expect
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1314,15 +1348,67 @@ non-empty <code>message</code> and an object JSON Schema with a non-empty <code>
 
 <p>Supported property types are <code>string</code>, <code>integer</code>, <code>number</code>, and <code>boolean</code>. <code>enum</code> values and
 defaults must use the declared primitive type. <code>required</code> must name properties in that same form.
-The MCP client receives the schema unchanged, apart from command-only dynamic properties described
-below, so descriptive property metadata such as a title or description may improve the UI when the
-client supports it.</p>
-<h3 id="command-only-dynamic-sources">Command-only dynamic sources<a class="headerlink" href="#command-only-dynamic-sources" title="Permanent link">&para;</a></h3>
-<p>Commands may use <code>source: workflow-phases</code> on a string property to derive an enum from the enabled
-workflow phases before the form is delivered. The active phase is omitted from an interactive choice,
-while an explicit positional or URI phase remains available for normal command validation. Guide
-removes this command-only <code>source</code> marker before delivery. Skills do not perform command
-specialisation and therefore must not use it.</p>
+Guide sends clients only the MCP form-schema subset: <code>type</code>, <code>properties</code> and <code>required</code> (and
+<code>$schema</code>) at the top level, and <code>type</code>, <code>enum</code>, <code>description</code>, <code>default</code>, <code>minimum</code>, <code>maximum</code> and
+<code>pattern</code> on each property. Other keys, including <code>title</code>, are dropped on both protocol generations
+because strict clients reject them; Guide logs one warning per form naming any dropped keys (for
+example <code>maxLength</code> or <code>format</code>), so a constraint that is not enforced is visible to the author. Use
+<code>description</code> to help the user understand a field.
+Dynamic properties, described below, are filled by Guide for commands and skills.</p>
+<h3 id="dynamic-choice-sources">Dynamic choice sources<a class="headerlink" href="#dynamic-choice-sources" title="Permanent link">&para;</a></h3>
+<p>Commands and skills may mark a string property with <code>source</code> to derive its <code>enum</code> from the bound
+project before the form is delivered. Guide removes the marker, so the client receives an ordinary
+<code>enum</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>Choices</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>workflow-phases</code></td>
+<td>The enabled workflow phases, omitting the active phase.</td>
+</tr>
+<tr>
+<td><code>project-categories</code></td>
+<td>The names of the project's categories.</td>
+</tr>
+<tr>
+<td><code>project-collections</code></td>
+<td>The names of the project's collections.</td>
+</tr>
+</tbody>
+</table>
+<div class="codehilite"><pre><span></span><code><span class="nt">elicitation</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">choose-category</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">message</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Choose a category from this project.</span>
+<span class="w">    </span><span class="nt">fallback</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">render</span>
+<span class="w">    </span><span class="nt">schema</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">object</span>
+<span class="w">      </span><span class="nt">properties</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">{</span><span class="nt">type</span><span class="p">:</span><span class="w"> </span><span class="nv">string</span><span class="p p-Indicator">,</span><span class="nt"> source</span><span class="p">:</span><span class="w"> </span><span class="nv">project-categories</span><span class="p p-Indicator">}</span>
+<span class="w">      </span><span class="nt">required</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">name</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+
+<p>A form is omitted, rather than requested, when a positional argument or keyword already supplies its
+value, or when its source has no choices (for example a project without collections). The command or
+skill then applies its own validation, so a missing name is reported as it would be without a form.
+An unrecognised <code>source</code> is logged and its marker removed; a static <code>enum</code> declared on the same
+property is still sent to the client, so omit it if the property should be free text.</p>
+<p>Shipped commands share the <code>_partials/_choose-category</code> and <code>_partials/_choose-collection</code> partials.
+Because a partial's form identifier and field names must be unique within an entrypoint, those forms
+use the field <code>name</code>; a command lists the partial in <code>includes</code> and reads the answer from
+<code>kwargs.name</code> when no positional argument was supplied:</p>
+<div class="codehilite"><pre><span></span><code><span class="p">{{</span><span class="c1">#args.0.value}}Use the {{tool_prefix}}category_collection_remove tool with type: 'category' and name: '{{args.0.value}}'{{/args.0.value}}</span>
+<span class="p">{{</span><span class="o">^</span><span class="n">args</span><span class="o">.</span><span class="mf">0.</span><span class="n">value</span><span class="p">}}{{</span><span class="c1">#kwargs.name}}Use the {{tool_prefix}}category_collection_remove tool with type: 'category' and name: '{{kwargs.name}}'{{/kwargs.name}}{{/args.0.value}}</span>
+</code></pre></div>
+
+<p>Sources read the template context built for the current request and are resolved on every
+request, including each continuation on the modern protocol. They therefore reflect the
+configuration at that moment; a name that no longer exists is rejected by the command's own
+validation.</p>
 <p>An <code>enum</code> is the portable way to express a simple choice. A client may display it as a select,
 radio group, or another suitable control; the precise visual presentation is client-specific and is
 not a Guide contract. A free-text string remains a text field.</p>
@@ -1374,9 +1460,16 @@ internal marker is <code>defaulted_forms</code>, not <code>defaulted</code>.</p>
 </code></pre></div>
 
 <p>Alternatively, <code>fallback: render</code> lets the entrypoint render without unresolved values when it can
-obtain the missing information in its own instructions. An explicit decline remains a decline; it
-does not silently apply defaults. Without a complete default or <code>fallback: render</code>, Guide returns
-a validation failure naming the URI keywords the caller must supply.</p>
+obtain the missing information in its own instructions. A cancelled form uses its defaults when
+they are complete, otherwise the render fallback. A declined form with <code>fallback: render</code> also
+renders, but never applies defaults; some clients (for example Claude Code on MCP 2026-07-28)
+decline an input request automatically without showing a form, so the entrypoint must carry its
+own instructions for asking the user. A declined form without <code>fallback: render</code> remains a
+failure. On the legacy path, a request the client leaves unanswered for the response timeout
+(currently 120 seconds, from <code>elicitation_timeout_seconds()</code>) is treated like a decline: it renders
+the <code>fallback: render</code> path, or fails without one, and never applies defaults, because nobody chose
+them. Without a complete default or <code>fallback: render</code>, Guide returns a validation failure
+naming the URI keywords the caller must supply.</p>
 <h2 id="branches-and-matching">Branches and matching<a class="headerlink" href="#branches-and-matching" title="Permanent link">&para;</a></h2>
 <p>Use <code>when</code> to create a conditional follow-up form. There is no separate <code>match</code> frontmatter key:
 the <code>when</code> mapping is the match expression. Each key names an effective form property and each
@@ -1442,6 +1535,53 @@ request. A changed or cross-entrypoint state is rejected before its values are u
 <p>This is a framework integrity boundary, not an author-facing encryption feature: authors should
 not place secrets in forms merely because continuation state is sealed. Treat all accepted values as
 ordinary user input and use only the declared, validated primitive fields.</p>
+<h3 id="client-behaviour-to-expect">Client behaviour to expect<a class="headerlink" href="#client-behaviour-to-expect" title="Permanent link">&para;</a></h3>
+<p>Observed results below come from manual runs against each client during the <code>fix-elicitation-forms</code> change.
+Entries marked <em>not yet verified</em> have not been observed; do not rely on them.</p>
+<table>
+<thead>
+<tr>
+<th>Client</th>
+<th>Protocol</th>
+<th>Observed behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cursor</td>
+<td>legacy (2025-11-25)</td>
+<td>Shows the form and returns the answer; the command then runs. One earlier run never answered and the cause is unexplained.</td>
+</tr>
+<tr>
+<td>Codex</td>
+<td>legacy (2025-06-18)</td>
+<td>Shows the form once MCP elicitations are enabled in its approval policy (<code>mcp_elicitations = true</code>) and Guide sends only the form-schema subset. Before the schema fix it cancelled instantly. Codex CLI is <em>not yet verified</em>.</td>
+</tr>
+<tr>
+<td>Claude Code</td>
+<td>2026-07-28</td>
+<td>Declines agent-initiated tool and resource calls without showing a form. A user-initiated prompt shows the form, and the answer completes the command.</td>
+</tr>
+<tr>
+<td>Claude Desktop</td>
+<td>2026-07-28</td>
+<td>Declines agent-initiated calls without showing a form (the user sees the fallback list). The prompt route is <em>not yet verified</em>: the composer rejects <code>_</code> and <code>:</code> command text and a prompt needs a bound <code>session_id</code>.</td>
+</tr>
+<tr>
+<td>Antigravity (IDE and CLI)</td>
+<td>2026-07-28</td>
+<td>Both share one client (<code>antigravity-client v1.0.0</code>) and cancel <code>input_required</code> immediately without showing a form. The agent builds the choice list from the fallback guidance.</td>
+</tr>
+</tbody>
+</table>
+<p>General rules that follow from these results:</p>
+<ul>
+<li>Guide sends only <code>type</code>, <code>properties</code> and <code>required</code> at the top level of a form schema, and no
+  generated <code>title</code> on properties. Strict clients such as Codex reject any other key and cancel the
+  request without showing a form.</li>
+<li>A declined, cancelled or unanswered form falls through to <code>fallback: render</code>, so the entrypoint must
+  carry its own instructions for asking the user.</li>
+</ul>
 <h2 id="rendering-accepted-values">Rendering accepted values<a class="headerlink" href="#rendering-accepted-values" title="Permanent link">&para;</a></h2>
 <p>Accepted and normalised values are merged with command or skill keyword context. Use the ordinary
 Mustache keyword paths for the entrypoint type, for example:</p>
