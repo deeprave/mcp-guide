@@ -34,6 +34,7 @@ from mcp_guide.discovery.files import FileInfo, discover_document_files
 from mcp_guide.elicitation import resolve_elicitations
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.filesystem.read_write_security import SecurityError, normalise_export_destination
+from mcp_guide.input_sources import prepare_form_sources
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render import render_template
@@ -57,7 +58,6 @@ from mcp_guide.result_constants import (
 from mcp_guide.runtime import RequestContext
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.uri_parser import parse_query_kwargs
-from mcp_guide.workflow.command_input import prepare_command_input
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
@@ -508,7 +508,7 @@ async def _execute_command(
                 disposition=AGENT_ERROR,
             )
         forms = interactive_properties.elicitation.forms
-        forms = prepare_command_input(forms, command_context, args, kwargs)
+        forms = prepare_form_sources(forms, command_context, args, kwargs)
         resolved_kwargs = await resolve_elicitations(
             {"elicitation": forms},
             kwargs,
@@ -788,11 +788,17 @@ async def guide(
             break
         argv.append(arg)
 
+    logger.debug(
+        "Prompt %s invoked: %d argument(s), lengths=%s", prompt_name, len(argv) - 1, [len(a) for a in argv[1:]]
+    )
+
     # Route request
     result = await _route_guide_request(argv, request_context, mcp_context)
 
     if isinstance(result, InputRequiredResult):
+        logger.debug("Prompt %s returned input_required", prompt_name)
         return result
+    logger.debug("Prompt %s completed: success=%s", prompt_name, getattr(result, "success", None))
 
     # Process result through the task manager
     from mcp_guide.tools.tool_result import prompt_result

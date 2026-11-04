@@ -73,3 +73,18 @@ def test_form_only_partial_does_not_override_another_explicit_cache_policy() -> 
     )
 
     assert delivery.cache_policy == CachePolicy.parse("short, private")[0]
+
+
+def test_source_on_a_non_string_property_has_a_composition_diagnostic() -> None:
+    """Dynamic choices are text, so a source on any other property type is an authoring error."""
+    command = DocumentProperties.from_frontmatter(
+        {"elicitation": {"target": {"schema": {"properties": {"count": {"type": "integer", "source": "x"}}}}}},
+        source="count command",
+    )
+
+    combined = DocumentProperties.combine([command]).get(DocumentElicitation)
+
+    assert combined.diagnostic is not None
+    assert "count" in combined.diagnostic
+    assert "count command" in combined.diagnostic
+    assert combined.forms == {}

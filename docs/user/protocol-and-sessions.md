@@ -134,8 +134,28 @@ container or remote servers. Their roots are normalised lexically without server
 symlink resolution. Resolve shorthand on the client and submit an absolute path.
 
 Server-owned configuration paths and docroot retain ordinary server-side expansion.
-The optional inherited-`PWD` bootstrap additionally requires already verified stdio
-sharing, so it cannot replace the first explicit binding after server startup.
+The optional inherited-`PWD` bootstrap (`--use-pwd` or `MG_USE_PWD=1`) binds the first
+unbound interaction, on legacy and `2026-07-28` connections alike, without a `set_project` call. Guide
+treats the client filesystem as shared at startup, and skips the sharing probe, only when
+all of the following hold:
+
+- the opt-in is set;
+- the transport is stdio (it never applies to HTTP or HTTPS);
+- `PWD` is set, absolute, and an existing directory on the server; and
+- that directory is the same directory as the server's working directory, compared by
+  identity so that a symlinked `PWD` still matches.
+
+If any condition fails the shortcut stays off: Guide leaves sharing unverified, the agent
+binds with `set_project`, and the normal probe applies. Because the shared state also
+enables relative roots, `~`, `~user` and `$VAR` expansion, opting in is a statement that
+the client and server share a filesystem.
+
+A matching `PWD` is strong but not conclusive evidence: `PWD` and the working directory are
+both inherited from the same launch, so a server started through `docker run -i` or
+`ssh host mcp-guide` can satisfy every condition while running on a different host from the
+client. The opt-in is the user's deliberate choice, made for launches where the client starts
+Guide in the project directory on its own machine; where that is not true, leave it off and
+bind with `set_project`.
 
 A different selection creates a fresh internal Session under the same public
 `session_id`; it does not reconnect the client. Selecting the current name and

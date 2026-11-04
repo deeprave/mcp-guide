@@ -27,6 +27,7 @@ from mcp_guide.discovery.files import discover_document_files
 from mcp_guide.elicitation import resolve_elicitations
 from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
 from mcp_guide.feature_flags.validators import is_value_true
+from mcp_guide.input_sources import prepare_form_sources
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render.cache import get_template_contexts
@@ -340,8 +341,11 @@ async def _read_guide_skill(
                 return Result.failure("\n".join(interactive_properties.errors), error_type=ERROR_VALIDATION)
             if interactive_properties.elicitation.diagnostic:
                 return Result.failure(interactive_properties.elicitation.diagnostic, error_type=ERROR_VALIDATION)
+            forms = prepare_form_sources(
+                interactive_properties.elicitation.forms, template_context, (), rendered_kwargs
+            )
             resolved_kwargs = await resolve_elicitations(
-                {"elicitation": interactive_properties.elicitation.forms},
+                {"elicitation": forms},
                 rendered_kwargs,
                 mcp_context,
                 entrypoint=f"skill:{skill_path}",

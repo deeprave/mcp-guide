@@ -148,6 +148,17 @@ class DocumentElicitation(DocumentProperty):
                         f"elicitation field '{field_name}' is declared by both {field_sources[field_name]} and {source}"
                     )
                     continue
+                unsupported_source = sorted(
+                    cast(str, field)
+                    for field, definition in raw_fields.items()
+                    if isinstance(definition, Mapping) and "source" in definition and definition.get("type") != "string"
+                )
+                if unsupported_source:
+                    diagnostics.append(
+                        f"elicitation field '{unsupported_source[0]}' in {source} declares a source "
+                        "but is not a string property"
+                    )
+                    continue
                 field_sources.update({cast(str, field): source for field in raw_fields})
                 forms[identifier] = form
                 form_sources[identifier] = source

@@ -9,9 +9,12 @@ argrequired:
   - new-categories
   - new-description
 category: project-collections
+includes:
+  - ../../_partials/choose-collection
 ---
 {{#args.0.value}}
-Use the collection_change tool with:
+Use the {{tool_prefix}}category_collection_change tool with:
+type: 'collection'
 name: '{{args.0.value}}'
 {{#kwargs.new_name}}
 new_name: '{{kwargs.new_name}}'
@@ -24,9 +27,25 @@ new_description: '{{kwargs.new_description}}'
 {{/kwargs.new_description}}
 {{/args.0.value}}
 {{^args.0.value}}
-{{#_error}}Missing required argument: name{{/_error}}
+{{#kwargs.name}}
+Use the {{tool_prefix}}category_collection_change tool with:
+type: 'collection'
+name: '{{kwargs.name}}'
+{{#kwargs.new_name}}
+new_name: '{{kwargs.new_name}}'
+{{/kwargs.new_name}}
+{{#kwargs.new_categories}}
+new_categories: {{kwargs.new_categories}}
+{{/kwargs.new_categories}}
+{{#kwargs.new_description}}
+new_description: '{{kwargs.new_description}}'
+{{/kwargs.new_description}}
+{{/kwargs.name}}
+{{^kwargs.name}}
+{{#_error}}Missing required argument: name. Available collections: {{#project.collections}}`{{name}}`{{^.last}}, {{/.last}}{{/project.collections}}{{^project.collections}}none configured{{/project.collections}}.{{/_error}}
 
 {{b}}Usage:{{b}} `{{#command}}project/collection/change{{/command}} <name> [--new-name=<name>] [--new-categories=<categories>] [--new-description=<text>]`
 
 {{b}}Example:{{b}} `{{#command}}project/collection/change{{/command}}{{#command-args}}my-collection{{/command-args}}{{#command-flags}}new-name=renamed,new-categories=docs,guide,lang{{/command-flags}}`
+{{/kwargs.name}}
 {{/args.0.value}}

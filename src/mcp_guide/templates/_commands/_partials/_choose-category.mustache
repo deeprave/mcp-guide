@@ -1,0 +1,14 @@
+---
+elicitation:
+  choose-category:
+    message: Choose a category from this project.
+    fallback: render
+    schema:
+      type: object
+      properties:
+        name:
+          type: string
+          description: A category configured for this project.
+          source: project-categories
+      required: [name]
+---

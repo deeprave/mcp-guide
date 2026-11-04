@@ -88,9 +88,9 @@ When a flag is declared in `argrequired`:
 
 Commands use the shared elicitation contract. See [Elicitation Authoring](authoring-elicitation.md)
 for the complete declaration reference, branching behaviour, protocol differences, and examples.
-Commands may additionally use the command-only `source: workflow-phases` property marker described
-there; Guide resolves it from the active workflow before asking the client. Do not use that marker
-in skill frontmatter.
+Commands and skills may fill a form property's choices from project state with `source`
+(`workflow-phases`, `project-categories`, `project-collections`), described there. Shipped
+category and collection commands include the `_choose-category` and `_choose-collection` partials.
 
 ## Template Context
 

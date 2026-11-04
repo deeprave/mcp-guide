@@ -1,11 +1,13 @@
 """Behaviour tests for frontmatter-declared skill input forms."""
 
+import json
+import logging
 from types import SimpleNamespace
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from fastmcp import Context
-from fastmcp.server.elicitation import AcceptedElicitation, CancelledElicitation
+from fastmcp.server.elicitation import AcceptedElicitation, CancelledElicitation, DeclinedElicitation
 from mcp_types import InputRequiredResult
 
 from mcp_guide.elicitation import _legacy_model, parse_elicitations, resolve_elicitations
@@ -26,6 +28,21 @@ def modern_elicitation_context():
         if request_state is not ...:
             values["request_state"] = request_state
         return cast(Context, SimpleNamespace(**values))
+
+    return build
+
+
+@pytest.fixture
+def legacy_elicitation_context():
+    """Build isolated legacy-MCP contexts whose client answers through the supplied coroutine."""
+    session = SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={})))
+    request_context = SimpleNamespace(protocol_version="2025-11-25")
+
+    def build(elicit):
+        return cast(
+            Context,
+            SimpleNamespace(session=session, input_responses=None, request_context=request_context, elicit=elicit),
+        )
 
     return build
 
@@ -134,6 +151,100 @@ def test_legacy_model_preserves_enum_bounds_and_help_metadata() -> None:
     assert schema["properties"]["attempts"]["description"] == "Number of attempts."
     with pytest.raises(Exception):
         model(attempts=4)
+
+
+def test_single_value_enum_reaches_legacy_clients_as_an_enum_not_a_const() -> None:
+    """Strict clients accept only ``enum``, so a project with one choice must not emit ``const``."""
+    parsed = parse_elicitations(
+        {
+            "elicitation": {
+                "choose": {
+                    "message": "Choose.",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string", "enum": ["only"]}},
+                        "required": ["name"],
+                    },
+                }
+            }
+        }
+    )
+
+    assert isinstance(parsed, tuple)
+    property_schema = _legacy_model(parsed[0]).model_json_schema()["properties"]["name"]
+    assert property_schema == {"enum": ["only"], "type": "string"}
+
+
+def test_legacy_null_for_an_optional_property_means_not_answered() -> None:
+    """A client may answer ``null`` for a skipped optional field; a required field still rejects it."""
+    parsed = parse_elicitations(
+        {
+            "elicitation": {
+                "options": {
+                    "message": "Configure.",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"label": {"type": "string"}, "note": {"type": "string"}},
+                        "required": ["label"],
+                    },
+                }
+            }
+        }
+    )
+
+    assert isinstance(parsed, tuple)
+    model = _legacy_model(parsed[0])
+    assert model.model_validate({"label": "x", "note": None}).model_dump() == {"label": "x", "note": None}
+    assert "anyOf" not in json.dumps(model.model_json_schema())
+    with pytest.raises(Exception):
+        model.model_validate({"label": None})
+
+
+def test_unsupported_property_keys_are_reported_once_per_form_without_their_values(caplog) -> None:
+    """Dropped constraints are named in a single warning so authors notice them; values stay out of the log."""
+    frontmatter = {
+        "elicitation": {
+            "details": {
+                "message": "Details.",
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "title": {"type": "string", "maxLength": 40, "format": "secret-format"},
+                        "kind": {"type": "string", "minLength": 2},
+                        "plain": {"type": "string"},
+                    },
+                },
+            }
+        }
+    }
+
+    with caplog.at_level(logging.WARNING, logger="mcp_guide.elicitation"):
+        parsed = parse_elicitations(frontmatter)
+
+    assert isinstance(parsed, tuple)
+    warnings = [record.getMessage() for record in caplog.records if record.levelno == logging.WARNING]
+    assert len(warnings) == 1
+    assert all(name in warnings[0] for name in ("details", "title", "maxLength", "format", "kind", "minLength"))
+    assert "plain" not in warnings[0]
+    assert "secret-format" not in warnings[0]
+    assert all(key not in parsed[0].schema["properties"]["title"] for key in ("maxLength", "format"))
+
+
+def test_form_with_only_supported_keys_logs_no_warning(caplog) -> None:
+    """Nothing is reported when every declared key is sent to clients."""
+    frontmatter = {
+        "elicitation": {
+            "ok": {
+                "message": "Fine.",
+                "schema": {"type": "object", "properties": {"name": {"type": "string", "description": "A name."}}},
+            }
+        }
+    }
+
+    with caplog.at_level(logging.WARNING, logger="mcp_guide.elicitation"):
+        parse_elicitations(frontmatter)
+
+    assert caplog.records == []
 
 
 def test_string_pattern_is_exposed_to_legacy_clients_and_rejects_invalid_values() -> None:
@@ -573,6 +684,32 @@ async def test_declined_form_does_not_apply_schema_defaults() -> None:
     )
 
     assert getattr(result, "success", None) is False
+
+
+@pytest.mark.anyio
+async def test_legacy_unanswered_form_renders_fallback_instead_of_applying_defaults(
+    legacy_elicitation_context, monkeypatch
+) -> None:
+    """An unattended timeout must not present a schema default as though the user had chosen it."""
+    monkeypatch.setattr("mcp_guide.elicitation.elicitation_timeout_seconds", lambda: 0.05)
+    frontmatter = {
+        "elicitation": {
+            "review-target": {
+                "message": "Choose the target for this code review.",
+                "fallback": "render",
+                "schema": {
+                    "type": "object",
+                    "properties": {"mode": {"type": "string", "default": "uncommitted"}},
+                    "required": ["mode"],
+                },
+            }
+        }
+    }
+
+    result = await resolve_elicitations(frontmatter, {}, legacy_elicitation_context(_never_answer))
+
+    assert result == {}
+    assert result.defaulted_forms == {"review-target"}
 
 
 @pytest.mark.anyio
@@ -1394,3 +1531,131 @@ async def test_legacy_optional_boolean_may_be_omitted() -> None:
     )
 
     assert result == {"name": "value"}
+
+
+_OPTIONAL_DEFAULT_FORM = {
+    "elicitation": {
+        "choice": {
+            "message": "Choose.",
+            "schema": {
+                "type": "object",
+                "properties": {"name": {"type": "string"}, "note": {"type": "string", "default": "fallback"}},
+                "required": ["name"],
+            },
+        }
+    }
+}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("content", [{"name": "value"}, {"name": "value", "note": None}])
+async def test_skipped_optional_field_takes_its_default_on_both_protocols(
+    content, modern_elicitation_context, legacy_elicitation_context
+) -> None:
+    """A skipped optional field with a declared default resolves identically on legacy and modern connections."""
+
+    async def accept(_message: str, model: object) -> AcceptedElicitation[object]:
+        return AcceptedElicitation(data=cast(Any, model)(**content))
+
+    legacy = await resolve_elicitations(_OPTIONAL_DEFAULT_FORM, {}, legacy_elicitation_context(accept))
+    modern = await resolve_elicitations(
+        _OPTIONAL_DEFAULT_FORM,
+        {},
+        modern_elicitation_context(input_responses={"choice": SimpleNamespace(action="accept", content=content)}),
+    )
+
+    assert legacy == modern == {"name": "value", "note": "fallback"}
+
+
+def _review_target_frontmatter(properties: dict) -> dict:
+    return {
+        "elicitation": {
+            "review-target": {
+                "message": "Choose the target for this code review.",
+                "schema": {"type": "object", "properties": properties, "required": ["mode"]},
+            }
+        }
+    }
+
+
+@pytest.mark.anyio
+async def test_modern_request_and_decline_emit_diagnostics(modern_elicitation_context, caplog) -> None:
+    """The input request and the client's decline are handled, and leave debug records for diagnosis."""
+    frontmatter = _review_target_frontmatter({"mode": {"type": "string", "enum": ["uncommitted", "main"]}})
+
+    with caplog.at_level(logging.DEBUG, logger="mcp_guide.elicitation"):
+        requested = await resolve_elicitations(frontmatter, {}, modern_elicitation_context(), entrypoint="skill:demo")
+        assert isinstance(requested, InputRequiredResult)
+        assert set(requested.input_requests) == {"review-target"}
+        caplog.clear()
+        declined = await resolve_elicitations(
+            frontmatter,
+            {},
+            modern_elicitation_context(
+                input_responses={"review-target": SimpleNamespace(action="decline", content=None)},
+                request_state=requested.request_state,
+            ),
+            entrypoint="skill:demo",
+        )
+
+    assert getattr(declined, "success", None) is False
+    assert any(record.levelno == logging.DEBUG and record.name == "mcp_guide.elicitation" for record in caplog.records)
+
+
+@pytest.mark.anyio
+async def test_diagnostics_never_log_what_the_user_entered(modern_elicitation_context, caplog) -> None:
+    """Even at the most verbose level, logs describe answers by field and length, not content."""
+    frontmatter = _review_target_frontmatter({"mode": {"type": "string"}})
+    entered = "confidential-branch-name"
+
+    with caplog.at_level(5, logger="mcp_guide.elicitation"):
+        requested = await resolve_elicitations(frontmatter, {}, modern_elicitation_context(), entrypoint="skill:demo")
+        assert isinstance(requested, InputRequiredResult)
+        resolved = await resolve_elicitations(
+            frontmatter,
+            {},
+            modern_elicitation_context(
+                input_responses={"review-target": SimpleNamespace(action="accept", content={"mode": entered})},
+                request_state=requested.request_state,
+            ),
+            entrypoint="skill:demo",
+        )
+
+    assert resolved == {"mode": entered}
+    assert caplog.records
+    assert entered not in caplog.text
+
+
+async def _decline(*_args: object) -> DeclinedElicitation:
+    return DeclinedElicitation()
+
+
+async def _never_answer(*_args: object) -> None:
+    import anyio
+
+    await anyio.sleep(30)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("answer", [_decline, _never_answer], ids=["declined", "unanswered"])
+async def test_legacy_form_without_render_fallback_fails_when_not_answered(
+    legacy_elicitation_context, monkeypatch, answer
+) -> None:
+    """A declined or unanswered legacy request is a failure unless the form opts into a render fallback."""
+    monkeypatch.setattr("mcp_guide.elicitation.elicitation_timeout_seconds", lambda: 0.05)
+    frontmatter = {
+        "elicitation": {
+            "review-target": {
+                "message": "Choose the target for this code review.",
+                "schema": {
+                    "type": "object",
+                    "properties": {"mode": {"type": "string"}},
+                    "required": ["mode"],
+                },
+            }
+        }
+    }
+
+    result = await resolve_elicitations(frontmatter, {}, legacy_elicitation_context(answer))
+
+    assert getattr(result, "success", None) is False

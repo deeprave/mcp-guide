@@ -11,8 +11,8 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import get_prompt_name
 from mcp_guide.core.tool_decorator import get_tool_prefix
 from mcp_guide.feature_flags.constants import FLAG_COMMAND, FLAG_RESOURCE
+from mcp_guide.input_sources import workflow_phase_names
 from mcp_guide.render.recommendations import Recommendation, parse_recommendation
-from mcp_guide.workflow.command_input import workflow_phase_names
 
 logger = get_logger(__name__)
 _MISSING = object()
