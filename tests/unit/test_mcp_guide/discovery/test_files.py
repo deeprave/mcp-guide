@@ -71,11 +71,14 @@ class TestFileInfoContent:
         assert fi.size == len("# From loader")
 
     @pytest.mark.anyio
-    async def test_directory_not_found(self):
-        """Test that missing directory raises FileNotFoundError."""
-        non_existent = Path("/non/existent/directory")
-        with pytest.raises(FileNotFoundError):
-            await discover_document_files(non_existent, ["*.txt"])
+    async def test_missing_or_non_directory_returns_empty_result(self, tmp_path):
+        """Filesystem discovery treats unavailable category paths as empty."""
+        missing = tmp_path / "missing"
+        path_file = tmp_path / "not-a-directory"
+        path_file.write_text("content")
+
+        assert await discover_document_files(missing, ["*.txt"]) == []
+        assert await discover_document_files(path_file, ["*.txt"]) == []
 
 
 class TestDocumentDiscoveryBasics:
@@ -371,6 +374,21 @@ async def test_stored_discovery_filters_loads_and_combines_real_sources(tmp_path
         ("readme.md", "store"),
         ("readme.md.mustache", "store"),
     }
+
+
+@pytest.mark.anyio
+async def test_missing_directory_does_not_prevent_store_discovery(tmp_path, monkeypatch):
+    """Combined discovery returns stored documents when a category has no directory."""
+    from mcp_guide.discovery.files import discover_documents
+    from mcp_guide.store.document_store import add_document
+
+    monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: tmp_path / "documents.db")
+    await add_document("store-only", "guide.md", "/client/guide.md", "file", "Stored guide")
+
+    found = await discover_documents(tmp_path / "missing", ["*.md"], category="store-only")
+
+    assert [(item.name, item.source) for item in found] == [("guide.md", "store")]
+    assert await discover_documents(tmp_path / "empty", ["*.md"], category="empty") == []
 
 
 def test_fileinfo_resolve_rechecks_absolute_path_containment(tmp_path) -> None:

@@ -366,14 +366,14 @@ async def discover_document_files(
 
     Raises:
         ValueError: If base_dir is not absolute after resolution
-        FileNotFoundError: If base_dir doesn't exist
     """
     base_dir = LazyPath(base_dir).resolve()
     if not base_dir.is_absolute():
         raise ValueError(f"Base directory must be absolute: {base_dir}")
 
     if not await AsyncPath(base_dir).exists() or not await AsyncPath(base_dir).is_dir():
-        raise FileNotFoundError(f"Base directory not found: {base_dir}")
+        logger.debug("Skipping unavailable document directory: %s", base_dir)
+        return FileInfoList()
 
     # Validate patterns don't include template extensions
     for pattern in patterns:
