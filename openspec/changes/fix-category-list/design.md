@@ -15,7 +15,7 @@ A category defined in configuration and populated through document ingestion nee
 - Stored documents are always consulted.
 
 **Non-Goals:**
-- Changing validation errors (relative base path, template extensions in patterns) or errors on an existing but unreadable directory.
+- Changing validation errors for a relative base path or errors on an existing but unreadable directory.
 - Creating category directories on `category_add`.
 - Restructuring the task group or unwrapping exception groups generally.
 
@@ -23,9 +23,9 @@ A category defined in configuration and populated through document ingestion nee
 
 1. **Fix in `discover_document_files`: return an empty `FileInfoList` when the directory is missing or not a directory.** Every caller, including the task group in `discover_documents` and `category_list_files`, is then correct without special cases. Alternatives: guard in the tool only (leaves content gathering and the task group exposed); add a `missing_dir_ok` flag (every caller would need to opt in, and the task-group path would still need it threaded through). Both rejected in favour of one rule at the source.
 
-2. **Keep the absolute-path check before the existence check.** A relative base path is a programming error, not an absent directory, and keeps raising `ValueError`.
+2. **Keep the absolute-path check before the existence check.** A relative base path is a programming error, not an absent directory, and keeps raising `ValueError`. Pattern validation remains after the availability check because patterns do not matter when no filesystem search can occur.
 
-3. **Log the skip at debug level** so a misconfigured `dir` remains diagnosable without being an error.
+3. **Log the skip at debug level** for diagnostics without treating the cause of an absent path as an error. The system makes no distinction between a store-only category, an empty category whose directory was never created, or any other absent/non-directory category path.
 
 4. **Leave `category_list_files` unchanged apart from tests.** The `source: files` path already calls `discover_document_files`, the default path calls `discover_documents`, and the `stored` path never touched the directory.
 
@@ -33,7 +33,7 @@ A category defined in configuration and populated through document ingestion nee
 
 ## Risks / Trade-offs
 
-- [A mistyped category `dir` now yields an empty listing instead of an error] → Debug log of the skipped directory; `category_list` still shows the configured `dir`. This is the intended behaviour per proposal.
+- [An absent or non-directory category path yields an empty filesystem listing] → Debug log of the skipped path; `category_list` still shows the configured `dir`. This is the intended behaviour regardless of why the path is absent.
 - [Callers that relied on the exception] → Audited:
   - `render/rendering.py` `discover_single_file` already raises its own `FileNotFoundError` when nothing is found, so template lookups still fail clearly.
   - `prompts/guide_prompt.py` already returns "Command not found" for an empty result.

@@ -15,7 +15,7 @@ A missing category directory is not an error and must never be visible to the ca
 - Filesystem discovery (`discover_document_files`) no longer raises when the base directory does not exist or is not a directory. It skips the filesystem search and returns an empty result, as though no files matched.
 - Combined discovery (`discover_documents`) therefore proceeds to the document store regardless of the directory, and returns whatever the store holds for the category. If neither source has anything, the result is empty.
 - `category_list_files` needs no special handling: all three `source` modes return an empty list or the stored documents without error.
-- Existing failures that are real errors (a relative base path, invalid patterns, permission errors on an existing directory) keep raising as before.
+- Existing failures that are real errors (a relative base path and permission errors on an existing directory) keep raising as before. Patterns are irrelevant when the base path is unavailable because no filesystem search occurs.
 - Tests that assert `FileNotFoundError` for a missing base directory are updated to assert the empty result; new tests cover store-only and mixed categories.
 
 ## Capabilities
