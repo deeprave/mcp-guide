@@ -14,8 +14,10 @@ from mcp_guide.feature_flags.types import FeatureValue, RawFeatureValue
 from mcp_guide.feature_flags.validators import is_value_true
 from mcp_guide.openspec.rendering import openspec_template_context, render_openspec_template
 from mcp_guide.openspec.state import OpenSpecState, parse_openspec_state, serialise_openspec_state
+from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
+from mcp_guide.render.functions import TemplateFunctions
 from mcp_guide.runtime import get_runtime
 from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
@@ -324,6 +326,12 @@ class OpenSpecTask(InitialisableMixin):
         if rendered:
             self._project_check_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
 
+    async def _initialisation_guidance(self) -> str:
+        """Return the client-appropriate OpenSpec initialisation reference."""
+        context = await get_template_contexts(self._session)
+        reference = TemplateFunctions(context).resource("_openspec/init")
+        return f"OpenSpec is enabled, but this project is not initialised. Run {reference}."
+
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
         from mcp_guide.task_manager.manager import EventResult
@@ -347,7 +355,7 @@ class OpenSpecTask(InitialisableMixin):
                 if not config_present:
                     return EventResult(
                         result=True,
-                        message="OpenSpec is enabled, but this project is not initialised. Run `guide://_openspec/init`.",
+                        message=await self._initialisation_guidance(),
                     )
                 return EventResult(result=True)
             if path == "openspec/changes":

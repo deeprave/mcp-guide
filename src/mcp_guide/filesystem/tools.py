@@ -218,7 +218,7 @@ async def send_directory_listing(
 
         # Aggregate results
         result = aggregate_event_results(event_results)
-        if result.value:
+        if result.value is not None or result.message is not None:
             return result
 
         return Result.ok(

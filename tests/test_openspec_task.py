@@ -128,11 +128,11 @@ async def test_missing_cli_persists_unavailability_without_followup(openspec_ses
         ([{"name": "config.yaml"}, {"name": "changes", "type": "file"}], None),
         (
             [{"name": "changes", "type": "directory"}],
-            "OpenSpec is enabled, but this project is not initialised. Run `guide://_openspec/init`.",
+            "OpenSpec is enabled, but this project is not initialised. Run guide://_openspec/init.",
         ),
         (
             [{"name": "config.yaml", "type": "directory"}],
-            "OpenSpec is enabled, but this project is not initialised. Run `guide://_openspec/init`.",
+            "OpenSpec is enabled, but this project is not initialised. Run guide://_openspec/init.",
         ),
     ],
     ids=["config-only", "changes-is-ancillary", "missing-config", "config-is-not-file"],

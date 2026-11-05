@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from mcp_guide.task_manager import EventType
+from mcp_guide.task_manager.manager import EventResult
 from mcp_guide.tools.tool_filesystem import (
     SendCommandLocationArgs,
     SendDirectoryListingArgs,
@@ -116,6 +117,30 @@ async def test_filesystem_replies_dispatch_content_and_metadata_to_the_session(r
     assert not denied.success
     assert "Path traversal" in denied.error
     assert len(received) == count
+
+
+@pytest.mark.anyio
+async def test_directory_listing_preserves_task_guidance_message(runtime):
+    runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
+    session = await create_bound_test_session(runtime, "filesystem-message")
+    context = await request_context_for(session)
+
+    class Receiver:
+        def get_name(self):
+            return "FilesystemMessageReceiver"
+
+        async def handle_event(self, event_type, data):
+            return EventResult(result=True, message="Run guide://_openspec/init.")
+
+        async def on_tool(self):
+            pass
+
+    session.task_manager.subscribe(Receiver(), EventType.FS_DIRECTORY)
+    result = await internal_send_directory_listing(SendDirectoryListingArgs(path="openspec", entries=[]), context)
+
+    assert result.success
+    assert result.message == "Run guide://_openspec/init."
+    assert result.value is None
 
 
 @pytest.mark.anyio
