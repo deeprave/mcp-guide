@@ -85,7 +85,10 @@ def resourcefunc(
                         from mcp_guide.mcp_result_adapter import resource_response
                         from mcp_guide.result_constants import make_no_project_result
 
-                        return resource_response(await make_no_project_result())
+                        return resource_response(
+                            await make_no_project_result(),
+                            protocol_type=request_context.session.protocol_type,
+                        )
                     result = await func(
                         *args,
                         request_context=request_context,
