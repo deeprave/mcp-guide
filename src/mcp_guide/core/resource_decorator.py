@@ -48,15 +48,14 @@ def _transport_signature(func: Callable[..., Any]) -> inspect.Signature:
 
 
 def resourcefunc(
-    uri_template: str, description: Optional[str] = None, *, require_session: bool = False
+    uri_template: str, description: Optional[str] = None, *, requires_project: bool = False
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator for deferred resource registration.
 
     Args:
         uri_template: URI template pattern
         description: Resource description
-        require_session: Require an explicit Guide session before resolving request context
-
+        requires_project: Require a project after session resolution
     Returns:
         Decorator function
     """
@@ -76,17 +75,20 @@ def resourcefunc(
                 raise RuntimeError("A resource invocation requires a FastMCP context")
             application_kwargs = dict(kwargs)
             application_kwargs.pop("ctx", None)
-            if require_session and application_kwargs.get("session_id") is None:
-                from mcp_guide.mcp_result_adapter import resource_response
-                from mcp_guide.result_constants import make_no_project_result
-
-                return resource_response(await make_no_project_result())
             if "mcp_context" in inspect.signature(func).parameters:
                 application_kwargs["mcp_context"] = ctx
             try:
                 async with request_context_scope(
                     ctx, application_kwargs.get("session_id"), allow_pwd_bootstrap=True
                 ) as request_context:
+                    if requires_project and not request_context.is_bound:
+                        from mcp_guide.mcp_result_adapter import resource_response
+                        from mcp_guide.result_constants import make_no_project_result
+
+                        return resource_response(
+                            await make_no_project_result(),
+                            protocol_type=request_context.session.protocol_type,
+                        )
                     result = await func(
                         *args,
                         request_context=request_context,

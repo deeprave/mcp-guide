@@ -6,10 +6,8 @@ An opted-in stdio client with a verified shared inherited `PWD` can bootstrap a 
 
 ## What Changes
 
-- Allow an eligible first native Guide resource request to enter the shared request-context bootstrap without weakening the explicit resource-session requirement.
-- Ensure underscore-prefixed command URIs reach the dedicated command resource template instead of a generic content template.
+- Allow an unbound native Guide resource read to enter the same shared request-context bootstrap already used by tools and prompts.
 - Return the resulting session ID through the existing resource response contract so later resource reads can resume it with `?session_id=`.
-- Add one native-resource regression test for the first PWD-bootstrapped request and its returned session ID.
 
 ## Capabilities
 
@@ -25,5 +23,3 @@ None.
 ## Impact
 
 - `src/mcp_guide/core/resource_decorator.py`
-- `src/mcp_guide/resources.py`
-- Native resource integration coverage
