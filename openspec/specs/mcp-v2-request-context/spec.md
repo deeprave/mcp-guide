@@ -223,3 +223,10 @@ is unverified, failed or disabled.
 #### Scenario: Remote transports
 - **WHEN** the transport is HTTP or HTTPS
 - **THEN** the opt-in SHALL NOT establish shared state
+
+#### Scenario: Native resource uses eligible inherited PWD
+- **GIVEN** stdio filesystem sharing has been verified and inherited-PWD bootstrap is enabled
+- **WHEN** a native Guide resource request omits an explicit URI session ID
+- **AND** the inherited `PWD` is an eligible project path
+- **THEN** the request context binds a new Guide Session from that path before the resource evaluates its bound-project requirement
+- **AND** the resource response identifies the resulting session for continuation

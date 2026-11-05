@@ -423,7 +423,8 @@ When a retained handshake-era resource request omits the query variable, the ada
 SHALL use the public FastMCP connection `session_id` as the defined legacy fallback.
 For a modern request, omitting the query variable SHALL not create replacement
 cross-request state; a project-bound resource SHALL return the defined unbound
-guidance unless another defined bootstrap applies.
+guidance unless the request completes the eligible inherited-PWD bootstrap. That
+bootstrap SHALL return its resulting Session ID for later resource URI queries.
 
 #### Scenario: Guide content resource request
 - **WHEN** a client reads a `guide://{collection}/{document}{?session_id}` resource through a negotiated modern request
@@ -452,6 +453,12 @@ guidance unless another defined bootstrap applies.
 - **THEN** the shared resolver SHALL reject it before Session lookup
 - **AND** it SHALL not create a runtime Session entry or include the raw value in a
   user-visible diagnostic
+
+#### Scenario: First resource request uses inherited-PWD bootstrap
+- **GIVEN** stdio inherited-PWD bootstrap is enabled and the shared filesystem conditions are satisfied
+- **WHEN** a client first reads a native `guide://` resource without `session_id`
+- **THEN** the response SHALL succeed using the PWD-bound project
+- **AND** it SHALL return the resulting `session_id` for use unchanged in later resource URI queries
 
 ### Requirement: Resource Application Context Boundary
 Guide URI resource and command handlers SHALL use the resolved RequestContext from
