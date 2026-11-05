@@ -11,31 +11,12 @@ from mcp_guide.task_manager import EventType, TaskActivation
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(
-    "check_kind,event,data,followup",
-    [
-        (
-            "detection",
-            EventType.FS_FILE_CONTENT,
-            {"path": ".openspec-info.json", "content": '{"location": "/usr/bin/openspec", "version": "1.2.3"}'},
-            "project",
-        ),
-        ("project", EventType.FS_DIRECTORY, {"path": "openspec", "files": [{"name": "config.yaml"}]}, None),
-    ],
-    ids=["detection", "project"],
-)
-async def test_responses_acknowledge_requests_and_only_followup_is_retried(
-    runtime, tmp_path, monkeypatch, check_kind, event, data, followup
-):
-    """A delivered response stops its request's retries and advances the OpenSpec check."""
+async def test_version_response_acknowledges_its_request_without_asset_followup(runtime, tmp_path, monkeypatch):
+    """A delivered version response stops retries without a steady-state asset request."""
     docroot = tmp_path / "docs"
     templates = docroot / "_openspec"
     templates.mkdir(parents=True)
-    for name, pattern in {
-        "detection": "openspec-check",
-        "project": "openspec-project-check",
-    }.items():
-        (templates / f"{pattern}.mustache").write_text(f"Request {name}")
+    (templates / "openspec-check.mustache").write_text("Request detection")
     (templates / "_list-format.mustache").write_text("Current changes")
     config = runtime.configuration_service().config_file
     config.parent.mkdir(parents=True, exist_ok=True)
@@ -53,26 +34,20 @@ async def test_responses_acknowledge_requests_and_only_followup_is_retried(
     async def delivered():
         return (await manager.process_result(Result.ok())).additional_agent_instructions
 
-    methods = {
-        "detection": task.request_detection,
-        "project": task.request_project_check,
-    }
-    await methods[check_kind]()
-    assert await delivered() == f"Request {check_kind}"
+    await task.request_detection()
+    assert await delivered() == "Request detection"
     now += 31
     await manager.retry_unacknowledged()
-    assert await delivered() == f"Request {check_kind}"
-    response = await task.handle_event(event, data)
+    assert await delivered() == "Request detection"
+    response = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-info.json", "content": '{"version": "1.2.3"}'},
+    )
     assert response is not None and response.result
-    if followup:
-        assert await delivered() == f"Request {followup}"
     now += 31
     await manager.retry_unacknowledged()
-    if followup:
-        assert await delivered() == f"Request {followup}"
     assert manager.is_queue_empty()
-    if check_kind == "detection":
-        state = parse_openspec_state(await runtime.feature_flags().get("openspec-state"))
-        assert state.validated is True
-        assert state.version == "1.2.3"
-        assert state.checked == 131.0
+    state = parse_openspec_state(await runtime.feature_flags().get("openspec-state"))
+    assert state.validated is True
+    assert state.version == "1.2.3"
+    assert state.checked == 131.0

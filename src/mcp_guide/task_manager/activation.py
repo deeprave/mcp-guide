@@ -22,10 +22,18 @@ class TaskActivation:
     no-ops, including writes from callbacks that resume after replacement.
     """
 
-    def __init__(self, manager: "TaskManager", task: "TaskSubscriber", session: "Session") -> None:
+    def __init__(
+        self,
+        manager: "TaskManager",
+        task: "TaskSubscriber",
+        session: "Session",
+        *,
+        enabled_flags: frozenset[str] = frozenset(),
+    ) -> None:
         self._manager = manager
         self._task = task
         self._session = session
+        self._enabled_flags = enabled_flags
         self._retired = False
 
     @property
@@ -42,6 +50,11 @@ class TaskActivation:
     def is_active(self) -> bool:
         """Return whether this activation may still create task-owned state."""
         return not self._retired
+
+    @property
+    def enabled_flags(self) -> frozenset[str]:
+        """Return flags that changed from disabled to enabled for this activation."""
+        return self._enabled_flags
 
     def retire(self) -> None:
         """Retire this activation and all state currently owned by it."""

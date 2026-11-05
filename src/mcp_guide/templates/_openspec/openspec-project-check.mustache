@@ -1,10 +1,10 @@
 {{#project}}
-Check if OpenSpec project is initialised:
+Inspect this project after its explicit OpenSpec enable transition:
 
-1. Check if `openspec/config.yaml` file exists using a directory listing of `openspec`
-2. Send directory listing using {{tool_prefix}}send_directory_listing with path `openspec`
+1. List `openspec` and confirm that `config.yaml` exists.
+2. Send the directory listing using {{tool_prefix}}send_directory_listing with path `openspec`.
 
-If `openspec/config.yaml` does not exist, send an error.
+Send the listing even when `config.yaml` is absent.
 
 **Note:** Do NOT display file content or command output to the user - only show confirmation messages.
 {{/project}}

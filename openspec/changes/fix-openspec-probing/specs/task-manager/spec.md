@@ -43,14 +43,14 @@ The OpenSpec task SHALL use the existing configuration-change publication and pr
 #### Scenario: Current project enables OpenSpec
 - **WHEN** the current Project's `project_flags.openspec` changes from a disabled to an enabled value
 - **THEN** configuration publication SHALL restart that Session's project tasks
-- **AND** the restarted task SHALL verify that `openspec/config.yaml` and `openspec/changes` exist
-- **AND** only after both assets are verified SHALL it request an OpenSpec version check and replace the complete global `openspec-state`
+- **AND** the restarted task SHALL inspect whether `openspec/config.yaml` exists
+- **AND** SHALL request an OpenSpec version check and replace the complete global `openspec-state` regardless of that inspection result
 
-#### Scenario: Enable transition has incomplete repository assets
+#### Scenario: Enable transition has no OpenSpec project configuration
 - **WHEN** the current Project's `project_flags.openspec` changes from disabled to enabled
-- **AND** either `openspec/config.yaml` or `openspec/changes` is absent
-- **THEN** the task SHALL NOT request a version check
-- **AND** SHALL retain the existing global `openspec-state`
+- **AND** `openspec/config.yaml` is absent or is not a file
+- **THEN** the task SHALL direct the user to `guide://_openspec/init`
+- **AND** SHALL request an OpenSpec version check and replace the complete global `openspec-state`
 
 #### Scenario: Current project disables OpenSpec
 - **WHEN** the current Project's `project_flags.openspec` changes from an enabled to a disabled value
