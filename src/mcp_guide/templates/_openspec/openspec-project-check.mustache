@@ -1,10 +1,10 @@
 {{#project}}
-Verify the OpenSpec assets after this project's explicit enable transition:
+Inspect this project after its explicit OpenSpec enable transition:
 
-1. List `openspec` and confirm it contains `config.yaml` and the `changes` directory.
+1. List `openspec` and confirm that `config.yaml` exists.
 2. Send the directory listing using {{tool_prefix}}send_directory_listing with path `openspec`.
 
-If either asset is absent, send the listing without requesting an OpenSpec version refresh.
+Send the listing even when `config.yaml` is absent.
 
 **Note:** Do NOT display file content or command output to the user - only show confirmation messages.
 {{/project}}

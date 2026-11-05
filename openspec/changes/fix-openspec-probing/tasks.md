@@ -6,4 +6,4 @@
 
 ## 2. Explicit enable-transition validation
 
-- [x] 2.1 Carry false-to-true OpenSpec flag transition intent through the existing configuration-update queue into the replacement project task; on that transition, verify `openspec/config.yaml` and `openspec/changes` before requesting the version refresh, retain global state when either is absent, and update existing behavioural coverage where required.
+- [x] 2.1 Carry false-to-true OpenSpec flag transition intent through the existing configuration-update queue into the replacement project task; on that transition, inspect `openspec/config.yaml`, direct the user to `guide://_openspec/init` when it is absent, and request the version refresh regardless; update existing behavioural coverage where required.

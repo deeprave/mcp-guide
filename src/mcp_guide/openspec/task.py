@@ -336,11 +336,19 @@ class OpenSpecTask(InitialisableMixin):
             path = data.get("path", "")
             if path == "openspec" and self._project_check_instruction_id is not None:
                 files = data.get("files", [])
-                names = {entry.get("name") for entry in files if isinstance(entry, dict)}
+                config_present = any(
+                    entry.get("name") == "config.yaml" and entry.get("type") in (None, "file")
+                    for entry in files
+                    if isinstance(entry, dict)
+                )
                 await self._activation.acknowledge_instruction(self._project_check_instruction_id)
                 self._project_check_instruction_id = None
-                if {"config.yaml", "changes"} <= names:
-                    await self.request_detection()
+                await self.request_detection()
+                if not config_present:
+                    return EventResult(
+                        result=True,
+                        message="OpenSpec is enabled, but this project is not initialised. Run `guide://_openspec/init`.",
+                    )
                 return EventResult(result=True)
             if path == "openspec/changes":
                 request_id = data.get("request_id")

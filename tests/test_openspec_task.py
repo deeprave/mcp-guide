@@ -122,14 +122,24 @@ async def test_missing_cli_persists_unavailability_without_followup(openspec_ses
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    "entries,expected_instruction",
+    "entries,expected_message",
     [
-        ([{"name": "config.yaml"}, {"name": "changes"}], "Detect OpenSpec"),
         ([{"name": "config.yaml"}], None),
+        ([{"name": "config.yaml"}, {"name": "changes", "type": "file"}], None),
+        (
+            [{"name": "changes", "type": "directory"}],
+            "OpenSpec is enabled, but this project is not initialised. Run `guide://_openspec/init`.",
+        ),
+        (
+            [{"name": "config.yaml", "type": "directory"}],
+            "OpenSpec is enabled, but this project is not initialised. Run `guide://_openspec/init`.",
+        ),
     ],
-    ids=["complete-assets", "missing-changes"],
+    ids=["config-only", "changes-is-ancillary", "missing-config", "config-is-not-file"],
 )
-async def test_enable_transition_validates_assets_before_refresh(openspec_session, entries, expected_instruction):
+async def test_enable_transition_checks_initialisation_without_gating_refresh(
+    openspec_session, runtime, entries, expected_message
+):
     manager = openspec_session.task_manager
     task = OpenSpecTask()
     activation = TaskActivation(manager, task, openspec_session, enabled_flags=frozenset({"openspec"}))
@@ -137,8 +147,18 @@ async def test_enable_transition_validates_assets_before_refresh(openspec_sessio
 
     assert (await task.handle_event(EventType.TIMER_ONCE, {})).result
     assert (await manager.process_result(Result.ok())).additional_agent_instructions == "Check project assets"
-    assert (await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec", "files": entries})).result
-    assert (await manager.process_result(Result.ok())).additional_agent_instructions == expected_instruction
+    result = await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec", "files": entries})
+    assert result is not None and result.result
+    assert result.message == expected_message
+    assert (await manager.process_result(Result.ok())).additional_agent_instructions == "Detect OpenSpec"
+    detection = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-info.json", "content": json.dumps({"version": "1.2.3"})},
+    )
+    assert detection is not None and detection.result
+    state = parse_openspec_state(await runtime.feature_flags().get("openspec-state"))
+    assert state.validated is True
+    assert state.version == "1.2.3"
     await activation.unsubscribe()
 
 
