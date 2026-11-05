@@ -227,35 +227,31 @@ instances.
   task-manager state unchanged
 
 ### Requirement: Bounded machine-wide OpenSpec version checks
-The OpenSpec task SHALL use the global `openspec-state` feature flag to check the
-installed OpenSpec CLI version at most once in each rolling 24-hour period on a
-computer.
-It SHALL continue to use the current Project's `project_flags.openspec` value as
-the enablement gate.
-It SHALL read and replace this state through the existing global feature-flag
-service and SHALL NOT access the configuration file directly.
+The OpenSpec task SHALL use the global `openspec-state` feature flag to check the installed OpenSpec CLI version at most once in each rolling 24-hour period on a computer. It SHALL use the active Project's `project_flags.openspec` as the enablement gate, read and replace state through the global feature-flag service, and not access the configuration file directly.
 
 #### Scenario: OpenSpec is disabled for the active project
 - **WHEN** the active Project does not enable OpenSpec
-- **THEN** the OpenSpec task SHALL NOT start or request a version check for that Project
+- **THEN** the OpenSpec task SHALL deactivate itself and SHALL NOT request a version or repository-asset check
 - **AND** global CLI availability SHALL NOT enable OpenSpec for that Project
 
 #### Scenario: First or expired version check
 - **WHEN** the active Project's `project_flags.openspec` is enabled
 - **AND** global `openspec-state.checked` is absent or at least 24 hours old
-- **THEN** the task SHALL request an OpenSpec version check
+- **THEN** the task SHALL request only an OpenSpec version check
 
 #### Scenario: Enabled project initialises absent global state
 - **WHEN** the active Project's `project_flags.openspec` is enabled
 - **AND** no global OpenSpec state has been stored
-- **THEN** the task SHALL check OpenSpec availability and version
+- **THEN** the task SHALL request only an OpenSpec version check
 - **AND** it SHALL set the complete global `openspec-state` feature flag after
   processing the response
 
 #### Scenario: Recent version check is reused
-- **WHEN** global `openspec-state.checked` is less than 24 hours old
+- **WHEN** the active Project enables OpenSpec
+- **AND** global `openspec-state.checked` is less than 24 hours old
 - **THEN** the task SHALL NOT request another OpenSpec version check
-- **AND** it SHALL use the stored global validation and version values
+- **AND** SHALL NOT request a repository-asset check
+- **AND** SHALL use the stored validation and version values
 
 #### Scenario: Completed version check updates global state
 - **WHEN** an OpenSpec version-check response has been processed
@@ -270,17 +266,19 @@ service and SHALL NOT access the configuration file directly.
 - **AND** it SHALL still update global `openspec-state.checked`
 
 ### Requirement: OpenSpec task follows configuration changes
-The OpenSpec task SHALL use the existing configuration-change publication and
-project-task restart lifecycle. It SHALL not require a separate callback or
-polling mechanism for feature-flag changes.
+The OpenSpec task SHALL use the existing configuration-change publication and project-task restart lifecycle. It SHALL not require a separate callback or polling mechanism for feature-flag changes.
 
 #### Scenario: Current project enables OpenSpec
-- **WHEN** the current Project's `project_flags.openspec` changes to an enabled value
+- **WHEN** the current Project's `project_flags.openspec` changes from a disabled to an enabled value
 - **THEN** configuration publication SHALL restart that Session's project tasks
-- **AND** the restarted OpenSpec task SHALL read global `openspec-state`
-- **AND** it SHALL queue an availability instruction when state is absent or expired
-- **AND** it SHALL queue a version-check instruction only after a successful
-  availability response
+- **AND** the restarted task SHALL inspect whether `openspec/config.yaml` exists
+- **AND** SHALL request an OpenSpec version check and replace the complete global `openspec-state` regardless of that inspection result
+
+#### Scenario: Enable transition has no OpenSpec project configuration
+- **WHEN** the current Project's `project_flags.openspec` changes from disabled to enabled
+- **AND** `openspec/config.yaml` is absent or is not a file
+- **THEN** the task SHALL direct the user to `guide://_openspec/init`
+- **AND** SHALL request an OpenSpec version check and replace the complete global `openspec-state`
 
 #### Scenario: Current project disables OpenSpec
 - **WHEN** the current Project's `project_flags.openspec` changes to a disabled value
@@ -294,12 +292,12 @@ polling mechanism for feature-flag changes.
 - **AND** it SHALL NOT queue another availability or version-check instruction
 
 ### Requirement: Passive OpenSpec project initialisation
-The OpenSpec task SHALL establish CLI availability, version, and project
-structure independently of collecting project change data. Detecting an
-OpenSpec project SHALL NOT itself queue an OpenSpec changes-list instruction.
+The OpenSpec task SHALL establish CLI validation and version independently of collecting project change data. Session startup, reconnection, and ordinary project binding SHALL not verify OpenSpec repository assets. Detecting an OpenSpec project SHALL NOT itself queue an OpenSpec changes-list instruction.
 
 #### Scenario: OpenSpec project detection
-- **WHEN** an enabled project's OpenSpec directory has been verified
-- **THEN** the task SHALL retain the verified project state
-- **AND** SHALL NOT request `openspec list --json` until a consumer requires
-  changes data
+- **WHEN** a session starts or reconnects with OpenSpec enabled and current global state
+- **THEN** the task SHALL not verify `openspec/config.yaml`, `openspec/changes`, or request `openspec list --json`
+
+#### Scenario: Change data is required
+- **WHEN** an OpenSpec consumer requires change data
+- **THEN** the task SHALL request the changes list on demand

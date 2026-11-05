@@ -18,26 +18,24 @@ The system SHALL only initiate OpenSpec CLI detection when the `openspec` featur
 - **THEN** a CLI detection instruction is sent
 
 ### Requirement: Single combined detection instruction
-The system SHALL request OpenSpec CLI location and version in one instruction, requiring the agent to perform one shell check and report the combined result in a single tool call, rather than requesting location and version as two separate round trips.
-
-The instruction SHALL state, in second person, why the information is requested (to determine whether OpenSpec-dependent features are available, since some may be gated by CLI version) and where the reported result is stored (the project's `openspec-state` feature flag).
+The system SHALL request OpenSpec CLI version in one instruction, requiring the agent to run `openspec --version` and report the result in one tool call. The instruction SHALL state that the information refreshes the machine-wide OpenSpec validation and version state.
 
 #### Scenario: One instruction covers both location and version
 - **WHEN** the system requests OpenSpec CLI detection
-- **THEN** the agent is asked to determine both the CLI's location and its version in one shell invocation
-- **AND** the agent reports both together in a single tool call
+- **THEN** the agent SHALL be asked to obtain only the `openspec --version` result rather than the historical location-and-version probe
+- **AND** SHALL report it in one tool call
 
 #### Scenario: Instruction explains purpose and storage
 - **WHEN** the agent receives the detection instruction
-- **THEN** the instruction states why the check is requested
-- **AND** the instruction states that the result is stored in the `openspec-state` feature flag
+- **THEN** the instruction SHALL state that the result refreshes OpenSpec-dependent feature availability
+- **AND** SHALL state that the result is stored in the global `openspec-state` feature flag
 
 ### Requirement: Combined result reporting uses a structured synthetic path
-The system SHALL receive the combined detection result via the `send_file_content` tool using the synthetic path `.openspec-info.json`, with JSON content carrying both the CLI location and version, consistent with this handler's existing JSON-content synthetic paths (`.openspec-changes.json`, `.openspec-status.json`). The system SHALL NOT add OpenSpec-specific fields to the generic `send_command_location` tool.
+The system SHALL receive the version-refresh result via the `send_file_content` tool using the synthetic path `.openspec-info.json`, with JSON content carrying the version command result. The system SHALL NOT add OpenSpec-specific fields to the generic `send_command_location` tool.
 
 #### Scenario: Combined report accepted
 - **WHEN** the agent sends file content at path `.openspec-info.json`
-- **THEN** the system parses both location and version from that single JSON report
+- **THEN** the system SHALL parse the reported version command result
 
 #### Scenario: Generic command-location tool remains unmodified
 - **WHEN** any command's location is reported via `send_command_location`
@@ -45,24 +43,24 @@ The system SHALL receive the combined detection result via the `send_file_conten
 - **AND** no OpenSpec-specific field is present on that tool
 
 ### Requirement: Distinguishes not-found, found-without-version, and found-with-version
-The system SHALL distinguish three outcomes from the combined report: the CLI was not found; the CLI was found but its version could not be parsed; and the CLI was found with a parseable semantic version. Each outcome SHALL update the `openspec-state` feature flag consistently with the existing `OpenSpecState`/`parse_openspec_state`/`serialise_openspec_state` semantics: `validated` SHALL be `true` only when a semantic version was successfully parsed.
+The system SHALL distinguish a failed version command, an unparseable version result, and a parseable semantic version. `openspec-state.validated` SHALL be `true` only when a semantic version was successfully parsed.
 
 #### Scenario: CLI not found
-- **WHEN** the combined report indicates the CLI was not found
-- **THEN** `openspec-state.validated` is set to `false`
-- **AND** `openspec-state.version` is not set
+- **WHEN** the version command cannot run successfully
+- **THEN** `openspec-state.validated` SHALL be set to `false`
+- **AND** `openspec-state.version` SHALL not be set
 
 #### Scenario: CLI found but version unparseable
-- **WHEN** the combined report indicates the CLI was found
-- **AND** no semantic version pattern can be parsed from the reported output
-- **THEN** `openspec-state.validated` is set to `false`
+- **WHEN** the version command succeeds
+- **AND** no semantic version pattern can be parsed from its result
+- **THEN** `openspec-state.validated` SHALL be set to `false`
+- **AND** `openspec-state.version` SHALL not be set
 
 #### Scenario: CLI found with parseable version
-- **WHEN** the combined report indicates the CLI was found
-- **AND** a semantic version pattern is parsed from the reported output
-- **THEN** `openspec-state.validated` is set to `true`
-- **AND** `openspec-state.version` is set to the parsed version
-- **AND** OpenSpec project-structure detection is requested, consistent with existing post-validation behavior
+- **WHEN** a semantic version pattern is parsed from the version command result
+- **THEN** `openspec-state.validated` SHALL be set to `true`
+- **AND** `openspec-state.version` SHALL be set to the parsed version
+- **AND** the system SHALL NOT request repository-asset detection as a consequence
 
 ### Requirement: openspec-state remains a global-only feature flag
 The system SHALL continue to store OpenSpec CLI detection results in `openspec-state` as a global feature flag, not as a project-level override.
