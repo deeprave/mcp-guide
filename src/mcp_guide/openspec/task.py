@@ -42,9 +42,9 @@ class OpenSpecTask(InitialisableMixin):
         self.activation: TaskActivation | None = None
         self._session: Any = None
         self._detection_requested = False
+        self._validate_project_assets = False
         self._flag_checked = False
         self._available: Optional[bool] = None
-        self._project_requested = False
         self._version: Optional[str] = None
         self._version_this_session: Optional[str] = None  # Session-level cache
         self._changes_cache: Optional[list[dict[str, Any]]] = None
@@ -57,12 +57,13 @@ class OpenSpecTask(InitialisableMixin):
 
         # Instruction tracking IDs
         self._detection_instruction_id: Optional[str] = None
-        self._project_instruction_id: Optional[str] = None
+        self._project_check_instruction_id: Optional[str] = None
 
     async def start(self, activation: "TaskActivation") -> bool:
         """Start OpenSpec detection if enabled for the current project."""
         self.activation = activation
         self._session = activation.session
+        self._validate_project_assets = FLAG_OPENSPEC in activation.enabled_flags
         if not await self._is_enabled():
             logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
             self._flag_checked = True
@@ -102,15 +103,18 @@ class OpenSpecTask(InitialisableMixin):
             self._flag_checked = True
             return EventResult(result=True)
 
+        if self._validate_project_assets:
+            await self.request_project_check()
+            self._validate_project_assets = False
+            self._flag_checked = True
+            return EventResult(result=True)
+
         state = await self._get_global_state()
         if self._is_recent(state):
             self._available = state.validated
             self._version = state.version
             self._activation.set_cached_data("openspec_available", self._available)
             self._activation.set_cached_data("openspec_version", self._version)
-            if state.validated and not self._project_requested:
-                self._project_requested = True
-                await self.request_project_check()
         elif not self._detection_requested:
             await self.request_detection()
             self._detection_requested = True
@@ -315,10 +319,10 @@ class OpenSpecTask(InitialisableMixin):
             self._detection_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
 
     async def request_project_check(self) -> None:
-        """Request OpenSpec project structure check from client."""
+        """Request repository-asset validation for an explicit enable transition."""
         rendered = await render_openspec_template(self._session, "openspec-project-check")
         if rendered:
-            self._project_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
+            self._project_check_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
@@ -330,12 +334,13 @@ class OpenSpecTask(InitialisableMixin):
         # Handle directory listing events
         if event_type & EventType.FS_DIRECTORY:
             path = data.get("path", "")
-            if path == "openspec":
-                # Acknowledge project check instruction
-                if self._project_instruction_id:
-                    await self._activation.acknowledge_instruction(self._project_instruction_id)
-                    self._project_instruction_id = None
-
+            if path == "openspec" and self._project_check_instruction_id is not None:
+                files = data.get("files", [])
+                names = {entry.get("name") for entry in files if isinstance(entry, dict)}
+                await self._activation.acknowledge_instruction(self._project_check_instruction_id)
+                self._project_check_instruction_id = None
+                if {"config.yaml", "changes"} <= names:
+                    await self.request_detection()
                 return EventResult(result=True)
             if path == "openspec/changes":
                 request_id = data.get("request_id")
@@ -482,10 +487,6 @@ class OpenSpecTask(InitialisableMixin):
 
                 await self._persist_global_state(validated=True, version=self._version)
 
-                # CLI state is global, but OpenSpec project detection is local.
-                if not self._project_requested:
-                    self._project_requested = True
-                    await self.request_project_check()
             else:
                 logger.warning(f"Failed to parse OpenSpec version from: {version_output}")
                 self._version = None

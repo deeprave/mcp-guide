@@ -22,7 +22,7 @@ async def openspec_session(runtime, tmp_path):
     templates.mkdir(parents=True)
     for name, body in {
         "openspec-check": "Detect OpenSpec",
-        "openspec-project-check": "Check project",
+        "openspec-project-check": "Check project assets",
         "_status-format": "{{changeName}} {{#isComplete}}complete{{/isComplete}}{{^isComplete}}pending{{/isComplete}}",
         "_show-format": "{{changeName}}: {{description}}",
         "_error-format": "{{error}}: {{message}}",
@@ -55,7 +55,7 @@ async def test_initialisation_reuses_only_recent_global_state(openspec_session, 
     assert task.get_changes() is None
     assert (await task.handle_event(EventType.TIMER_ONCE, {})).result
     instruction = (await manager.process_result(Result.ok())).additional_agent_instructions
-    assert instruction == ("Check project" if age == 100 else "Detect OpenSpec")
+    assert instruction == ("Check project assets" if age is None else None if age == 100 else "Detect OpenSpec")
     if age == 100:
         assert task.is_available() is True
         assert task.get_version() == "1.10.0"
@@ -67,12 +67,12 @@ async def test_initialisation_reuses_only_recent_global_state(openspec_session, 
 @pytest.mark.parametrize(
     "report,version",
     [
-        ({"location": "/usr/bin/openspec", "version": "openspec version 1.10.2"}, "1.10.2"),
-        ({"location": "/usr/bin/openspec", "version": "v2.0.1"}, "2.0.1"),
-        ({"location": "/usr/bin/openspec", "version": "invalid"}, None),
+        ({"version": "openspec version 1.10.2"}, "1.10.2"),
+        ({"version": "v2.0.1"}, "2.0.1"),
+        ({"version": "invalid"}, None),
     ],
 )
-async def test_combined_detection_response_persists_and_controls_project_check(
+async def test_version_detection_response_persists_global_state(
     openspec_session, runtime, monkeypatch, report, version
 ):
     monkeypatch.setattr("time.time", lambda: 1000.0)
@@ -95,8 +95,7 @@ async def test_combined_detection_response_persists_and_controls_project_check(
     assert state.version == version
     assert state.validated is (version is not None)
     assert state.checked == 1000.0
-    instruction = (await manager.process_result(Result.ok())).additional_agent_instructions
-    assert instruction == ("Check project" if version else None)
+    assert (await manager.process_result(Result.ok())).additional_agent_instructions is None
     if version == "1.10.2":
         assert task.meets_minimum_version("v1.9.6")
         assert task.meets_minimum_version("1.10.2")
@@ -110,7 +109,7 @@ async def test_missing_cli_persists_unavailability_without_followup(openspec_ses
     task = manager.get_task_by_type(OpenSpecTask)
     result = await task.handle_event(
         EventType.FS_FILE_CONTENT,
-        {"path": ".openspec-info.json", "content": json.dumps({"location": None, "version": None})},
+        {"path": ".openspec-info.json", "content": json.dumps({"version": None})},
     )
     assert result.result
     assert task.is_available() is False
@@ -119,6 +118,28 @@ async def test_missing_cli_persists_unavailability_without_followup(openspec_ses
     assert state.validated is False
     assert state.version is None
     assert state.checked is not None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "entries,expected_instruction",
+    [
+        ([{"name": "config.yaml"}, {"name": "changes"}], "Detect OpenSpec"),
+        ([{"name": "config.yaml"}], None),
+    ],
+    ids=["complete-assets", "missing-changes"],
+)
+async def test_enable_transition_validates_assets_before_refresh(openspec_session, entries, expected_instruction):
+    manager = openspec_session.task_manager
+    task = OpenSpecTask()
+    activation = TaskActivation(manager, task, openspec_session, enabled_flags=frozenset({"openspec"}))
+    assert await task.start(activation)
+
+    assert (await task.handle_event(EventType.TIMER_ONCE, {})).result
+    assert (await manager.process_result(Result.ok())).additional_agent_instructions == "Check project assets"
+    assert (await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec", "files": entries})).result
+    assert (await manager.process_result(Result.ok())).additional_agent_instructions == expected_instruction
+    await activation.unsubscribe()
 
 
 @pytest.mark.anyio

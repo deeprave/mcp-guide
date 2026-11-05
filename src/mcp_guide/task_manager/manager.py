@@ -12,6 +12,7 @@ from mcp_guide.async_lock import AsyncReentrantLock
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
 from mcp_guide.decorators import get_registered_task_classes
+from mcp_guide.feature_flags.validators import is_value_true
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.session_listener import SessionListener
@@ -250,7 +251,13 @@ class TaskManager(SessionListener):
         dependencies = getattr(task_class, "configuration_flags", None)
         return dependencies is None or bool(frozenset(dependencies) & changed_flags)
 
-    async def reconcile_project_tasks(self, session: "Session", changed_flags: frozenset[str]) -> None:
+    async def reconcile_project_tasks(
+        self,
+        session: "Session",
+        changed_flags: frozenset[str],
+        *,
+        enabled_flags: frozenset[str] = frozenset(),
+    ) -> None:
         """Reconsider only project tasks whose declared flag inputs changed."""
         task_classes = frozenset(
             task_class
@@ -262,7 +269,7 @@ class TaskManager(SessionListener):
         async with self._project_task_lifecycle_lock:
             active_tasks = await self._detach_project_tasks(task_classes=task_classes, clear_state=False)
             await self._stop_project_tasks(active_tasks)
-            await self._start_project_tasks(session, task_classes=task_classes)
+            await self._start_project_tasks(session, task_classes=task_classes, enabled_flags=enabled_flags)
 
     async def _detach_project_tasks(
         self, *, task_classes: frozenset[type[Any]] | None = None, clear_state: bool = True
@@ -328,6 +335,7 @@ class TaskManager(SessionListener):
         session: "Session",
         *,
         task_classes: frozenset[type[Any]] | None = None,
+        enabled_flags: frozenset[str] = frozenset(),
     ) -> None:
         """Start project tasks while lifecycle replacement is serialised."""
         registered_task_classes = get_registered_task_classes()
@@ -344,7 +352,7 @@ class TaskManager(SessionListener):
             activation: TaskActivation | None = None
             try:
                 task = task_cls()
-                activation = TaskActivation(self, task, session)
+                activation = TaskActivation(self, task, session, enabled_flags=enabled_flags)
                 started = await task.start(activation)
             except asyncio.CancelledError:
                 if activation is not None:
@@ -541,7 +549,14 @@ class TaskManager(SessionListener):
         if not update.changes.resolved_flags:
             return
         self.clear_document_discovery_caches()
-        await self.reconcile_project_tasks(session, update.changes.resolved_flags)
+        previous_resolved_flags = getattr(update, "previous_resolved_flags", {})
+        current_resolved_flags = getattr(update, "current_resolved_flags", {})
+        enabled_flags = frozenset(
+            name
+            for name in update.changes.resolved_flags
+            if not is_value_true(previous_resolved_flags.get(name)) and is_value_true(current_resolved_flags.get(name))
+        )
+        await self.reconcile_project_tasks(session, update.changes.resolved_flags, enabled_flags=enabled_flags)
 
     @classmethod
     async def _reset_for_testing(cls) -> None:
