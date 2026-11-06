@@ -1,0 +1,14 @@
+---
+cache: long
+title: Go Templates Guidance
+type: agent/instruction
+tags: [go, templates]
+---
+{{h1}}Go Templates
+- Follow named-template, pipeline, function-map, and whitespace-trimming conventions.
+- Use `html/template` for HTML output and preserve its contextual escaping; use `text/template` only where appropriate.
+- Keep application behaviour in Go and validate rendered output.
+
+{{h2}}Reference
+- [Go text/template](https://pkg.go.dev/text/template)
+- [Go html/template](https://pkg.go.dev/html/template)

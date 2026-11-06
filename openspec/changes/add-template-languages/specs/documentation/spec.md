@@ -4,10 +4,10 @@
 
 ### Requirement: Expanded profile catalogue documentation
 User documentation for profiles SHALL describe the composable base-language,
-template-language, extension/framework, platform, and test-stack model. It
-SHALL distinguish `lang/` language and template-language guidance, `lang/build/`
-build guidance, and `checks/` testing guidance, and name only profiles that
-exist.
+template-syntax, extension/framework, platform, and test-stack model. It SHALL
+distinguish `lang/` language and template-language guidance, `lang/build/` build
+guidance, and `checks/` testing guidance, name only profiles that exist, and
+link each template syntax to its primary reference.
 
 #### Scenario: Profiles documentation explains composition
 - **WHEN** a user reads the profiles documentation
@@ -18,7 +18,7 @@ exist.
 
 #### Scenario: Profiles documentation names template languages
 - **WHEN** a user reads the profiles documentation
-- **THEN** it SHALL identify the available `jinja2` and `chevron`
-  template-language profiles
-- **AND** it SHALL explain that either can be combined with the project’s
+- **THEN** it SHALL identify the available template-language profiles and their
+  primary references
+- **AND** it SHALL explain that each can be combined with the project’s
   programming-language and framework profiles

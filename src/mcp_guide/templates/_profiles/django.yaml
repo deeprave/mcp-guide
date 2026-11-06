@@ -4,3 +4,4 @@ categories:
   - name: lang
     patterns:
       - django
+      - django-templates

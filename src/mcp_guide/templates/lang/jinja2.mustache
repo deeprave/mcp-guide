@@ -1,0 +1,16 @@
+---
+cache: long
+title: Jinja Template Guidance
+type: agent/instruction
+tags: [jinja, jinja2, python, templates]
+---
+{{h1}}Jinja
+
+{{h2}}Authoring
+- Respect the application's configured delimiters, undefined handling, loaders, and auto-escaping.
+- Use inheritance, blocks, macros, includes, and filters consistently with existing templates.
+- Keep business logic in Python and treat `safe` output as security-sensitive.
+- Preserve whitespace-control conventions and validate rendered behaviour.
+
+{{h2}}Reference
+- [Jinja template designer documentation](https://jinja.palletsprojects.com/en/stable/templates/)

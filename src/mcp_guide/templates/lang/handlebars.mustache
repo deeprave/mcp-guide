@@ -1,0 +1,18 @@
+---
+cache: long
+title: Handlebars Template Guidance
+type: agent/instruction
+tags: [handlebars, templates]
+---
+{{h1}}Handlebars
+
+Handlebars is Mustache-family syntax with helpers, block helpers, and implementation-specific escaping rules.
+
+{{h2}}Authoring
+- Use paths and block helpers consistently with the configured runtime.
+- Keep custom helpers small and avoid embedding application policy in templates.
+- Treat raw or unescaped output as security-sensitive.
+- Preserve partial and layout conventions; validate rendered behaviour.
+
+{{h2}}Reference
+- [Handlebars guide](https://handlebarsjs.com/guide/)
