@@ -693,6 +693,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#template-syntax-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template syntax profiles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#methodology-and-policies" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1191,6 +1202,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#template-syntax-profiles" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Template syntax profiles
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#methodology-and-policies" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1270,6 +1292,60 @@ Symfony, ASP.NET Core, Flutter, React Native, SwiftUI, UIKit, AppKit, Swift
 Concurrency, Swift Package Manager, testing, XCTest, and Swift Testing; and platform profiles
 for macOS, iOS, iPadOS, watchOS, tvOS, visionOS, Android, Windows, Linux, and browser
 automation. Use <code>list_profiles</code> to see the authoritative installed set.</p>
+<h2 id="template-syntax-profiles">Template syntax profiles<a class="headerlink" href="#template-syntax-profiles" title="Permanent link">&para;</a></h2>
+<p>Template syntax profiles are explicit, additive, and non-exclusive. Apply every
+profile whose syntax the project actually uses; Guide does not infer an engine
+from filenames, dependencies, or project layout. The Django profile includes
+<code>django-templates</code>, but it does not imply Jinja2 or another third-party engine.</p>
+<table>
+<thead>
+<tr>
+<th>Ecosystem</th>
+<th>Profiles and primary references</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Generic and Python</td>
+<td><a href="https://github.com/mustache/spec"><code>mustache</code></a>, <a href="https://handlebarsjs.com/guide/"><code>handlebars</code></a>, <a href="https://jinja.palletsprojects.com/en/stable/templates/"><code>jinja2</code></a>, <a href="https://docs.djangoproject.com/en/stable/ref/templates/language/"><code>django-templates</code></a>, <a href="https://www.makotemplates.org/"><code>mako</code></a>, <a href="https://chameleon.readthedocs.io/"><code>chameleon</code></a></td>
+</tr>
+<tr>
+<td>JVM and Kotlin</td>
+<td><a href="https://velocity.apache.org/engine/devel/"><code>velocity</code></a>, <a href="https://www.thymeleaf.org/documentation.html"><code>thymeleaf</code></a>, <a href="https://freemarker.apache.org/docs/"><code>freemarker</code></a>, <a href="https://jte.gg/"><code>jte</code></a>, <a href="https://kotlinlang.org/docs/typesafe-html-dsl.html"><code>kotlinx-html</code></a></td>
+</tr>
+<tr>
+<td>Go</td>
+<td><a href="https://pkg.go.dev/html/template"><code>go-templates</code></a>, <a href="https://templ.guide/"><code>templ</code></a>, <a href="https://github.com/CloudyKit/jet"><code>jet</code></a>, <a href="https://github.com/flosch/pongo2/tree/master/docs"><code>pongo2</code></a>, <a href="https://www.gomponents.com/"><code>gomponents</code></a></td>
+</tr>
+<tr>
+<td>Rust</td>
+<td><a href="https://docs.rs/askama/"><code>askama</code></a>, <a href="https://keats.github.io/tera/"><code>tera</code></a>, <a href="https://docs.rs/minijinja/"><code>minijinja</code></a>, <a href="https://docs.rs/handlebars/"><code>handlebars-rust</code></a>, <a href="https://maud.lambda.xyz/"><code>maud</code></a>, <a href="https://docs.rs/ructe/"><code>ructe</code></a>, <a href="https://github.com/botika/yarte"><code>yarte</code></a></td>
+</tr>
+<tr>
+<td>JavaScript and TypeScript</td>
+<td><a href="https://www.typescriptlang.org/docs/handbook/jsx.html"><code>jsx-tsx</code></a>, <a href="https://mozilla.github.io/nunjucks/"><code>nunjucks</code></a>, <a href="https://ejs.co/docs/"><code>ejs</code></a>, <a href="https://pugjs.org/"><code>pug</code></a></td>
+</tr>
+<tr>
+<td>PHP</td>
+<td><a href="https://laravel.com/docs/blade"><code>blade</code></a>, <a href="https://twig.symfony.com/doc/"><code>twig</code></a>, <a href="https://latte.nette.org/en/"><code>latte</code></a>, <a href="https://www.smarty.net/docs/en/"><code>smarty</code></a></td>
+</tr>
+<tr>
+<td>Ruby</td>
+<td><a href="https://ruby-doc.org/stdlib/libdoc/erb/rdoc/ERB.html"><code>erb</code></a>, <a href="https://slim-template.github.io/"><code>slim</code></a>, <a href="https://haml.info/"><code>haml</code></a>, <a href="https://shopify.github.io/liquid/"><code>liquid</code></a></td>
+</tr>
+<tr>
+<td>Swift and .NET</td>
+<td><a href="https://docs.vapor.codes/leaf/overview/"><code>leaf</code></a>, <a href="https://stencil.fuller.li/en/latest/"><code>stencil</code></a>, <a href="https://learn.microsoft.com/aspnet/core/razor-pages/"><code>razor</code></a>, <a href="https://github.com/scriban/scriban"><code>scriban</code></a></td>
+</tr>
+<tr>
+<td>Other</td>
+<td><a href="https://www.stringtemplate.org/"><code>stringtemplate</code></a>, <a href="https://pebbletemplates.io/"><code>pebble</code></a>, <a href="https://quarkus.io/guides/qute"><code>qute</code></a>, <a href="https://github.com/pantor/inja"><code>inja</code></a></td>
+</tr>
+</tbody>
+</table>
+<p><code>kotlinx-html</code>, <code>gomponents</code>, <code>maud</code>, JSX/TSX, and Razor are code-first markup
+DSLs rather than text-template languages. Their profiles remain useful because
+their output, escaping, composition, and rendering concerns are comparable.</p>
 <h2 id="methodology-and-policies">Methodology and Policies<a class="headerlink" href="#methodology-and-policies" title="Permanent link">&para;</a></h2>
 <p>Methodology preferences (TDD, BDD, SOLID, YAGNI, DDD) are no longer configured through profiles. Instead, they are selected through the <code>policies</code> category. See <a href="../policies/">Policy Selection</a> for details.</p>
 
