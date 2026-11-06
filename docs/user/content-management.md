@@ -114,10 +114,10 @@ All files in every category are available to all projects - categories are share
 
 ## Collections
 
-Each collection is simply a list of expressions used together to return multiple documents. For example, you might define a `self-review` collection containing `[guide/general, checks/instructions, lang/python, review/review]`. Strung together like this, they provide:
+Each collection is simply a list of expressions used together to return multiple documents. For example, you might define a `self-review` collection containing `[guide/general, guide/best-practices, lang/python, review/review]`. Strung together like this, they provide:
 
 - Summary of guidelines
-- Special instructions for the current project
+- Reusable development best practices
 - Detailed instructions for producing a code review for a Python project
 
 This enhances the code review with adherence to coding standards and specific edicts that relate to your project.

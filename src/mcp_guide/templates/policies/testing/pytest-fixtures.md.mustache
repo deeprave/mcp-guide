@@ -1,0 +1,20 @@
+---
+cache: long
+type: agent/instruction
+description: >
+  Testing Policy: Pytest Fixtures. Prefer explicit, narrowly scoped pytest
+  fixtures over unittest setup patterns.
+---
+# Testing Policy: Pytest Fixtures
+
+Prefer pytest fixtures over unittest-style setup methods.
+
+## Rules
+
+- Prefer explicit function-scoped fixtures for test setup.
+- Use broader fixture scope only when shared setup is demonstrably safe and materially reduces work.
+- Avoid `autouse` fixtures unless the behaviour genuinely applies to every test in scope.
+
+## Rationale
+
+Explicit, narrow fixtures make setup dependencies visible and limit accidental cross-test coupling.

@@ -6,6 +6,7 @@ categories:
     dir: guide/
     patterns:
       - general
+      - best-practices
       - methodology
     description: Development Guidelines
 
@@ -27,8 +28,7 @@ categories:
 
   - name: checks
     dir: checks/
-    patterns:
-      - instructions
+    patterns: []
     description: Testing and Code Quality Checks
 
   - name: review

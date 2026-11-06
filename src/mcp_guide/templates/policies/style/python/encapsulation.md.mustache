@@ -1,0 +1,21 @@
+---
+cache: long
+type: agent/instruction
+description: >
+  Style Policy: Python Encapsulation. Respect public APIs because Python privacy
+  conventions are not enforced by the language.
+---
+# Style Policy: Python Encapsulation
+
+Respect public APIs because Python privacy conventions are not enforced by the language.
+
+## Rules
+
+- Use the documented public API of foreign classes and modules.
+- Do not access underscore-prefixed implementation attributes outside the owning type unless a tightly coupled integration explicitly requires it.
+- Never access double-underscore attributes directly or through a name-mangled spelling.
+- Do not use `getattr`, `hasattr`, or `setattr` to bypass a foreign type's public interface.
+
+## Rationale
+
+Python's privacy is conventional rather than enforced. Respecting those boundaries keeps integrations compatible with future implementation changes.

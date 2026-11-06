@@ -3,6 +3,8 @@ cache: long
 type: agent/instruction
 description: Code quality checks required for Python projects
 instruction: "Use these tools when required to check your code. Run the checks - {{INSTRUCTION_NO_DISPLAY}}"
+policies:
+  - testing/pytest-fixtures
 ---
 {{h1}}Instructions for Code Quality Checks
 
@@ -35,5 +37,7 @@ ALWAYS RUN FULL CHECKS.
 
 if there is a `.pre-commit-config.yaml` at the project root, feel free to use `pre-commit run` to execute
 all of these checks in sequence.
+
+{{> testing/pytest-fixtures}}
 
 {{b}}You must run these checks before you can move out of CHECK phase{{b}}

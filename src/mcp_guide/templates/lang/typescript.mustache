@@ -18,6 +18,12 @@ tags: [typescript, types]
 - Use optional parameters (`?`) not `| undefined`
 - Use `void` for no return value
 
+{{h2}}Asynchronous Code
+- Use `async`/`await` for asynchronous control flow
+- Await asynchronous work rather than leaving promises unhandled
+- Use `Promise.all` only for independent operations, and handle rejection at the appropriate boundary
+- Do not block the event loop with synchronous I/O or expensive CPU work
+
 {{h2}}Null Safety
 - Enable `strictNullChecks`
 - Use `?.` and `??` operators

@@ -199,9 +199,6 @@ q.json
 .claude
 .codex/
 .kiro/
-.agents/
-!.agents/skills/
-!.agents/knowledge/
 
 # Project configuration
 q.chat

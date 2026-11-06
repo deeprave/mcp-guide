@@ -1,0 +1,17 @@
+---
+cache: long
+type: agent/instruction
+description: >
+  Style Policy: Python Imports. Use module-level imports by default, with
+  documented exceptions for practical constraints.
+---
+# Style Policy: Python Imports
+
+Use module-level imports by default, consistent with PEP 8.
+
+## Rules
+
+- Keep imports at module scope unless doing so causes a concrete problem.
+- Use deferred imports only for justified cases such as avoiding an import cycle or isolating a rarely used optional dependency.
+- Place a necessary deferred import at the start of the smallest applicable scope and document why it cannot be module-level.
+- Use `typing.TYPE_CHECKING` where type-only imports would otherwise create a runtime cycle.

@@ -2,14 +2,17 @@
 
 ## Why
 
-`INSTRUCTIONS.md` duplicates durable project guidance in a repository file even though Guide can now persist and serve instruction documents from its document store. Moving the useful project-level guidance into the store will make it available through the normal category workflow while removing obsolete, tool-specific direction.
+`INSTRUCTIONS.md` mixes reusable guidance, policy choices, and mcp-guide-specific steering in one repository file. Its content needs to be absorbed into the appropriate versioned template and policy mechanisms, while obsolete agent-tool prescriptions are retired.
 
 ## What Changes
 
-- Curate a single stored `agent/instruction` document from the enduring architectural and testing guidance in `INSTRUCTIONS.md`.
-- Retain guidance on async-first implementation, client/server filesystem boundaries, use of established infrastructure, public APIs, template discovery, and pytest fixtures.
-- Omit personal-error framing, duplicated summaries, and agent-tool or stylistic prescriptions that are not durable project guidance.
-- Delete the superseded root `INSTRUCTIONS.md` after the stored document is confirmed available through the `guide` category.
+- Replace the default `checks/instructions` template with unconditional, reusable AI best-practice guidance on code and pattern reuse.
+- Move language-specific preferences into selected Python policies and language-specific concurrency policies.
+- Add an MCP client/server state policy, offered by onboarding only when the project is detected as MCP development.
+- Retire obsolete text-transformation-tool prohibitions from templates, onboarding, and active policies.
+- Preserve mcp-guide-only template guidance in committed `.agents/steering` rather than shipping it to other projects.
+- Track `.agents` by default, retaining OpenSpec skills while removing the superseded local review skill.
+- Delete the superseded root `INSTRUCTIONS.md`.
 
 ## Capabilities
 
@@ -21,10 +24,10 @@ None.
 
 None.
 
-This is a documentation and stored-content migration. It does not change the document-store or Guide-serving behaviour, so this change sets `skip_specs: true`.
+This changes shipped onboarding and policy selection, but not the document-store or Guide-serving behaviour. It therefore continues to set `skip_specs: true`.
 
 ## Impact
 
-- Removes `INSTRUCTIONS.md` from the repository root.
-- Adds one curated instruction document to the existing Guide document store under the `guide` category.
-- Uses the existing `send_file_content` ingestion workflow and existing category retrieval behaviour; no code, API, or dependency changes are required.
+- Removes `INSTRUCTIONS.md` and the default `checks/instructions` template.
+- Adds reusable guidance and policies to the shipped template set.
+- Updates onboarding and mcp-guide's active policy selections.

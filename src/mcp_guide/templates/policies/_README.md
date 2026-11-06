@@ -137,7 +137,7 @@ whether a particular change creates, links, or omits an issue.
 **Mutually exclusive across languages** (select one language's style set).
 
 #### `style/python/`
-`async-first`, `comprehensions`, `walrus`, `enum-over-chains`
+`async-first`, `comprehensions`, `walrus`, `enum-over-chains`, `encapsulation`, `imports`
 
 #### `style/javascript/`
 `async-await`, `arrow-functions`, `esm`, `const-first`
@@ -217,15 +217,15 @@ whether a particular change creates, links, or omits an issue.
 
 ---
 
-### `tooling/general/` — Cross-Language Tool Restrictions
-**Composable — select any combination.**
+### `testing/pytest-fixtures` — Pytest Fixture Style
+**Optional.** Prefer explicit, narrowly scoped pytest fixtures over unittest-style setup.
 
-| File | Summary |
-|---|---|
-| `no-sed` | Do not use `sed` for file content transformation |
-| `no-awk` | Do not use `awk` for text processing in automated tasks |
-| `no-perl` | Do not use `perl` one-liners for inline text transformation |
-| `no-tr` | Do not use `tr`; use language-native string methods instead |
+*Affects: `checks/python.mustache`*
+
+### `protocol/mcp/client-server-state` — MCP Client/Server State
+**Optional.** Use explicit client filesystem authority and session identity for MCP development.
+
+*Selected by onboarding only for positively identified MCP-development projects.*
 
 ---
 
@@ -256,4 +256,4 @@ Within each of these topics, only one file should be active at a time:
 `git/ops`, `git/commit`, `git/delivery`, `issue-tracking`, `testing`, `quality`, `toolchain/<language>`, `pr`, `review`
 
 These topics are fully composable (select any combination):
-`methodology`, `style/<language>`, `tooling/general`
+`methodology`, `style/<language>`, `testing/pytest-fixtures`, `protocol/mcp/client-server-state`

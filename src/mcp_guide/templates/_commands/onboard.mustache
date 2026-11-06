@@ -79,6 +79,7 @@ applicability, or ambiguity resolution. Look for:
 - Test runner configuration: `pytest.ini`, `vitest.config.*`, `jest.config.*`,
   `.xctestplan`, XCTest targets, Swift Testing imports, and equivalent test setup.
 - Workflow layout: presence of `.guide.yaml`, existing category patterns
+- MCP-development indicators: project names, descriptions, dependencies, or configuration that explicitly identify an MCP server or client. Do not treat a generic HTTP or API project as MCP development without positive evidence.
 
 Use `send_directory_listing` or `send_file_content` to inspect relevant files.
 If project context is unavailable or ambiguous, ask the user directly.
@@ -229,11 +230,11 @@ Maps to `review/*` policy pattern.
 **12. Style and toolchain** *(language-specific; skip if not applicable)*
 For each detected language, ask about style preferences and toolchain.
 Common examples: `uv + ruff + pytest` for Python, `pnpm + biome + vitest` for TypeScript.
+For languages with concurrency policies, include their language-appropriate choice: Python async-first, JavaScript async/await, Kotlin coroutines, Go goroutines, or the equivalent available language policy. Do not present Python's async-first preference as a cross-language policy.
 Maps to `style/<lang>/*` and `toolchain/<lang>/*` policy patterns.
 
-**13. Tooling prohibitions** *(optional)*
-Ask whether there are specific tools the agent should avoid using (e.g. `sed`,
-`awk`, `perl`). Maps to `tooling/general/*` policy patterns.
+**13. MCP client/server state** *(only for positively identified MCP-development projects)*
+When repository inspection positively identifies MCP development, offer the client/server state policy. Explain that it preserves client filesystem authority and explicit session identification in stateless MCP interactions. Apply the `mcp` profile and add `protocol/mcp/client-server-state` to policies when selected. Otherwise skip this dimension silently and do not ask about it.
 
 **14. Handoff context** *(optional)*
 Ask whether the user wants Guide to request that agents keep a current handoff
@@ -293,7 +294,7 @@ were actually collected before the remaining dimensions were skipped.
 {{#auth.user}}
 Once the user confirms, apply all changes using existing tools:
 
-- Use `use_project_profile` for any profiles selected
+- Use `use_project_profile` for any profiles selected, including `mcp` when the MCP client/server state policy was selected
 - Use `category_collection_update` to update `policies` category patterns
 - Use `set_project_flag` for `workflow`, `handoff-context`, `openspec`, and
   other project flags
@@ -312,7 +313,7 @@ set the `onboarded` flag before authentication.
 {{^auth.active}}
 Once the user confirms, apply all changes using existing tools:
 
-- Use `use_project_profile` for any profiles selected
+- Use `use_project_profile` for any profiles selected, including `mcp` when the MCP client/server state policy was selected
 - Use `category_collection_update` to update `policies` category patterns
 - Use `set_project_flag` for `workflow`, `handoff-context`, `openspec`, and
   other project flags

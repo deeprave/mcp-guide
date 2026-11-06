@@ -1,0 +1,22 @@
+---
+cache: long
+type: agent/instruction
+description: >
+  MCP Policy: Client/Server State. Keep filesystem authority and session identity
+  explicit across modern stateless MCP interactions.
+---
+# MCP Policy: Client/Server State
+
+Treat filesystem authority and session identity as explicit protocol concerns.
+
+## Rules
+
+- Server code operates on the server filesystem; do not assume it can read client project files through ambient paths or the server working directory.
+- Receive client-owned file content and metadata through the relevant protocol tool or request instead of reading a presumed local path.
+- Design request handling to work without ambient session state.
+- When continuity is required, use explicit client-provided session identity and bind it only through the established request-context mechanism.
+- Do not infer or reuse a session from an unrelated request, process, or path.
+
+## Rationale
+
+Modern MCP clients may be stateless, remote, or multiplexed. Explicit authority and identity prevent accidental cross-client state and filesystem assumptions.

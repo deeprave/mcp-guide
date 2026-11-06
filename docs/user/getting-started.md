@@ -113,14 +113,6 @@ Many provided documents are opinionated about development approach and direction
 
 To discover available documents in a category you can simple ask the agent to list all files available in that category.
 
-### Special: INSTRUCTIONS.md
-
-The `checks` category includes a brief document `instructions` that tells the agent to look for `INSTRUCTIONS.md` in your project root.
-This file contains edicts the agent MUST obey during development - rules specific to your project or agent that curb common misbehaviors.
-
-The `checks` phase in workflow mode is a good place to remind the agent of these instructions before formal examination of changes.
-Also consider appending `checks/instructions` to your default `guidelines` collection.
-
 ### Adding Profiles
 
 Other profiles can be added on demand - they are additive to your existing configuration. See [Profiles](profiles.md) for details.
