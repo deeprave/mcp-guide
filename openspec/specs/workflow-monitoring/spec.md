@@ -14,6 +14,18 @@ The workflow monitoring task SHALL activate from the current project context rat
 - **WHEN** a project switch activates workflow tracking for the new project
 - **THEN** the task SHALL subscribe using the new project's workflow configuration without an MCP restart
 
+### Requirement: Workflow state-file validation
+
+The monitor SHALL parse a configured workflow state file as a YAML mapping and
+accept only state whose phase is enabled by the effective, normalised workflow
+flag.
+
+#### Scenario: Valid workflow state
+
+- **WHEN** the configured workflow file supplies a mapping with an enabled
+  phase
+- **THEN** the monitor accepts its phase, issue, queue, and description values
+
 ### Requirement: Semantic Workflow Change Detection
 The workflow monitoring system SHALL detect and report semantic changes in workflow state rather than echoing redundant content.
 
@@ -45,19 +57,6 @@ The system SHALL compare new workflow state against cached previous state to ide
 - **THEN** system SHALL compare new state against cached state
 - **AND** system SHALL update cache only after generating change events
 
-### Requirement: Phase Rule Inclusion
-The system SHALL include relevant phase rules when phase transitions are detected.
-
-#### Scenario: Phase rule discovery
-- **WHEN** a phase transition is detected to "review" phase
-- **THEN** system SHALL discover the review phase template using glob pattern "*review"
-- **AND** system SHALL render and include the phase rules in the response
-
-#### Scenario: Phase rule content
-- **WHEN** phase rules are included in response
-- **THEN** rules SHALL provide clear guidance on what actions are allowed in the new phase
-- **AND** rules SHALL address common misconceptions about phase restrictions
-
 ### Requirement: Change Event Types
 The system SHALL support detection of the following change types with from/to context.
 
@@ -77,32 +76,36 @@ The system SHALL support detection of the following change types with from/to co
 - **AND** system SHALL indicate whether description was added, changed, or cleared
 
 ### Requirement: Workflow Content Processing
-The workflow monitoring task SHALL process workflow file content by comparing valid state against cached previous state and generating semantic change responses. When parsing succeeds and no semantic workflow-change response is available, the task SHALL render the workflow state-format template and use a non-`None` render as the file-content response, preserving its content, instruction, and disposition. The task SHALL update cached state only after processing valid changes. Invalid submitted content SHALL return a clear failure and SHALL not replace cached state or be acknowledged as a successful workflow-file receipt.
+The workflow monitoring task SHALL compare valid workflow state against cached
+previous state and generate semantic change responses.
+
+#### Scenario: Valid workflow state is compared
+- **WHEN** submitted workflow content parses to valid state
+- **THEN** the task compares it with cached state before generating a response
+
+### Requirement: Workflow state cache update boundary
+
+The task SHALL update cached workflow state only after processing valid changes.
+
+#### Scenario: Valid workflow state is cached after processing
+- **WHEN** a valid workflow change has been processed
+- **THEN** the task updates its cached workflow state
+
+### Requirement: Invalid workflow submission handling
+
+Invalid workflow content SHALL return a clear failure and SHALL neither replace
+cached state nor be acknowledged as successfully received.
+
+#### Scenario: Invalid workflow-file submission
+- **WHEN** submitted workflow content is invalid
+- **THEN** the task returns a failure without replacing cached state
 
 #### Scenario: Content processing workflow
 - **WHEN** workflow file content is received
 - **THEN** system SHALL parse the new content into workflow state
 - **AND** system SHALL compare against cached previous state (if available)
 - **AND** system SHALL generate appropriate change events based on differences
-- **AND** system SHALL queue contextual instructions based on change types
 - **AND** system SHALL update cached state only after processing changes
-
-#### Scenario: Parsed workflow content without semantic changes
-- **WHEN** workflow file content parses successfully
-- **AND** no semantic workflow-change response is generated
-- **THEN** system SHALL render the workflow state-format template
-- **AND** a non-`None` render SHALL replace the file-content response with its content, instruction, and disposition
-
-#### Scenario: Workflow state-format template is unavailable
-- **WHEN** workflow file content parses successfully
-- **AND** no semantic workflow-change response is generated
-- **AND** rendering the workflow state-format template returns `None`
-- **THEN** system SHALL retain the normal file-content response
-
-#### Scenario: Semantic workflow change response takes precedence
-- **WHEN** workflow file content produces a semantic workflow-change response
-- **THEN** system SHALL return the semantic workflow-change response
-- **AND** system SHALL NOT replace it with workflow state-format guidance
 
 #### Scenario: Invalid workflow-file submission
 - **WHEN** submitted workflow file content is invalid YAML, is not a mapping, omits `phase`, names an unknown or disabled phase, or has a field with an invalid schema type

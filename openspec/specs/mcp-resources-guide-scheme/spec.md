@@ -334,22 +334,27 @@ This prevents collision between user-created collections and command URIs.
 
 ### Requirement: Policy Topic URI Resolution
 
-The system SHALL resolve `guide://policies/<topic>` URIs to the active policy content for that
-topic using sub-path filtering of the `policies` category.
-
-Resolution SHALL:
-- Apply the `<topic>` path segment as a sub-path filter against the `policies` category
-- Narrow results to documents matching both the sub-path prefix and the project's configured patterns
-- Concatenate all matched documents (composable resolution — no exclusivity enforced)
-- Return the `_missing_policy` placeholder content when no documents match the topic
+The system SHALL resolve `guide://policies/<topic>` URIs to active policy
+content using sub-path filtering of the `policies` category.
 
 #### Scenario: Active policy for topic resolved
 - **WHEN** `guide://policies/git/ops` is accessed and a policy is selected for `git/ops`
 - **THEN** the selected policy document(s) for `git/ops` are returned
 
+### Requirement: Policy-topic URI filtering and composition
+
+Policy-topic resolution SHALL apply the `<topic>` segment as a sub-path filter,
+narrow results using the project's configured patterns, and concatenate all
+matched documents without exclusivity.
+
 #### Scenario: Multiple documents for composable topic
 - **WHEN** multiple documents match the project's patterns under the topic sub-path
 - **THEN** all matched documents are concatenated and returned
+
+### Requirement: Missing policy-topic placeholder
+
+Policy-topic resolution SHALL return `_missing_policy` placeholder content when
+no documents match the topic.
 
 #### Scenario: No policy selected for topic
 - **WHEN** `guide://policies/git/ops` is accessed and no patterns match documents under `git/ops`
@@ -408,23 +413,8 @@ into the canonical command invocation.
 
 ### Requirement: Request-Scoped Guide URI Resolution
 
-The server SHALL obtain the requested `guide://` URI through the framework-neutral
-resource request context. Resource resolution SHALL NOT depend on the internal shape
-of a FastMCP request-context object.
-
-The advertised Guide resource templates SHALL include an optional RFC 6570
-`session_id` query variable. A native `resources/read` request with
-`?session_id=<id>` SHALL pass that value through the same validated Session resolver
-used by the shared tool-argument contract before content rendering or command
-execution. It SHALL use the value as an opaque FastMCP Session ID, not a
-Guide-generated or separately mapped identifier.
-
-When a retained handshake-era resource request omits the query variable, the adapter
-SHALL use the public FastMCP connection `session_id` as the defined legacy fallback.
-For a modern request, omitting the query variable SHALL not create replacement
-cross-request state; a project-bound resource SHALL return the defined unbound
-guidance unless the request completes the eligible inherited-PWD bootstrap. That
-bootstrap SHALL return its resulting Session ID for later resource URI queries.
+The server SHALL obtain a requested `guide://` URI through the framework-neutral
+resource request context and SHALL NOT depend on FastMCP request-context internals.
 
 #### Scenario: Guide content resource request
 - **WHEN** a client reads a `guide://{collection}/{document}{?session_id}` resource through a negotiated modern request
@@ -433,6 +423,15 @@ bootstrap SHALL return its resulting Session ID for later resource URI queries.
   Session resolver as a tool call
 - **AND** it SHALL delegate content resolution using the resulting project identity
 
+### Requirement: Guide resource URI session parameter
+
+The advertised Guide resource templates SHALL include an optional RFC 6570
+`session_id` query variable. A native `resources/read` request with
+`?session_id=<id>` SHALL pass that value through the same validated Session resolver
+used by the shared tool-argument contract before content rendering or command
+execution. It SHALL use the value as an opaque FastMCP Session ID, not a
+Guide-generated or separately mapped identifier.
+
 #### Scenario: Session-sensitive template is read natively
 - **WHEN** a resource template whose rendering depends on Session data is read with a
   valid `session_id` query value
@@ -440,6 +439,22 @@ bootstrap SHALL return its resulting Session ID for later resource URI queries.
   `guide.read_resource` given that Session ID
 - **AND** it SHALL not render using ambient process, global, or unrelated connection
   state
+
+### Requirement: Legacy Guide resource session fallback
+
+When a retained handshake-era resource request omits the query variable, the adapter
+SHALL use the public FastMCP connection `session_id` as the defined legacy fallback.
+
+#### Scenario: Handshake-era resource request
+- **WHEN** a retained handshake-era resource request omits session_id
+- **THEN** the adapter uses the public FastMCP connection session identifier
+
+### Requirement: Modern unbound Guide resource handling
+
+For a modern request, omitting the query variable SHALL not create replacement
+cross-request state; a project-bound resource SHALL return the defined unbound
+guidance unless the request completes the eligible inherited-PWD bootstrap. That
+bootstrap SHALL return its resulting Session ID for later resource URI queries.
 
 #### Scenario: Guide command resource request
 - **WHEN** a client reads an underscore-prefixed

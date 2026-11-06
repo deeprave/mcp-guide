@@ -1,12 +1,26 @@
 ## Purpose
 
-Support independent workspace workflow state for concurrent agents while sharing repository configuration, documents and durable handover visibility across linked Git worktrees.
+Support independent workspace workflow state for concurrent agents while sharing
+repository configuration and documents across linked Git worktrees.
 
 ## ADDED Requirements
 
 ### Requirement: Distinct repository and workspace binding
 
-Guide SHALL retain a session-owned absolute client `workspace_root` separately from the project identity root. Initial project binding SHALL accept an optional workspace root defaulting to the project root. Linked worktrees SHALL share the existing repository-root-based configuration key and hash; workspace paths, branch names and remote URLs SHALL NOT alter that identity. Independent clones SHALL remain independent projects. Existing root authorisation and client-path normalisation rules SHALL apply.
+Guide SHALL retain a session-owned absolute client `workspace_root` separately
+from the project identity root. Initial binding SHALL accept an optional
+workspace root defaulting to the project root.
+
+#### Scenario: Initial workspace default
+- **WHEN** initial binding omits workspace root
+- **THEN** workspace_root equals project root
+
+### Requirement: Worktree configuration identity
+
+Linked worktrees SHALL share the repository-root configuration key and hash;
+workspace paths, branches, and remotes SHALL NOT change it. Independent clones
+SHALL remain independent projects. Existing root-authorisation and client-path
+normalisation rules apply.
 
 #### Scenario: Two workspaces share configuration
 
@@ -37,14 +51,24 @@ Guide SHALL retain a session-owned absolute client `workspace_root` separately f
 
 ### Requirement: Scoped workspace path resolution
 
-Guide SHALL resolve relative workflow-file settings against the session workspace root while resolving configured shared documents paths and explicit project-relative handover overrides against the project root. It SHALL expose the workspace and exact resolved workflow and handover paths to agents. Binding a workspace SHALL NOT grant unrestricted access outside authorised project/workspace paths. Explicit absolute workflow overrides SHALL remain explicit and shared-target conflicts SHALL be diagnosable.
+Guide SHALL resolve relative workflow-file settings against the session
+workspace root.
+
+#### Scenario: Workspace-relative workflow path
+- **WHEN** a session resolves its default workflow file
+- **THEN** it uses its workspace root
+
+### Requirement: Workspace path visibility and authorisation
+
+Binding a workspace SHALL NOT grant unrestricted access outside authorised
+project/workspace paths. Absolute workflow overrides remain explicit and shared
+target conflicts diagnosable.
 
 #### Scenario: Independent workflow files and shared scratch space
 
 - **GIVEN** two sessions use different workspaces for one project
 - **WHEN** default paths are resolved
 - **THEN** each SHALL use its own workspace `.guide.yaml`
-- **AND** both SHALL use the same project `.todo/` directory
 - **AND** an absent local workflow file SHALL NOT cause fallback to the other workspace's file
 
 #### Scenario: Workflow events cannot cross sessions
@@ -60,34 +84,13 @@ Guide SHALL resolve relative workflow-file settings against the session workspac
 - **WHEN** Guide provides repository review, build or branch/reset instructions
 - **THEN** those instructions SHALL target that workspace rather than the main checkout
 
-### Requirement: Durable workspace context identity
-
-Guide SHALL allocate a stable filesystem-safe context name independently of issue, branch and session identifiers. The main checkout SHALL use `root`; linked workspaces SHALL receive centrally unique names. When workflow is enabled its local file SHALL retain the name using `context`. A durable project registry SHALL preserve mappings independently of session and worktree lifetime. Concurrent allocation SHALL NOT assign one name to different workspaces. Context identity SHALL also be available before issue selection and when workflow behaviour is disabled.
-
-#### Scenario: Agent replacement resumes a workspace
-
-- **GIVEN** a workspace has an allocated context name and no selected issue
-- **WHEN** a replacement agent establishes a new session for that workspace
-- **THEN** Guide SHALL return the same context name and exact handover path
-- **AND** SHALL NOT require searching context payloads
-
-#### Scenario: Conflicting copied context name
-
-- **GIVEN** a newly discovered workspace claims a name already attached to another live workspace
-- **WHEN** Guide registers it
-- **THEN** Guide SHALL report a conflict
-- **AND** SHALL NOT overwrite the existing handover or silently share its identity
-
-#### Scenario: Detached context is explicitly resumed
-
-- **GIVEN** a removed worktree's context has been retained centrally
-- **WHEN** a user explicitly resumes it in a new workspace
-- **THEN** Guide SHALL attach that context to the new workspace and preserve its content
-- **AND** SHALL update its local workflow reference when workflow is enabled
-
 ### Requirement: Project-wide workspace visibility
 
-Guide SHALL offer a workspace overview through `guide://_workspaces`, using client Git checkout discovery where necessary. It SHALL identify workspace paths, available branch/workflow state, context names and exact handover targets with observation timestamps. Confirmed removed workspaces SHALL have detached contexts preserved; inaccessible or unobserved paths SHALL NOT be presented as confirmed removed. Current status SHALL identify the current workspace and context.
+Guide SHALL offer a workspace overview through `guide://_workspaces`, using
+client Git checkout discovery where necessary. It SHALL identify workspace
+paths, available branch/workflow state, and observation timestamps. Inaccessible
+or unobserved paths SHALL NOT be presented as confirmed removed. Current status
+SHALL identify the current workspace.
 
 #### Scenario: Observe concurrent work
 
@@ -95,13 +98,6 @@ Guide SHALL offer a workspace overview through `guide://_workspaces`, using clie
 - **WHEN** workspace overview is requested
 - **THEN** each observed checkout SHALL have separately attributed workflow state
 - **AND** last-observed or unavailable information SHALL be labelled accurately
-
-#### Scenario: Worktree is pruned
-
-- **GIVEN** a registered workspace has handover context
-- **WHEN** its removal is confirmed through checkout discovery
-- **THEN** its context SHALL be shown as detached
-- **AND** neither handover content nor its durable identity SHALL be deleted
 
 ### Requirement: Fresh Guide binding for spawned worktree agents
 

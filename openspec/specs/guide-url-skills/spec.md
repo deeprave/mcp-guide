@@ -9,10 +9,7 @@ and the opt-in negotiated MCP skills extension.
 
 ### Requirement: Packaged Guide skill serving
 The system SHALL serve reusable Guide skills as package-shaped resources rooted
-at `SKILL.md` through Guide resources for explicit selection by an agent. It
-SHALL expose the catalogue through the standard `list_skills` tool registration
-pattern and shall reserve leading `_`, `$`, and `!` characters in category and
-collection names for internal namespaces.
+at `SKILL.md` through Guide resources for explicit selection by an agent.
 
 #### Scenario: Serve a skill package entrypoint
 - **WHEN** an agent requests a supported named skill for the current project
@@ -22,6 +19,24 @@ collection names for internal namespaces.
 - **AND** the response `message` SHALL identify the rendered virtual path, such as
   `workflow-status/SKILL.md`
 - **AND** the response `value` SHALL contain the rendered entrypoint content
+
+### Requirement: Guide skill catalogue tool registration
+
+Guide SHALL expose the packaged-skill catalogue through the standard
+`list_skills` tool registration pattern.
+
+#### Scenario: Catalogue tool registration
+- **WHEN** an agent lists skills through the Guide tool surface
+- **THEN** the standard list_skills registration provides the skill catalogue
+
+### Requirement: Reserved Guide skill namespaces
+
+Category and collection names SHALL reserve leading `_`, `$`, and `!`
+characters for internal namespaces.
+
+#### Scenario: Reserved namespace name
+- **WHEN** a category or collection name starts with an internal namespace prefix
+- **THEN** Guide treats that prefix as reserved
 
 #### Scenario: Serve a package member
 - **WHEN** an agent requests a member below an available package, such as
@@ -117,80 +132,21 @@ stdio PWD bootstrap MAY establish that binding first.
 - **AND** SHALL NOT render prompt content, execute a command, or initialise
   task-manager work for that request
 
-### Requirement: Codex skill-use proof
-The system SHALL support validation that Codex can retrieve a selected Guide
-skill and follow its instructions in a real task.
-
-#### Scenario: Explicit skill use
-- **WHEN** a user or agent explicitly selects a Guide skill
-- **THEN** Codex retrieves its entrypoint through Guide before performing the
-  governed task
-- **AND** the validation records whether Codex followed the retrieved
-  instructions
-
-### Requirement: Workflow skill packages
-The system SHALL serve Guide's five workflow phases as flat, verb-named skill
-packages: `workflow-check`, `workflow-discuss`, `workflow-explore`,
-`workflow-implement`, and `workflow-plan`. Each SHALL refer to the rendered
-`workflow-file` template value when reading or updating workflow state.
-
-#### Scenario: Render a workflow phase skill
-- **WHEN** an agent selects one of the workflow phase skill packages
-- **THEN** the rendered instructions SHALL use the configured workflow file
-- **AND** the default workflow file SHALL be `.guide.yaml`
-- **AND** the package name SHALL use the verb form rather than the workflow
-  phase noun
-
-### Requirement: Workflow discussion establishes design alignment
-`workflow-discuss` SHALL treat discussion as the phase for aligning the intended
-outcome and design before implementation. On entry it SHALL direct the agent to
-explain the active change's motivation, scope, and intended approach. It SHALL
-direct the agent to identify material concerns, dependencies, risks, and open
-design questions, request clarification where an answer is needed, and record
-agreed decisions in the applicable workflow, planning, or specification
-artefact before implementation begins.
-
-#### Scenario: Enter discussion for an active change
-- **WHEN** an agent enters `workflow-discuss` for an active change
-- **THEN** the skill SHALL direct it to explain why the change is needed, what
-  it changes, and how it is intended to work
-- **AND** SHALL direct it to seek alignment before implementation
-
-#### Scenario: Discussion exposes a material open question
-- **WHEN** the active change has an unresolved decision that could materially
-  affect implementation
-- **THEN** the skill SHALL direct the agent to raise that concern and request
-  clarification rather than assume a design decision
-
-### Requirement: Focused workflow status skill
-The `workflow-status` skill SHALL report the configured workflow file without
-changing the project. It SHALL not instruct the agent to inspect client
-information, OpenSpec, Git state, task state, or handover data.
-
-#### Scenario: Report workflow-file information when workflow mode is enabled
-- **WHEN** an agent selects `guide://$workflow-status` while workflow mode is enabled
-- **THEN** the skill SHALL instruct the agent to read the configured workflow
-  file and report its workflow information
-- **AND** it SHALL use `.guide.yaml` when no workflow-file override is set
-
-#### Scenario: Report disabled workflow mode
-- **WHEN** an agent selects `guide://$workflow-status` while workflow mode is disabled
-- **THEN** the skill SHALL instruct the agent to report that workflow mode is disabled
-- **AND** SHALL NOT name or inspect a workflow file
-
 ### Requirement: Frontmatter-declared skill input
 
 The system SHALL let any Guide skill entrypoint declare named MCP forms in its
 `elicitation` frontmatter. Each form SHALL declare a non-empty message and an
-object schema with primitive properties. The shared resource resolver SHALL
-request only forms whose required fields are absent from URI keywords, then
-merge accepted declared fields into the skill's existing keyword template
-context. Complete standard JSON Schema property defaults SHALL provide a safe
-fallback when elicitation is unavailable or cancelled and SHALL identify the
-defaulted form in the rendered template context. A form may instead declare
-`fallback: render`, which SHALL render the entrypoint without unresolved form
-values when elicitation is unavailable or cancelled. It SHALL not route forms
-by skill identifier.
+object schema with primitive properties.
+
+#### Scenario: Declared form schema
+- **WHEN** a skill declares an elicitation form
+- **THEN** the form has a non-empty message and an object schema with primitive properties
+
+### Requirement: Missing-field skill form resolution
+
+The shared resource resolver SHALL request only forms whose required fields are
+absent from URI keywords, then merge accepted declared fields into the skill's
+existing keyword template context.
 
 #### Scenario: Request a missing declared form
 - **WHEN** an agent selects a skill entrypoint with a declared form whose
@@ -208,114 +164,39 @@ by skill identifier.
 - **AND** SHALL return clear required-keyword guidance only when unresolved
   required fields lack complete declared defaults
 
+### Requirement: Skill form default fallback
+
+Complete standard JSON Schema property defaults SHALL provide a fallback when
+elicitation is unavailable or cancelled and SHALL identify the defaulted form in
+the rendered template context.
+
+#### Scenario: Unavailable form uses complete defaults
+- **WHEN** a declared form is unavailable or cancelled and has complete property defaults
+- **THEN** Guide applies the defaults and identifies the defaulted form in template context
+
+### Requirement: Skill form rendering fallback
+
+A form declaring `fallback: render` SHALL render the entrypoint without
+unresolved form values when elicitation is unavailable or cancelled.
+
+#### Scenario: Render fallback after unavailable elicitation
+- **WHEN** a fallback-render form is unavailable or cancelled
+- **THEN** Guide renders its entrypoint without unresolved form values
+
+### Requirement: Skill form routing independence
+
+Guide SHALL not route a declared form by skill identifier.
+
+#### Scenario: Form routing
+- **WHEN** Guide resolves a declared skill form
+- **THEN** its routing does not depend on the skill identifier
+
 #### Scenario: Satisfy a declared form with URI keywords
 - **WHEN** an agent selects a skill entrypoint with URI keywords satisfying a
   declared form's required fields
 - **THEN** Guide SHALL render the skill without requesting that form
 - **AND** SHALL preserve the URI keywords through the shared template keyword
   context
-
-### Requirement: Workflow review skill
-The system SHALL serve `workflow-review` as a packaged Guide skill for independent code review. For every review request in workflow mode, it SHALL read the configured workflow file afresh and treat its required `issue` field as authoritative; it SHALL not infer the issue from recent conversation, branch names, pull-request text, or an earlier review. It SHALL transition the configured workflow file to the review phase when workflow mode is active, and SHALL validate the active OpenSpec change when OpenSpec mode is active. After producing its independent source reports, it SHALL report their paths and request the user's next action without collating or triaging them.
-
-#### Scenario: Choose a review target when mode is omitted
-- **WHEN** an agent selects `guide://$workflow-review` without a `mode` query parameter through either the native resource or the `read_resource` tool
-- **THEN** its declared `review-target` form SHALL offer mutually exclusive choices for uncommitted work, `main`, a named branch, and a pull request URL or number
-- **AND** when that form is unavailable or cancelled, the skill SHALL direct the agent to present mutually exclusive client-native choices for uncommitted work, `main`, a named branch, and a pull request URL or number
-- **AND** SHALL direct the agent to use the same choices as a numbered list when the client cannot render a choice picker
-- **AND** SHALL direct the agent not to begin review until the user selects a target
-- **AND** SHALL instruct it to read the configured workflow file before changing its phase to `review` when workflow mode is active
-
-#### Scenario: Workflow issue changes between review requests
-- **GIVEN** a prior review request used a different workflow issue
-- **WHEN** an agent begins a new workflow review request
-- **THEN** it SHALL read the current workflow file before identifying the review issue
-- **AND** it SHALL use that file's current `issue` field rather than the prior review context
-
-#### Scenario: Select a review target
-- **WHEN** an agent selects `guide://$workflow-review` with `mode` equal to `uncommitted`, `main`, a branch name, a pull-request URL, or a pull-request number for the current repository
-- **THEN** the skill SHALL direct it to review that selected target
-- **AND** SHALL preserve the query value through the shared Guide template keyword context
-
-#### Scenario: Obtain independent review coverage
-- **WHEN** workflow review begins
-- **THEN** the skill SHALL direct the agent to obtain two independent reviews
-- **AND** one SHALL use the heavier available model at medium or high effort
-- **AND** the other SHALL use a different lighter available model at its highest supported effort when possible
-- **AND** they SHALL run concurrently in isolated subprocesses when that execution mechanism is supported
-- **AND** each reviewer SHALL receive only the selected target, relevant repository evidence, governing repository guidance, applicable OpenSpec artefacts, and the required report format
-- **AND** neither reviewer SHALL receive or account for prior conversation, previous reviews, existing review records, collated inventories, or the other reviewer's findings
-- **AND** after both reports are written, the coordinator SHALL report their paths and ask the user what to do next
-- **AND** SHALL NOT collate reports, inspect pull-request comments, create a canonical inventory, or invoke `just-one`
-
-#### Scenario: Account for existing pull-request comments after independent review
-- **WHEN** the selected target is a pull request with existing review comments
-- **THEN** workflow review SHALL leave those comments for workflow triage to inspect after it creates the canonical inventory
-- **AND** SHALL NOT expose those comments to the independent reviewers or modify their source reports
-
-#### Scenario: Validate the active OpenSpec change
-- **WHEN** OpenSpec mode is active for a workflow review
-- **THEN** the skill SHALL direct the agent to run strict validation for the active change before completing the review
-
-### Requirement: Just-one finding triage skill
-The system SHALL serve `triage-items` as a packaged Guide skill for any stable
-inventory of items. It SHALL collect the user's decision for every item before
-any authorised follow-up.
-
-#### Scenario: Present a finding
-- **WHEN** the agent begins `triage-items` triage with a fixed inventory of
-  items
-- **THEN** it SHALL present exactly one finding at a time
-- **AND** each presentation SHALL include its fixed `current/total` position,
-  P1-to-P6 priority, short description, analysis, and recommendation
-- **AND** it SHALL combine brief target and scope on one line when both are
-  supplied
-
-#### Scenario: Record a decision without editing
-- **WHEN** the user accepts, declines, discusses, or varies the current item
-- **THEN** the agent SHALL record the resulting disposition in an existing
-  canonical inventory, a user-requested `Triage/<derived-key>.json` ledger, or
-  a clear in-conversation record
-- **AND** SHALL NOT perform follow-up while any item remains undecided
-
-#### Scenario: Confirm collected actions
-- **WHEN** every item has a recorded disposition
-- **THEN** the agent SHALL show the accepted follow-up list
-- **AND** SHALL request explicit user authorisation before a local change or
-  external action
-- **AND** SHALL perform only the specifically authorised follow-up
-
-### Requirement: Durable review finding records
-The workflow review skill SHALL record each independent review in
-`{{path.documents}}Reviews/<issue>/<agent-name>-<model-name>.json`. The
-`triage-review` skill SHALL write its canonical combined inventory to
-`{{path.documents}}Reviews/<issue>.json`. The workflow file's required `issue`
-field SHALL name both paths. An empty value means there is no active workflow
-issue; review dispatch and triage stop. Each source record SHALL identify its
-producing agent, model, version, review target, and scope. Each finding SHALL
-carry a stable identifier, version, P1-to-P6 priority, location, description,
-analysis, and recommendation. The combined inventory SHALL retain references
-to source findings together with their target and scope, and SHALL be the only
-review record triage updates with the user's decision, variation, rationale,
-action, and completion state.
-
-#### Scenario: Record independent reviews
-- **WHEN** workflow review obtains independent reviewer outputs
-- **THEN** each reviewer SHALL write only its own
-  `<agent-name>-<model-name>.json` source record below the shared review
-  directory
-- **AND** the coordinator SHALL determine the next version only for that exact
-  source record without exposing another reviewer's findings or identity
-- **AND** a reviewer SHALL NOT reuse, infer, or adopt identity components from
-  another record
-- **AND** workflow review SHALL not create or update the canonical combined inventory
-
-#### Scenario: Record triage without implementation
-- **WHEN** the user decides an item during `triage-items` triage
-- **THEN** the agent SHALL update the corresponding item in the canonical
-  combined JSON inventory with that decision and any variation or implementation
-  guidance
-- **AND** SHALL NOT implement the finding while any finding remains undecided
 
 ### Requirement: Experimental MCP skills extension
 The system SHALL support the opt-in, non-standard
@@ -398,58 +279,20 @@ catalogue or skill resources.
 - **THEN** the system SHALL NOT send
   `notifications/skills/list_changed` for that session
 
-### Requirement: Workflow triage skill
-The system SHALL serve `triage-review` as a packaged Guide skill for converting
-independent review reports into a stable decision workflow. Peer and
-independently requested review reports for the current issue are eligible source
-evidence and SHALL be considered alongside the coordinator's own reports.
-
-#### Scenario: Collate every source report
-- **WHEN** an agent selects `guide://$triage-review` for an active workflow
-  issue and no canonical inventory exists
-- **THEN** the skill SHALL read every valid source report in
-  `{{path.documents}}Reviews/<issue>/`, irrespective of source agent or session
-- **AND** SHALL preserve source-report agent-and-model identities, version,
-  target, and scope in `{{path.documents}}Reviews/<issue>.json`
-- **AND** SHALL deduplicate only findings describing the same underlying defect
-- **AND** SHALL report the canonical inventory path before beginning user decisions
-
-#### Scenario: Collate peer review reports
-- **GIVEN** peer reviewers have written valid source reports for the current workflow issue
-- **WHEN** `triage-review` performs an initial collation
-- **THEN** it SHALL include those reports in the canonical inventory
-- **AND** it SHALL not treat the coordinator's own review records as the complete source set
-
-#### Scenario: Incremental review triage
-- **WHEN** a canonical inventory already exists and the user has not requested
-  historical re-collation
-- **THEN** the skill SHALL use its modification time as the cutoff
-- **AND** SHALL consider only newer or updated source records
-- **AND** SHALL preserve resolved findings as history and present only pending
-  and newly collated findings for decisions
-
-#### Scenario: Start sequential finding decisions
-- **WHEN** workflow triage has written a complete, stable canonical inventory
-- **THEN** it SHALL direct the agent to use `Guide skill "triage-items"`
-- **AND** SHALL NOT implement, format, commit, push, discard changes, or take
-  external action unless the user later explicitly authorises the specific
-  follow-up
-
 ### Requirement: Tool facade invokes a Guide skill through shared resolution
 The system SHALL expose `{{tool_prefix}}use_skill` as a project-dependent MCP
-tool registered through `@toolfunc`. Its first argument SHALL be a plain Guide
-skill name, with or without a leading `$`; it SHALL NOT be a URI. Its optional
-`args` list SHALL be parsed using the shared Guide command-argument parser,
-with the skill name as argv[0]. It SHALL resolve only an exact effective skill
-identifier and SHALL NOT duplicate the skill's argument, elicitation, policy,
-rendering, or response-handling behaviour at the MCP tool layer.
+tool registered through `@toolfunc`.
 
-#### Scenario: Tool invokes a skill with arguments
-- **WHEN** a bound client calls `{{tool_prefix}}use_skill` for
-  `workflow-review` with `args: ["mode=uncommitted", "verbose"]`
-- **THEN** the resolved skill receives `mode` with value `uncommitted` and
-  `verbose` with value `true` through its keyword template context
-- **AND** the tool uses the shared command-argument parser rather than duplicating it
+#### Scenario: Tool is called without a project
+- **WHEN** an unbound client calls `{{tool_prefix}}use_skill`
+- **THEN** it receives the standard no-project result used by other
+  project-dependent tools
+
+### Requirement: Tool-facade skill identifier input
+
+The first `{{tool_prefix}}use_skill` argument SHALL be a plain Guide skill name,
+with or without a leading `$`, and SHALL NOT be a URI. The tool SHALL resolve
+only an exact effective skill identifier.
 
 #### Scenario: Tool rejects a skill member path
 - **WHEN** a client calls `{{tool_prefix}}use_skill` with a skill member path
@@ -460,7 +303,23 @@ rendering, or response-handling behaviour at the MCP tool layer.
   `$workflow-review`
 - **THEN** it resolves the `workflow-review` Guide skill
 
-#### Scenario: Tool is called without a project
-- **WHEN** an unbound client calls `{{tool_prefix}}use_skill`
-- **THEN** it receives the standard no-project result used by other
-  project-dependent tools
+### Requirement: Tool-facade skill argument parsing
+
+The optional `{{tool_prefix}}use_skill` `args` list SHALL use the shared Guide
+command-argument parser, with the skill name as argv[0].
+
+#### Scenario: Tool invokes a skill with arguments
+- **WHEN** a bound client calls `{{tool_prefix}}use_skill` for
+  `workflow-review` with `args: ["mode=uncommitted", "verbose"]`
+- **THEN** the resolved skill receives `mode` with value `uncommitted` and
+  `verbose` with value `true` through its keyword template context
+- **AND** the tool uses the shared command-argument parser rather than duplicating it
+
+### Requirement: Tool-facade shared skill resolution
+
+The MCP tool layer SHALL NOT duplicate the skill's argument, elicitation,
+policy, rendering, or response-handling behaviour.
+
+#### Scenario: Tool delegates skill resolution
+- **WHEN** a bound client invokes a resolved Guide skill through the tool facade
+- **THEN** shared skill resolution handles its arguments, elicitation, policy, rendering, and response behaviour

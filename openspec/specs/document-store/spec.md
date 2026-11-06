@@ -5,34 +5,50 @@ Define persistent storage, retrieval, and lifecycle management for user document
 
 ## Requirements
 
-### Requirement: Document Store Schema
+### Requirement: Document-store database location
 
-The system SHALL maintain a persistent SQLite database (`documents.db`) in the config directory with a single `documents` table.
-
-Schema:
-- `id` INTEGER PRIMARY KEY AUTOINCREMENT
-- `category` TEXT NOT NULL COLLATE NOCASE — category assignment for the document
-- `name` TEXT NOT NULL COLLATE NOCASE — unique key within category (typically the source document name)
-- `source` TEXT NOT NULL — origin path (file path or URL)
-- `source_type` TEXT NOT NULL — `'file'` or `'url'`
-- `content` TEXT NOT NULL — markdown content
-- `metadata` BLOB DEFAULT NULL — JSON-encoded fields (content-type, type, etag, last-modified, etc.)
-- `mtime` REAL DEFAULT NULL — source modification time as epoch float (like os.stat().st_mtime)
-- `created_at` TEXT NOT NULL — ISO 8601 timestamp
-- `updated_at` TEXT NOT NULL — ISO 8601 timestamp
-- UNIQUE constraint on (category, name)
-- Indexes on `category` and `name`
-
-The `mtime` column records the source file's modification time, distinct from `updated_at` which tracks when the store was last written. It is used for staleness detection on re-import.
-
-The `metadata` JSON blob SHALL store:
-- `content-type` — auto-detected MIME type of the content
-- `type` — frontmatter document type (`agent/instruction`, `agent/information`, `user/information`), defaulting to `agent/instruction`
+The system SHALL maintain a persistent SQLite database named `documents.db` in
+the config directory, with a single `documents` table.
 
 #### Scenario: Database initialisation
 - **WHEN** the document store is accessed for the first time
 - **THEN** the database and table are created if they do not exist
 - **AND** the database file is located in the config directory
+
+### Requirement: Document-store identity schema
+
+The `documents` table SHALL have an autoincrementing integer `id` primary key,
+case-insensitive non-null `category` and `name` fields, a unique constraint on
+`(category, name)`, and indexes on `category` and `name`.
+
+#### Scenario: Unique document identity
+- **WHEN** two documents use the same category and name
+- **THEN** the store treats them as the same document identity
+
+### Requirement: Document-store source and content schema
+
+The `documents` table SHALL store a non-null `source` path or URL, a non-null
+`source_type` of `file` or `url`, and non-null Markdown `content`.
+
+#### Scenario: Source document storage
+- **WHEN** a document is stored from a file or URL
+- **THEN** its source, source type, and Markdown content are retained
+
+### Requirement: Document-store metadata schema
+
+The table SHALL store optional JSON-encoded metadata, including auto-detected
+`content-type` and a frontmatter `type` of `agent/instruction` by default,
+`agent/information`, or `user/information`.
+
+#### Scenario: Document metadata storage
+- **WHEN** a document is stored with content type and frontmatter type metadata
+- **THEN** the metadata JSON retains those values
+
+### Requirement: Document-store timestamp and source-mtime schema
+
+The table SHALL store optional source `mtime` as an epoch float and non-null
+ISO 8601 `created_at` and `updated_at` timestamps. Source mtime SHALL support
+re-import staleness detection and remain distinct from store-write `updated_at`.
 
 #### Scenario: Schema migration adds mtime column
 - **WHEN** an existing database without the `mtime` column is opened
@@ -82,13 +98,11 @@ rename, or otherwise modify a document row.
 - **AND** the stored name is preserved
 
 ### Requirement: Document-ingestion authorisation
+
 When provider-backed policy is active for a remote caller, a
-`send_file_content` request that includes the metadata required to ingest a
-document into the SQLite store SHALL require `user` access
-before the document task writes or updates a stored document. A file-content
-callback that does not request document ingestion SHALL retain its existing
-access behaviour. When no provider is selected, remote callers SHALL retain
-existing behaviour. Stdio callers SHALL retain unrestricted document ingestion.
+`send_file_content` request with the metadata required for document ingestion
+SHALL require `user` access before the document task writes or updates a stored
+document.
 
 #### Scenario: Caller adds a document to the store
 - **GIVEN** provider-backed policy is active for the remote caller
@@ -104,10 +118,24 @@ existing behaviour. Stdio callers SHALL retain unrestricted document ingestion.
 - **THEN** the system SHALL return an authentication-required result
 - **AND** it SHALL not create or update a document-store row
 
+### Requirement: Non-ingestion file callback authorisation
+
+A file-content callback that does not request document ingestion SHALL retain
+its existing access behaviour.
+
 #### Scenario: Ordinary file callback is unprotected
 - **GIVEN** provider-backed policy is active for the remote caller
 - **WHEN** a caller sends file content without document-ingestion metadata
 - **THEN** it SHALL retain existing callback access behaviour
+
+### Requirement: Unrestricted document ingestion without provider policy
+
+When no provider is selected, remote callers SHALL retain existing document
+ingestion behaviour. Stdio callers SHALL retain unrestricted document ingestion.
+
+#### Scenario: Stdio document ingestion
+- **WHEN** a stdio caller sends valid document-ingestion metadata
+- **THEN** the document task permits ingestion without provider-backed access checks
 
 ### Requirement: Document update and removal authorisation
 When provider-backed policy is active for a remote caller, `document_update`

@@ -8,42 +8,101 @@ cross-request Session binding and session-establishment protocol logging.
 
 ### Requirement: Framework-Neutral Request Context
 
-The system SHALL define a framework-neutral request-context adapter for MCP tool,
-prompt, and resource operations. The context SHALL expose the negotiated protocol
-revision, request identity, client and agent metadata when supplied, an explicit
-validated root binding and active configuration-project selection when available, and
-safe response metadata APIs.
+The system SHALL define a framework-neutral request-context adapter for MCP
+tool, prompt, and resource operations.
 
-Each established Session SHALL retain an immutable protocol type derived from the
-negotiated revision: `mcp_2026_07_28` for MCP `2026-07-28`, otherwise `legacy`.
-The exact revision SHALL remain available for protocol-establishment logging. A request
-that resolves an established Session under a different protocol type SHALL fail rather
-than change that Session's response contract.
+#### Scenario: Adapter handles an MCP operation
+- **WHEN** a tool, prompt, or resource operation is dispatched
+- **THEN** the operation receives a framework-neutral request context
 
-This change confines request-context construction to the FastMCP boundary.
-Propagating the resolved context through application handlers is deferred to
-`use-request-context`; transitional handlers may continue to receive raw FastMCP
-context while using the validated Session boundary defined here.
+### Requirement: Request-context metadata
 
-The request adapter SHALL receive the public FastMCP context and, when the tool
-arguments provide it, the FastMCP `session_id`. It SHALL use a validated explicit
-`session_id` as the GuideRuntime Session key. For a retained handshake-era request
-that omits that argument, it SHALL use the public FastMCP `ctx.session_id` as the
-legacy connection Session key. Client name/version metadata SHALL NOT be used as a
-Session key. FastMCP and raw SDK connection objects SHALL NOT own Guide Session state.
+The request context SHALL expose the negotiated protocol revision, request
+identity, supplied client and agent metadata, available validated root binding,
+active configuration-project selection, and safe response metadata APIs.
 
-The application request context SHALL retain the resolved Session key and whether it
-was explicit or legacy-derived, without exposing raw SDK connection objects to
-application services.
+#### Scenario: Adapter receives available metadata
+- **WHEN** an MCP request supplies protocol, client, agent, root, or project metadata
+- **THEN** the request context exposes the available values through its public API
 
-Before either source becomes a GuideRuntime key, the adapter SHALL validate the
-session ID as unstructured input. It SHALL reject empty or overlong values and C0/C1
-control characters, without imposing a UUID format or other needless structure.
+### Requirement: Session protocol contract
+
+Each established Session SHALL retain an immutable protocol type derived from
+the negotiated revision: `mcp_2026_07_28` for MCP `2026-07-28`, otherwise
+`legacy`. The exact revision SHALL remain available for establishment logging.
+A protocol-type mismatch SHALL fail without changing the Session's response
+contract.
+
+#### Scenario: Session protocol contract is retained
+- **WHEN** a later request resolves an established Session
+- **THEN** it uses that Session's original protocol type
+
+### Requirement: FastMCP boundary adaptation
+
+The request adapter SHALL receive the public FastMCP context and any supplied
+FastMCP `session_id`. FastMCP and raw SDK connection objects SHALL NOT own Guide
+Session state. Request-context construction SHALL remain at the FastMCP boundary;
+transitional handlers may receive raw FastMCP context while using the validated
+Session boundary.
+
+#### Scenario: Adapter is constructed at the FastMCP boundary
+- **WHEN** a FastMCP request enters Guide
+- **THEN** Guide constructs its request context without retaining SDK connection objects
+
+### Requirement: Session-key selection
+
+A validated explicit `session_id` SHALL be the GuideRuntime Session key. A
+retained handshake-era request that omits it SHALL use public
+`ctx.session_id` as its legacy connection key. Client name/version metadata
+SHALL NOT be a Session key.
+
+#### Scenario: Explicit session ID selects a session
+- **WHEN** a request supplies a valid explicit session ID
+- **THEN** Guide uses that ID as the runtime Session key
+
+### Requirement: Session-key provenance
+
+The application request context SHALL retain the resolved Session key and
+whether it was explicit or legacy-derived without exposing raw SDK connection
+objects to application services.
+
+#### Scenario: Request context records key provenance
+- **WHEN** Guide resolves a Session key
+- **THEN** its request context records whether the key was explicit or legacy-derived
+
+### Requirement: Session-key validation
+
+Before use as a GuideRuntime key, a session ID SHALL be treated as unstructured
+input and reject empty, overlong, and C0/C1-control-character values without
+requiring a UUID or other needless structure.
+
+#### Scenario: Unsafe session key is rejected
+- **WHEN** a supplied session ID is empty, overlong, or contains a control character
+- **THEN** Guide rejects it before Session resolution
 
 #### Scenario: Modern protocol type is established
 - **WHEN** a Session is first established through a request negotiated as `2026-07-28`
 - **THEN** its protocol type is `mcp_2026_07_28`
 - **AND** later requests using that Session retain the same type
+
+#### Scenario: Retained protocol type is established
+- **WHEN** a Session is first established through any retained protocol revision
+- **THEN** its protocol type is `legacy`
+- **AND** later requests using that Session retain the same type
+
+#### Scenario: Protocol type mismatch
+- **WHEN** a request resolves an established Session with a different protocol type
+- **THEN** the request fails before response adaptation
+- **AND** the existing Session protocol type remains unchanged
+
+### Requirement: Root and project context availability
+
+The request context SHALL represent root and project context as unavailable
+until a valid selection or eligible binding establishes them.
+
+#### Scenario: Root context is unavailable before binding
+- **WHEN** a request has no valid root selection or eligible binding
+- **THEN** its request context reports root and project context as unavailable
 
 #### Scenario: Context-bearing tool request
 - **WHEN** a negotiated MCP tool request is dispatched
@@ -88,6 +147,13 @@ control characters, without imposing a UUID format or other needless structure.
 - **AND** the result SHALL direct the agent to call project selection with an absolute
   client filesystem `path`, not a project name
 
+### Requirement: Eligible inherited-PWD request binding
+
+An eligible stdio request SHALL bind through inherited `PWD` only when sharing
+is verified and bootstrap is explicitly enabled. It SHALL use the normal
+runtime-owned Session and binding path and SHALL NOT infer a root from server
+`getcwd()`, a remote transport, or an explicit `session_id`.
+
 #### Scenario: Stdio context has inherited client PWD
 - **GIVEN** stdio filesystem sharing has been verified
 - **WHEN** a sessionless stdio context has a valid absolute inherited `PWD`
@@ -101,32 +167,36 @@ control characters, without imposing a UUID format or other needless structure.
 - **AND** it SHALL NOT use that shortcut when the request supplies a `session_id`
 - **AND** it SHALL NOT treat server `getcwd()` as the client filesystem root
 
-#### Scenario: Retained protocol type is established
-- **WHEN** a Session is first established through any retained protocol revision
-- **THEN** its protocol type is `legacy`
-- **AND** later requests using that Session retain the same type
-
-#### Scenario: Protocol type mismatch
-- **WHEN** a request resolves an established Session with a different protocol type
-- **THEN** the request fails before response adaptation
-- **AND** the existing Session protocol type remains unchanged
-
 ### Requirement: FastMCP Session-ID Cross-Request Binding
 
-The system SHALL use FastMCP's minted, principal-validated session_id as the
+The system SHALL use FastMCP's minted, principal-validated session ID as the
 explicit cross-request identity for a modern interaction. That public ID SHALL
-select runtime's current bound Guide Session while the server is running, not
-promise the same concrete Session object throughout the interaction.
+select the runtime's current bound Guide Session while the server is running.
+
+#### Scenario: Valid session ID resolves the current Session
+- **WHEN** a modern request supplies a validated public session ID
+- **THEN** Guide resolves the current bound Session for that ID
+
+### Requirement: Session identity survives project replacement
 
 A project switch SHALL retain the validated public ID and existing protocol
-connection while replacing the Guide Session behind it. It SHALL NOT mint or
-retire a FastMCP ID for an internal project replacement. Retained legacy
-connection identity SHALL continue selecting the current Guide Session without
-requiring clients to adopt a new session argument.
+connection while replacing the Guide Session. It SHALL NOT mint or retire a
+FastMCP ID for an internal replacement. Retained legacy connection identity
+SHALL continue selecting the current Guide Session without a new argument.
 
-Guide SHALL persist only project configuration. It SHALL NOT persist or restore
-root bindings, active selection, instructions, task state or rendering caches
+#### Scenario: Replacement retains public identity
+- **WHEN** a project switch replaces a Guide Session
+- **THEN** the replacement remains selected by the same public identity
+
+### Requirement: Ephemeral interaction state
+
+Guide SHALL persist project configuration only. It SHALL NOT persist or restore
+root bindings, active selection, instructions, task state, or rendering caches
 across a server restart.
+
+#### Scenario: Server restart discards interaction state
+- **WHEN** the server restarts
+- **THEN** only persisted project configuration remains available
 
 #### Scenario: Valid session-ID round trip
 - **WHEN** an interaction binds with set_project and obtains a FastMCP session ID

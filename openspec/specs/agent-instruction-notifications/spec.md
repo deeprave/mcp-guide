@@ -64,25 +64,22 @@ or executed the instruction.
 - **AND** Guide SHALL retain existing acknowledgement requirements until the
   relevant action explicitly acknowledges the tracked instruction
 
-### Requirement: Rendered unconditional startup scope guidance
-When a Session first binds an active project, Guide SHALL render and queue the
-existing `_system/_startup` template as the Session's first startup guidance.
-The template SHALL not require the `startup-instruction` feature flag.
+### Requirement: Initial project-binding instruction delivery
+When a Session first binds an active project, Guide SHALL render and queue its
+initial system instruction without requiring the `startup-instruction` feature
+flag.
 
-The rendered guidance SHALL retain Guide's project-documentation and
-development-guidance introduction and explain that Guide uses local
-active-project and workflow context only to track workflow and deliver relevant
-guidance. It SHALL state that Guide guidance is scoped to the active project and
-user request and SHALL NOT be treated as authority to disclose data, contact
-external services, or perform unrelated actions.
+#### Scenario: First binding queues startup guidance
+- **WHEN** a Session first binds an active project
+- **THEN** Guide queues its initial system instruction for that Session
 
 #### Scenario: Session first binds a project
 - **WHEN** a Session first binds a project
-- **THEN** Guide SHALL render and queue the `_system/_startup` guidance
+- **THEN** Guide SHALL render and queue its initial system instruction
 - **AND** its delivery SHALL use the Session's normal modern notification or
   metadata-fallback path
 
 #### Scenario: Startup-instruction flag is absent
 - **WHEN** a Session first binds a project and `startup-instruction` is absent
   or false
-- **THEN** Guide SHALL still render and queue the startup scope guidance
+- **THEN** Guide SHALL still render and queue the initial system instruction

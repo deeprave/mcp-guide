@@ -14,13 +14,6 @@ validation, capability negotiation, input-result handling, URI-keyword precedenc
 and template keyword context for both entrypoint kinds. It SHALL NOT infer a form
 from an entrypoint name.
 
-Each named form SHALL declare a non-empty `message` and an object schema with a
-non-empty `properties` mapping. Properties SHALL use only `string`, `integer`,
-`number`, or `boolean` types. An `enum`, when provided, SHALL contain primitive
-values. A form's required property names SHALL be declared in that form. Form
-identifiers and property names SHALL be unique across the effective entrypoint
-declaration.
-
 #### Scenario: Command requests declared input
 
 - **WHEN** a selected command has an effective elicitation form with missing
@@ -29,6 +22,19 @@ declaration.
   for a skill entrypoint
 - **AND** SHALL render the command only after the required values are available
 - **AND** SHALL make accepted values available through `kwargs` and `raw_kwargs`
+
+### Requirement: Elicitation form declaration schema
+
+Each named form SHALL declare a non-empty `message` and an object schema with a
+non-empty `properties` mapping. Properties SHALL use only `string`, `integer`,
+`number`, or `boolean` types. An `enum`, when provided, SHALL contain primitive
+values. A form's required property names SHALL be declared in that form. Form
+identifiers and property names SHALL be unique across the effective entrypoint
+declaration.
+
+#### Scenario: Invalid form declaration
+- **WHEN** an elicitation form has an unsupported property type or duplicate identifier
+- **THEN** Guide reports a frontmatter validation diagnostic
 
 #### Scenario: Explicit URI values satisfy a command form
 

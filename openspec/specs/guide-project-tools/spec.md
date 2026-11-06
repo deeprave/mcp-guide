@@ -12,19 +12,48 @@ The system SHALL provide `set_project(path)` for initial project-root binding an
 `switch_project(name? | path?)` for selecting configuration projects during a
 retained interaction.
 
+#### Scenario: Project selection tools are available
+- **WHEN** an interaction needs initial binding or project switching
+- **THEN** it can use `set_project` or `switch_project` as applicable
+
+### Requirement: Switch-project root-rebinding description
+
 The public `switch_project` tool description SHALL state that it can rebind the
 project root when `path` is supplied, in addition to selecting the active
 configuration project.
+
+#### Scenario: Switch-project description includes root rebinding
+- **WHEN** a caller inspects `switch_project`
+- **THEN** its description explains path-based root rebinding
+
+### Requirement: Project-selection argument rules
 
 `set_project` SHALL continue to require an initial client root path and SHALL
 reject a second root binding for the same interaction. `switch_project` SHALL
 require exactly one of `name` or `path`.
 
+#### Scenario: Switch-project requires one selector
+- **WHEN** a caller supplies both or neither `name` and `path`
+- **THEN** `switch_project` rejects the selection
+
+### Requirement: Project-switch Session replacement
+
 A different selection SHALL create a fresh bound Session and make it current
 under the unchanged public session ID. The outgoing Session SHALL expire without
-changing its original binding. The tool SHALL reject a switch while that ID
-already has an expiring Session; it SHALL NOT queue the switch or create another
-expiring instance.
+changing its original binding.
+
+#### Scenario: Different selection replaces the bound Session
+- **WHEN** a project selection differs from the current selection
+- **THEN** Guide publishes a fresh bound Session under the same public ID
+
+### Requirement: Project switch rejects concurrent expiry
+
+The tool SHALL reject a switch while that ID already has an expiring Session.
+It SHALL NOT queue the switch or create another expiring instance.
+
+#### Scenario: Expiring Session blocks another switch
+- **WHEN** a public session ID already has an expiring Session
+- **THEN** Guide rejects another switch without queuing it
 
 #### Scenario: Switch to existing project
 - **WHEN** a root-bound interaction calls `switch_project` with the name of an
@@ -185,9 +214,31 @@ retaining the destination project's identity (`name`, `key`, and `hash`).
 ### Requirement: Client-aware project root paths
 
 Project binding and switching SHALL use LazyPath.client_resolve() after local
-file-URI decoding. HTTP/HTTPS and unverified/failed stdio SHALL require absolute
-client paths and SHALL reject relative, user-anchored and variable-bearing input.
+file-URI decoding.
+
+#### Scenario: Project path uses client resolution
+- **WHEN** Guide binds or switches a project root
+- **THEN** it resolves the client path through LazyPath.client_resolve()
+
+### Requirement: Unverified client-path requirements
+
+HTTP/HTTPS and unverified or failed stdio SHALL require absolute client paths
+and reject relative, user-anchored, and variable-bearing input.
+
+#### Scenario: Disabled shorthand
+- **WHEN** HTTP/HTTPS or unverified stdio receives shorthand
+- **THEN** it returns invalid-path guidance requesting an absolute client path
+
+### Requirement: Verified stdio path shorthand
+
 Verified stdio SHALL permit shorthand and root-relative switching.
+
+#### Scenario: Verified root-relative switch
+- **WHEN** verified stdio supplies a relative switch path
+- **THEN** it resolves against the current bound root
+
+### Requirement: Initial client root normalisation
+
 Initial binding SHALL require an absolute path after permitted user/environment
 expansion, before filesystem resolution. It SHALL NOT use server CWD to make
 relative initial input absolute. Absolute paths containing `..` SHALL be normalised,

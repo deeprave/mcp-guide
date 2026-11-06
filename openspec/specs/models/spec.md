@@ -205,10 +205,23 @@ The system SHALL configure every resource referenced by an unconditional baselin
 
 ### Requirement: Safe Profile Identifiers
 
-The system SHALL accept a profile identifier only when it is a simple basename of
-one to 50 Unicode alphanumeric, underscore, or hyphen characters. The identifier
-SHALL name the profile without a `.yaml` suffix. Internal basenames beginning with
-an underscore, including `_default`, remain valid.
+The system SHALL accept a profile identifier only when it is a simple basename
+of one to 50 Unicode alphanumeric, underscore, or hyphen characters. Internal
+basenames beginning with an underscore, including `_default`, remain valid.
+
+#### Scenario: Simple profile basename is accepted
+- **WHEN** a caller supplies a valid profile basename
+- **THEN** profile loading may continue to file resolution
+
+### Requirement: Profile identifiers omit file suffixes
+
+A profile identifier SHALL name a profile without a `.yaml` suffix.
+
+#### Scenario: Suffixed profile identifier is rejected
+- **WHEN** a caller supplies a profile identifier ending in `.yaml`
+- **THEN** profile loading fails as an invalid name
+
+### Requirement: Invalid profile identifiers fail before lookup
 
 The system SHALL reject empty identifiers and identifiers containing a path
 separator, backslash, period, whitespace, absolute-path marker, or any other
@@ -227,14 +240,24 @@ unsupported character before checking for a file or reading from the filesystem.
 ### Requirement: Canonically Contained Profile Files
 
 Before reading a profile file, the system SHALL resolve the configured profiles
-directory and the candidate `.yaml` file to canonical paths. The candidate's final
-canonical target SHALL be contained by the canonical profiles directory. A target
-outside that directory, including one reached through a symlink, SHALL be rejected
-as an invalid profile source and SHALL NOT be read.
+directory and candidate `.yaml` file to canonical paths. The candidate's final
+canonical target SHALL be contained by the canonical profiles directory. A
+target outside that directory, including one reached through a symlink, SHALL
+be rejected without being read.
+
+#### Scenario: Contained profile target is read
+- **WHEN** a profile file resolves within the canonical profiles directory
+- **THEN** the loader may read the contained target
+
+### Requirement: Profile containment applies to every load path
 
 This containment rule SHALL apply to every profile load, including profile
 inspection, profile application, profile filtering, and internal default-profile
 loading.
+
+#### Scenario: Every profile load path enforces containment
+- **WHEN** any profile operation loads a profile file
+- **THEN** it applies canonical containment validation before reading that file
 
 #### Scenario: Escaping profile symlink is rejected
 - **WHEN** a valid basename names a `.yaml` symlink in the profiles directory whose canonical target is outside that directory

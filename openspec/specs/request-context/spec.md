@@ -14,27 +14,31 @@ prompt and resource invocation before application execution. It SHALL contain
 the public session ID, the resolved concrete Guide Session and response metadata
 facilities. Bound contexts SHALL expose their Session's root and Project.
 
-Protocol revision, identity validation, owner keys and connection metadata SHALL
-remain transport-boundary responsibilities. Application handlers SHALL NOT
-require raw FastMCP context to select Guide state. The selected Session instance
-SHALL remain owned by that request through completion, even if runtime replaces
-the current instance for the same public ID.
-
-Nested work SHALL use the explicitly supplied context or Session. A deliberate
-project switch SHALL return its replacement explicitly for switch-result
-processing; it SHALL NOT silently redirect other existing request contexts.
-
 #### Scenario: Context-bearing application invocation
 - **WHEN** a public MCP operation enters the application boundary
 - **THEN** the boundary SHALL validate the interaction and resolve one concrete Session
 - **AND** its request context and lifetime accounting SHALL refer to that same instance
 - **AND** nested operations SHALL NOT independently resolve another Session by ID
 
+### Requirement: Request-context transport boundary
+
+Protocol revision, identity validation, owner keys and connection metadata SHALL
+remain transport-boundary responsibilities. Application handlers SHALL NOT
+require raw FastMCP context to select Guide state. The selected Session instance
+SHALL remain owned by that request through completion, even if runtime replaces
+the current instance for the same public ID.
+
 #### Scenario: Existing request crosses a replacement
 - **GIVEN** a request holds the outgoing Session
 - **WHEN** a project switch publishes a replacement under the same public ID
 - **THEN** the existing request SHALL retain its original Session reference
 - **AND** a subsequently admitted request SHALL resolve the replacement
+
+### Requirement: Explicit request-context project switch result
+
+Nested work SHALL use the explicitly supplied context or Session. A deliberate
+project switch SHALL return its replacement explicitly for switch-result
+processing; it SHALL NOT silently redirect other existing request contexts.
 
 #### Scenario: Switch response uses the replacement explicitly
 - **WHEN** a project switch publishes a new bound Session
@@ -49,15 +53,17 @@ current Project configuration, including categories, collections, flags,
 permissions and configuration identity. Unbound contexts SHALL expose
 absent root and project values.
 
-Project configuration values may change through the owning Session, but a
-bound Session's project/root identity SHALL NOT be redirected by a switch.
-Replacing runtime's current instance SHALL NOT make an existing context read
-the replacement's state.
-
 #### Scenario: Bound request reads active project data
 - **WHEN** an admitted request reads bound project data
 - **THEN** its context SHALL expose its captured Session's root path, name and hash
 - **AND** project access SHALL use that Session without another ID lookup
+
+### Requirement: Request-context project configuration access
+
+Project configuration values may change through the owning Session, but a
+bound Session's project/root identity SHALL NOT be redirected by a switch.
+Replacing runtime's current instance SHALL NOT make an existing context read
+the replacement's state.
 
 #### Scenario: Project configuration changes during a request
 - **WHEN** an operation updates its Session's project configuration
@@ -145,10 +151,7 @@ For a provider-backed remote request, the application request context SHALL
 retain only the opaque `UserAuthorisation` state for the current request. It
 SHALL NOT expose raw credentials, bearer tokens, authentication headers,
 provider configuration, provider objects, principals, or transport-specific
-request objects. The scope names are limited to Guide's access boundary and do
-not expose provider claims.
-Stdio request context SHALL remain trusted for authorisation purposes without
-requiring provider identity.
+request objects.
 
 #### Scenario: Provider authorises an HTTP request
 - **GIVEN** an authentication provider is selected for the remote request
@@ -157,6 +160,20 @@ requiring provider identity.
 - **THEN** the request context SHALL retain only `UserAuthorisation` needed for
   the request
 - **AND** it SHALL not expose the provider's request evidence or claims
+
+### Requirement: Authorisation-context scope limitation
+
+Authorisation-context scope names SHALL be limited to Guide's access boundary
+and SHALL not expose provider claims.
+
+#### Scenario: Provider claims are not exposed
+- **WHEN** application code examines a provider-backed request context
+- **THEN** it sees Guide scope names rather than provider claims
+
+### Requirement: Trusted stdio authorisation context
+
+Stdio request context SHALL remain trusted for authorisation purposes without
+requiring provider identity.
 
 #### Scenario: Provider is not selected
 - **GIVEN** no authentication provider is selected for the remote request

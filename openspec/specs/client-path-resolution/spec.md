@@ -43,18 +43,23 @@ MAY corroborate the same-user assumption but SHALL NOT be a required gate.
 - **WHEN** sharing is None or False and an absolute client path is supplied
 - **THEN** it SHALL normalise lexically without environment expansion or server symlink resolution
 
-### Requirement: One-shot filesystem probe
+### Requirement: One-shot filesystem probe creation
 
 After initial absolute-root binding on unverified stdio, one task SHALL
 exclusively create a uniquely named probe file with unpredictable contents
 directly beneath the server's system-wide `/tmp` shareable base. It SHALL grant
 read permission on that file without modifying `/tmp` or any ancestor directory.
-It SHALL queue an instruction to read that exact path and return its contents via
-`send_file_content`, and intercept only that registered response before ordinary
-file handling. Expected contents SHALL NOT be disclosed in the instruction. The
-probe SHALL NOT create, modify, or remove a file below the caller-supplied
-project root while sharing remains unverified. There SHALL be at most one global
-pending attempt.
+
+#### Scenario: Probe file creation
+- **WHEN** initial absolute-root binding starts an unverified stdio probe
+- **THEN** it creates one readable uniquely named file with unpredictable contents under `/tmp`
+
+### Requirement: Filesystem probe response protocol
+
+The probe SHALL queue an instruction to read its exact path and return contents
+via `send_file_content`, and intercept only that registered response before
+ordinary file handling. Expected contents SHALL NOT be disclosed in the
+instruction.
 
 #### Scenario: Matching probe
 - **WHEN** the owning task receives the exact server-owned `/tmp` probe path and matching contents
@@ -64,9 +69,23 @@ pending attempt.
 - **WHEN** a file response does not match the exact registered path
 - **THEN** the probe SHALL NOT consume it or treat it as verification
 
+### Requirement: Filesystem probe project-root safety
+
+The probe SHALL NOT create, modify, or remove a file below the caller-supplied
+project root while sharing remains unverified.
+
 #### Scenario: Unverified root remains untouched
 - **WHEN** initial stdio binding starts filesystem-sharing verification for an unverified client root
 - **THEN** the probe SHALL not create, modify, or remove any path below that root
+
+### Requirement: Single pending filesystem probe
+
+There SHALL be at most one global pending filesystem-sharing verification
+attempt.
+
+#### Scenario: Probe already pending
+- **WHEN** filesystem-sharing verification is already pending
+- **THEN** a second global verification attempt is not created
 
 #### Scenario: Probe failure
 - **WHEN** creation, reading or content verification fails

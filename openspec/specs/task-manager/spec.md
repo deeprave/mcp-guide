@@ -143,13 +143,51 @@ before comparing versions or queuing an update instruction.
 
 ### Requirement: Session-Owned Instruction Delivery
 
-A context-owned Guide `Session`, selected through the request context, SHALL contain a
-non-global TaskManager instance. The Session and its TaskManager SHALL share a
-lifecycle. That TaskManager SHALL own pending instructions, acknowledgements, caches,
-timers, and project-scoped task state; it SHALL associate pending instructions and
-acknowledgements with an explicit Session owner and project identity, and deliver an
-instruction only when a subsequent request proves ownership of the same context or a
-valid descendant state.
+A context-owned Guide `Session`, selected through the request context, SHALL
+contain a non-global TaskManager instance. The Session and TaskManager SHALL
+share a lifecycle.
+
+#### Scenario: Session owns a non-global task manager
+- **WHEN** Guide creates a context-owned Session
+- **THEN** it creates a TaskManager owned by that Session
+
+### Requirement: Task-manager-owned transient state
+
+A Session-owned TaskManager SHALL own pending instructions, acknowledgements,
+caches, timers, and project-scoped task state.
+
+#### Scenario: Task manager owns transient state
+- **WHEN** background task state is created for a Session
+- **THEN** that Session's TaskManager owns the state
+
+### Requirement: Task event subscriptions
+
+The TaskManager SHALL let project-scoped tasks subscribe to typed events and
+timers, dispatch matching events to active subscribers, and remove a task's
+subscriptions when its activation is retired. Event delivery SHALL not depend
+on workflow semantics.
+
+#### Scenario: Active task receives a matching event
+
+- **WHEN** an active task subscribes to an event type and that event is
+  dispatched
+- **THEN** the TaskManager delivers the event and its payload to that task
+
+#### Scenario: Retired task does not receive events
+
+- **WHEN** a task activation is retired
+- **THEN** its event and timer subscriptions are removed
+- **AND** later events are not delivered to that task
+
+### Requirement: Instruction delivery ownership proof
+
+A TaskManager SHALL associate pending instructions and acknowledgements with
+an explicit Session owner and project identity. It SHALL deliver an instruction
+only after a request proves ownership of the same context or valid descendant.
+
+#### Scenario: Instruction delivery requires matching ownership
+- **WHEN** a request attempts to receive a pending instruction
+- **THEN** the task manager delivers it only for the matching owner and project
 
 #### Scenario: Background instruction is queued
 - **WHEN** project-scoped background work creates an instruction for a valid owner and project

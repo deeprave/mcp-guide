@@ -1,4 +1,4 @@
-# reference-auth-provider Specification
+# auth-guide-adapter Specification
 
 ## Purpose
 

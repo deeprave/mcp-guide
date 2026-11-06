@@ -35,14 +35,6 @@ Partial templates SHALL automatically receive the full template context from the
 - **AND** the parent template context contains `project_name`
 - **THEN** the partial renders with the inherited context value
 
-### Requirement: Standard Project Display Partial
-The system SHALL provide a standard project information display partial.
-
-#### Scenario: Project partial usage
-- **WHEN** a template includes the project partial
-- **THEN** it displays project name, categories with descriptions, and collections
-- **AND** maintains consistent formatting across all templates
-
 ### Requirement: System Template Directory
 The template system SHALL support a `_system/` directory for system-level templates that are not tied to specific features.
 

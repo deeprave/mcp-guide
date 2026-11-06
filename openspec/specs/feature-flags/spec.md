@@ -57,6 +57,23 @@ outside this requirement.
 - **THEN** it SHALL continue to use the bound project's configuration
 - **AND** it SHALL NOT treat that flag as process-global state
 
+### Requirement: Effective feature-flag resolution
+
+When a feature flag is available at both project and global scope, the effective
+value for a bound project SHALL use the project value. When it is absent from
+the project, the global value SHALL apply; when absent from both, no value is
+resolved.
+
+#### Scenario: Project flag overrides global flag
+
+- **WHEN** a flag has both a project value and a global value
+- **THEN** the bound project resolves the project value
+
+#### Scenario: Global flag is the fallback
+
+- **WHEN** a flag has no project value and has a global value
+- **THEN** the bound project resolves the global value
+
 ### Requirement: Global structured OpenSpec state flag
 The system SHALL store machine-wide OpenSpec CLI state in the global-only
 `openspec-state` feature flag. Its mapping SHALL contain `validated` as
@@ -112,3 +129,80 @@ callers SHALL retain unrestricted feature-flag access.
 - **WHEN** a user-scoped caller sets or removes a bound project's feature flag
 - **THEN** the system SHALL apply the existing project-flag validation and
   persistence rules
+
+### Requirement: Default feature-flag normalisation
+
+An unregistered feature flag SHALL accept boolean and string values only. Its
+normaliser SHALL preserve arbitrary strings, except for canonical boolean-like
+strings, which it SHALL coerce to booleans.
+
+#### Scenario: Generic boolean flag remains boolean
+
+- **WHEN** an unregistered feature flag is set to `true`
+- **THEN** the stored feature flag value is the boolean `true`
+
+#### Scenario: Canonical boolean string is coerced
+
+- **WHEN** an unregistered feature flag is set to the string `"false"`
+- **THEN** the stored feature flag value is the boolean `false`
+
+#### Scenario: Generic arbitrary string is preserved
+
+- **WHEN** an unregistered feature flag is set to `"custom-mode"`
+- **THEN** the stored feature flag value remains that string
+
+#### Scenario: Unsupported generic structured value is rejected
+
+- **WHEN** an unregistered feature flag is set to a list or dictionary
+- **THEN** the feature-flag operation rejects the value as invalid
+
+### Requirement: Registered feature-flag normalisation
+
+A flag with a registered validator or normaliser SHALL use that registration
+instead of the default scalar path.
+
+#### Scenario: Registered path flag uses its normaliser
+
+- **WHEN** `path-documents` is set to `"docs"`
+- **THEN** its registered path normaliser determines the stored value
+
+#### Scenario: Registered workflow flags use their own validation
+
+- **WHEN** `workflow`, `workflow-file`, or `workflow-consent` is set through a
+  feature-flag API
+- **THEN** its registered validator and normaliser determine whether the value
+  is accepted
+- **AND** the generic default validator does not override that result
+
+#### Scenario: Workflow-file value is resolved safely
+
+- **WHEN** `workflow-file` is set to a supported path expression
+- **THEN** its registered resolver substitutes supported project variables
+- **AND** validates the resulting path using the shared filesystem policy
+
+### Requirement: Feature-flag requirement evaluation
+
+Frontmatter `requires-<flag>` declarations SHALL be evaluated against the
+effective, normalised value for `<flag>`. Boolean requirements SHALL compare
+truthiness, scalar requirements SHALL compare exact values, and list
+requirements SHALL match when any required value is present in an actual list
+or dictionary key.
+
+#### Scenario: Boolean requirement uses a normalised flag
+
+- **WHEN** a template declares `requires-example: true`
+- **AND** the effective normalised `example` flag is truthy
+- **THEN** the requirement is satisfied
+
+#### Scenario: List requirement matches a list-valued flag
+
+- **WHEN** a template declares `requires-feature: [alpha, beta]`
+- **AND** the effective normalised `feature` flag contains `beta`
+- **THEN** the requirement is satisfied
+
+#### Scenario: List requirement matches a dictionary-valued flag
+
+- **WHEN** a template declares `requires-feature: [alpha, beta]`
+- **AND** the effective normalised `feature` flag is a dictionary containing
+  key `alpha`
+- **THEN** the requirement is satisfied

@@ -40,30 +40,33 @@ The system SHALL merge frontmatter from the parent template and every file-backe
 
 ### Requirement: Policy Include Pre-rendering
 
-The system SHALL support a `policies:` frontmatter key in templates that declares a list of
-policy topics the template depends on. Declared topics SHALL be pre-rendered as mustache partials
+The system SHALL support a `policies:` frontmatter key declaring policy topics a
+template depends on. Declared topics SHALL be pre-rendered as Mustache partials
 before the main template renders.
-
-For each declared topic, the system SHALL:
-- Resolve the topic against the `policies` category using the project's active configured patterns
-  and sub-path filtering for that topic
-- Pre-render each matched document individually as a mustache partial
-- Preserve each policy document's frontmatter and resolve its contribution using the same rules as regular partial frontmatter
-  (fields combined and deduplicated; not stripped)
-- Register the pre-rendered content as a mustache partial under the topic key
-
-Templates SHALL reference pre-rendered policy content using standard mustache partial syntax:
-`{{> topic/key}}` (e.g. `{{> git/ops}}`).
-
-The effective rendered disposition SHALL include only policy documents whose registered partial is actually rendered.
 
 #### Scenario: Single policy topic resolved
 - **WHEN** a template declares `policies: [git/ops]` and a document is active for `git/ops`
 - **THEN** that document is pre-rendered and registered as partial `git/ops` before main rendering
 
+### Requirement: Policy include topic resolution
+
+For each declared topic, Guide SHALL resolve the `policies` category using the
+active project patterns and topic sub-path filter, then pre-render every matched
+document individually.
+
 #### Scenario: Multiple policy topics resolved
 - **WHEN** a template declares `policies: [git/ops, testing]`
 - **THEN** each topic is resolved and pre-rendered independently before main rendering
+
+### Requirement: Policy include partial registration and frontmatter
+
+Guide SHALL preserve each policy document's frontmatter and resolve its
+contribution under ordinary partial-frontmatter rules, combining and
+deduplicating fields rather than stripping them. It SHALL register pre-rendered
+content as a Mustache partial under the topic key.
+
+Templates SHALL reference pre-rendered policy content using standard mustache partial syntax:
+`{{> topic/key}}` (e.g. `{{> git/ops}}`).
 
 #### Scenario: Composable topic — multiple documents
 - **WHEN** the project's patterns match multiple documents under a topic
@@ -72,6 +75,11 @@ The effective rendered disposition SHALL include only policy documents whose reg
 #### Scenario: Partial referenced in template
 - **WHEN** a template contains `{{> git/ops}}`
 - **THEN** it renders the pre-rendered policy content for the `git/ops` topic
+
+### Requirement: Rendered policy partial disposition contribution
+
+The effective rendered disposition SHALL include only policy documents whose
+registered partials actually render.
 
 #### Scenario: Policy partial changes disposition
 - **WHEN** a rendered policy document has a higher-precedence `type:` than its parent template
@@ -124,21 +132,6 @@ The placeholder is informational only — it SHALL NOT cause template rendering 
 The system SHALL support rendering `_system/` category templates when no project is
 bound to the current session.
 
-When rendering with no bound project:
-- `project.*` variables SHALL be empty/absent (existing behaviour — must remain stable)
-- `flags` SHALL contain global (feature) flags only, with no project flags merged in
-- `feature_flags` SHALL contain global flags (unchanged from bound behaviour)
-- `agent.*` variables SHALL be populated from the MCP bootstrap agent info if available,
-  or absent if not yet received
-- `client.*` variables SHALL be populated from TaskManager cached data if available,
-  or absent if not yet received
-- `server.*`, formatting variables, `tool_prefix`, `@`, and transient timestamp
-  variables SHALL always be available
-
-The rendering pipeline SHALL NOT raise an exception when called with an unbound session.
-Any missing project variable SHALL silently default to its empty value, consistent with
-how `_build_project_context()` already behaves.
-
 #### Scenario: Render _system template with unbound session
 - **WHEN** `render_content(pattern, "_system", extra_context)` is called
 - **AND** no project is bound to the current session
@@ -146,6 +139,32 @@ how `_build_project_context()` already behaves.
 - **AND** `project.*` variables in the rendered output are empty or absent
 - **AND** `feature_flags` contains global flags
 - **AND** `agent.*` and `client.*` variables are present if bootstrap data is available
+
+### Requirement: Unbound-session template context values
+
+When no project is bound, `project.*` SHALL be empty or absent, `flags` SHALL
+contain global feature flags only, and `feature_flags` SHALL contain global flags.
+
+#### Scenario: Unbound project and flags context
+- **WHEN** an _system template renders without a bound project
+- **THEN** project values are absent and flags use only global feature values
+
+### Requirement: Unbound-session agent and server context values
+
+When no project is bound, `agent.*` SHALL use available MCP bootstrap agent
+information and `client.*` SHALL use available TaskManager cached data, or both
+shall be absent. `server.*`, formatting values, `tool_prefix`, `@`, and transient
+timestamp values SHALL always be available.
+
+#### Scenario: Unbound auxiliary template context
+- **WHEN** an _system template renders without a bound project
+- **THEN** available agent/client context and always-available server context remain usable
+
+### Requirement: Unbound-session template missing-project safety
+
+The rendering pipeline SHALL NOT raise an exception when called with an unbound session.
+Any missing project variable SHALL silently default to its empty value, consistent with
+how `_build_project_context()` already behaves.
 
 #### Scenario: Render _system template with bound session is unchanged
 - **WHEN** `render_content(pattern, "_system", extra_context)` is called
@@ -217,11 +236,7 @@ the parent template.
 The system SHALL resolve each relative frontmatter partial reference from the
 directory of its including template and SHALL load it only when the final
 canonical file target, after independent partial-filename and extension
-resolution, is contained within the configured document root. It SHALL accept
-an absolute reference only when its final canonical target is contained within
-that root. This resolution SHALL use server-side document-root containment and
-SHALL NOT use client-filesystem resolution semantics. It SHALL not read, render,
-or merge frontmatter from an unsafe partial target.
+resolution, is contained within the configured document root.
 
 #### Scenario: Parent-relative partial remains inside the document root
 - **WHEN** a nested template references a partial with `..` path components
@@ -229,10 +244,21 @@ or merge frontmatter from an unsafe partial target.
 - **THEN** the system SHALL render that partial using the existing partial
   composition behaviour
 
+### Requirement: Absolute frontmatter partial containment
+
+An absolute frontmatter partial reference SHALL be accepted only when its final
+canonical target is inside the configured document root.
+
 #### Scenario: Absolute partial reference remains inside the document root
 - **WHEN** frontmatter names a partial with an absolute path whose final
   canonical target is inside the configured document root
 - **THEN** the system SHALL load that partial
+
+### Requirement: Unsafe frontmatter partial isolation
+
+Frontmatter partial resolution SHALL use server-side document-root containment,
+not client-filesystem resolution semantics. It SHALL not read, render, or merge
+frontmatter from an unsafe target.
 
 #### Scenario: Home-anchored or environment-variable partial reference
 - **WHEN** frontmatter names a partial using home-anchored or
@@ -303,18 +329,17 @@ list, while retaining existing output interpolation rules.
 
 The renderer SHALL treat only `instruction`, `description`, and `elicitation`
 frontmatter values as Mustache templates. It SHALL use this same fixed whitelist
-for rendered documents, commands, skills and partials. Interactive preflight SHALL
-evaluate only elicitation-related values needed for input resolution, using
-temporary supporting context as necessary; unrelated renderable headers SHALL NOT
-be evaluated as delivery fields during preflight. Structural metadata, including
-`includes`, `cache`, and `type`, SHALL remain literal. Client-visible source labels
-in frontmatter diagnostics SHALL be relative to the document root.
+for rendered documents, commands, skills and partials.
 
-#### Scenario: Structural frontmatter remains literal
+#### Scenario: Renderable frontmatter whitelist
+- **WHEN** a document, command, skill, or partial renders frontmatter
+- **THEN** only instruction, description, and elicitation values are evaluated as Mustache templates
 
-- **WHEN** a document, command, skill, or partial has structural frontmatter
-  containing template syntax
-- **THEN** Guide SHALL retain that value literally
+### Requirement: Interactive frontmatter preflight evaluation
+
+Interactive preflight SHALL evaluate only elicitation-related values needed for
+input resolution with temporary supporting context; it SHALL NOT evaluate
+unrelated renderable headers as delivery fields.
 
 #### Scenario: Interactive preflight uses the universal whitelist
 
@@ -323,6 +348,18 @@ in frontmatter diagnostics SHALL be relative to the document root.
 - **AND** it SHALL use `requires-*` and `includes` for eligibility and discovery as needed
 - **AND** it SHALL discard unrelated headers before returning preflight state
 - **AND** original frontmatter SHALL remain available for independent rendering with resolved inputs
+
+### Requirement: Literal structural frontmatter and diagnostics
+
+Structural metadata, including `includes`, `cache`, and `type`, SHALL remain
+literal. Client-visible source labels in frontmatter diagnostics SHALL be
+relative to the document root.
+
+#### Scenario: Structural frontmatter remains literal
+
+- **WHEN** a document, command, skill, or partial has structural frontmatter
+  containing template syntax
+- **THEN** Guide SHALL retain that value literally
 
 #### Scenario: Source-aware diagnostic
 

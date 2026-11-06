@@ -66,22 +66,35 @@ The system SHALL support template-styling feature flag with string values.
 When MIME content formatting emits a `Content-Location`, the system SHALL
 construct a valid `guide://` URI by UTF-8 percent-encoding every document
 relative-path segment after applying existing template-suffix and content-type
-extension rules. It SHALL preserve `/` only as the separator between encoded path
-segments.
+extension rules. It SHALL preserve `/` only as the separator between encoded
+path segments.
+
+#### Scenario: Content location encodes document path segments
+- **WHEN** a document name contains a URI-reserved path character
+- **THEN** its `Content-Location` percent-encodes that character
+
+### Requirement: Consistent MIME content locations
 
 The formatter SHALL apply the same location construction to single-document and
-multipart MIME output. Raw CR, LF, NUL, and other control characters SHALL never
-appear in a MIME header value derived from a document name.
+multipart MIME output.
+
+#### Scenario: Single and multipart output use the same location construction
+- **WHEN** MIME content is formatted as single-document or multipart output
+- **THEN** each `Content-Location` uses the same URI construction
+
+### Requirement: MIME header control-character safety
+
+Raw CR, LF, NUL, and other control characters SHALL never appear in a MIME
+header value derived from a document name.
+
+#### Scenario: Legacy control character name cannot inject multipart header
+- **WHEN** a stored document name contains a control character
+- **THEN** no extra MIME header field is created
 
 #### Scenario: Reserved document-name characters are encoded in single MIME output
 - **WHEN** a document name contains a space, percent sign, non-ASCII character, or URI-reserved character
 - **THEN** its single-document `Content-Location` contains the corresponding UTF-8 percent-encoded path segment
 - **AND** the header remains one CRLF-delimited `Content-Location` field
-
-#### Scenario: Legacy control character name cannot inject multipart header
-- **WHEN** a legacy or externally modified stored document name contains CR, LF, NUL, or another control character
-- **THEN** each multipart `Content-Location` percent-encodes that character
-- **AND** no extra MIME header field is created
 
 #### Scenario: Nested location keeps path boundaries
 - **WHEN** a document name has multiple nested path segments

@@ -26,5 +26,6 @@ If the tracker is unavailable, unreachable, or returns no result, the workflow m
 
 ## Impact
 
-- Affected specs: `workflow-flags`, `workflow`
+- Affected specs: `feature-flag-normalization`, `workflow-monitoring`, and
+  `template-context`
 - Affected code: workflow flag parsing, workflow command templates, workflow context resolution, new tracker integration module

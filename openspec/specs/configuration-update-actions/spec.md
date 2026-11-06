@@ -7,7 +7,7 @@ configuration updates without restarting or invalidating unrelated features.
 
 ## Requirements
 
-### Requirement: Effective configuration update contract
+### Requirement: Effective configuration update contents
 
 The system SHALL represent a configuration publication to a bound session as an
 update containing the session's previous and new effective configuration and
@@ -15,21 +15,33 @@ the computed differences for active-project content, global flags,
 active-project categories, collections, project flags, and task-relevant
 feature flags.
 
-The effective configuration exposed to consumers SHALL be an immutable
-projection. The Session SHALL reconstruct and own a separate mutable project
-model when it applies the update to its active binding.
-
-The system SHALL represent a changed validated configuration image as a
-configuration snapshot delta containing old/new snapshots, changed global flag
-information, and changed strict project identities. The process runtime SHALL
-derive effective updates from that delta only for active, live, bound sessions.
-
 #### Scenario: Project configuration changes for an active session
 - **WHEN** a publication changes the configuration selected by a bound session
 - **THEN** that session receives an update containing the previous and new
   effective active-project configuration
 - **AND** the update identifies changed active-project content, categories,
   collections, project flags, and resolved feature flags
+
+### Requirement: Immutable effective configuration updates
+
+The effective configuration exposed to consumers SHALL be an immutable
+projection. The Session SHALL reconstruct and own a separate mutable project
+model when it applies the update to its active binding.
+
+#### Scenario: Session applies an effective update
+- **WHEN** a Session applies an effective configuration update
+- **THEN** it owns a separate mutable project model derived from the immutable projection
+
+### Requirement: Configuration snapshot delta publication
+
+The system SHALL represent a changed validated configuration image as a
+configuration snapshot delta containing old/new snapshots, changed global flag
+information, and changed strict project identities. The process runtime SHALL
+derive effective updates from that delta only for active, live, bound sessions.
+
+#### Scenario: Changed validated configuration image
+- **WHEN** a validated configuration image changes
+- **THEN** its publication contains the old and new snapshots, changed global flags, and changed strict project identities
 
 #### Scenario: Global flags change
 - **WHEN** a publication changes global feature flags

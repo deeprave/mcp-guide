@@ -88,10 +88,22 @@ request rates measured in a rolling 15-second window. Defaults are
 second. Before an MCP session is established, only the process-wide limit
 applies.
 
+#### Scenario: An established session reaches its request capacity
+- **WHEN** an HTTP request would exceed the session's 15-second capacity
+- **THEN** the server returns HTTP 429 with `Retry-After`
+
+### Requirement: HTTP request admission session identification
+
 The limiter SHALL use FastMCP's live Streamable HTTP session registry to decide
 whether a supplied session identifier is established. It SHALL not retain local
 counter state for unknown identifiers and SHALL remove a session counter after
 its rolling window expires.
+
+#### Scenario: Unknown session identifier
+- **WHEN** HTTP admission receives an identifier absent from FastMCP's live session registry
+- **THEN** it does not retain a local session counter for that identifier
+
+### Requirement: HTTP request admission rejection response
 
 The session limit SHALL return HTTP 429; the process-wide limit SHALL return
 HTTP 503. Both SHALL include `Retry-After` for the earliest expiring admitted
@@ -99,9 +111,9 @@ request. Rejected requests SHALL not consume capacity, so retries become
 available naturally as the rolling window expires. Stdio SHALL not use this
 limiter.
 
-#### Scenario: An established session reaches its request capacity
-- **WHEN** an HTTP request would exceed the session's 15-second capacity
-- **THEN** the server returns HTTP 429 with `Retry-After`
+#### Scenario: Process-wide request capacity
+- **WHEN** an HTTP request would exceed the process-wide capacity
+- **THEN** the server returns HTTP 503 with the earliest Retry-After value
 
 ### Requirement: Localhost transport defaults
 Bare HTTP and HTTPS modes, and transport URLs without a host, SHALL bind to

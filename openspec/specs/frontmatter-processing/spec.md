@@ -68,16 +68,7 @@ The system MUST handle content types with appropriate behavior and default instr
 
 The system SHALL parse the `partials` field in frontmatter and validate every
 partial reference before template rendering. Relative references SHALL be
-interpreted from the rendering template's location. Absolute references SHALL
-be permitted only when their final canonical target is contained within the
-configured document root. Home-anchored and environment-variable expansion
-syntax SHALL be invalid. Relative references, including those containing parent
-components, SHALL be permitted only when the final canonical target is
-contained within the configured document root. A reference names the partial
-without its leading underscore; underscore filename derivation and extension
-handling are separate from reference resolution. The derived underscore-prefixed
-filename SHALL remain excluded from ordinary command and category document
-discovery.
+interpreted from the rendering template's location.
 
 #### Scenario: Partials field parsing
 - **WHEN** frontmatter contains a `partials` field with relative references
@@ -85,11 +76,22 @@ discovery.
 - **THEN** the system SHALL parse and accept those partial references
 - **AND** provide them for template composition
 
+### Requirement: Canonically contained partial references
+
+Absolute partial references, and relative references including parent
+components, SHALL be permitted only when their final canonical targets are
+inside the configured document root.
+
 #### Scenario: Parent-relative in-root partial parsing
 - **WHEN** frontmatter contains a relative partial reference with `..`
   components whose final canonical target is inside the document root
 - **THEN** the system SHALL accept the reference
 - **AND** preserve existing nested-template composition behaviour
+
+### Requirement: Invalid partial expansion syntax
+
+Home-anchored and environment-variable expansion syntax in a partial reference
+SHALL be invalid.
 
 #### Scenario: Unsafe partial reference
 - **WHEN** frontmatter contains a home-anchored, environment-variable, or
@@ -98,6 +100,17 @@ discovery.
 - **AND** it SHALL log a non-sensitive warning without failing the parent
   template
 - **AND** it SHALL not allow the reference to cause a host file read
+
+### Requirement: Partial reference naming and discovery exclusion
+
+A partial reference SHALL name the partial without its leading underscore;
+underscore filename derivation and extension handling are separate from
+reference resolution. The derived underscore-prefixed filename SHALL remain
+excluded from ordinary command and category document discovery.
+
+#### Scenario: Derived partial remains undiscoverable as ordinary content
+- **WHEN** a partial reference resolves to an underscore-prefixed filename
+- **THEN** ordinary command and category document discovery excludes that file
 
 ### Requirement: Argument Requirements Field
 Frontmatter SHALL support `argrequired` top-level field to declare command flags that require values.

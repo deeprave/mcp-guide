@@ -29,6 +29,24 @@ The system SHALL provide a mechanism to collect and integrate client-side contex
 - **THEN** properly flatten for template access
 - **AND** maintain namespace organization
 
+### Requirement: Feature-derived workflow context
+
+When the effective `workflow` feature flag is enabled, template rendering SHALL
+expose the resolved workflow file and the current cached workflow-state values
+in its workflow context. The projection SHALL be invalidated when workflow
+state changes without invalidating unrelated project context.
+
+#### Scenario: Workflow state is available to rendering
+
+- **WHEN** rendering for a project with workflow enabled and cached state
+- **THEN** the template context includes the configured workflow file and the
+  state phase, issue, queue, and description values
+
+#### Scenario: Workflow state changes
+
+- **WHEN** the monitor accepts changed workflow state
+- **THEN** the next rendering uses the changed workflow context values
+
 ### Requirement: ClientContextTask System
 The system SHALL provide a task-based system for collecting client context.
 
@@ -170,38 +188,28 @@ Template rendering with a supplied session SHALL expose an `auth` mapping for
 the current request with boolean `active`, `authenticated`, `user`, and `admin`
 values. Rendering without a session SHALL omit the mapping.
 
+#### Scenario: Template rendering has no session
+- **GIVEN** no session is supplied
+- **WHEN** a template is rendered without a supplied session
+- **THEN** its context SHALL have no `auth` mapping, even during an authenticated request
+
+### Requirement: Authentication template activity projection
+
 For a template rendered during a current remote request, `active` SHALL be true
 when provider-backed request evidence is bound for that transport. Template
 activity projects the presence of a provider decision for the current request,
 including an unauthenticated decision. It is distinct from the configured-provider
-check that enables tool enforcement. Session rendering with provider-backed
-request evidence but without a bound provider decision SHALL retain active,
-fail-closed predicates: `authenticated`, `user`, and `admin` SHALL be false.
-This projection SHALL NOT require a provider call.
-`authenticated`, `user`, and `admin` SHALL express access predicates, not raw
-identity claims. When `active` is false, all three scope predicates SHALL be
-true. With authentication active, `authenticated` SHALL mean that the caller
-has `user` or `admin`; an additional capability scope alone SHALL NOT establish
-authenticated state. `admin` true SHALL imply `authenticated` and `user` true. The context
-SHALL expose no token, principal, provider configuration, or provider result
-detail. Template conditionals SHALL use `auth.active` as the sole outer
-authentication gate. A conditional on `auth.authenticated`, `auth.user`, or
-`auth.admin` SHALL occur only within a corresponding `auth.active` section. An
-inactive authentication boundary SHALL retain the action's existing
-instructions regardless of a scope predicate.
+check that enables tool enforcement.
 
-#### Scenario: Authentication is inactive
-- **GIVEN** a session is supplied without a configured provider or on stdio
-- **WHEN** a template is rendered with a session without a configured provider or on stdio
-- **THEN** `auth.active` SHALL be false
-- **AND** `auth.authenticated`, `auth.user`, and `auth.admin` SHALL be true
+#### Scenario: Provider-backed request is active
+- **WHEN** a template renders during a remote request with provider-backed evidence
+- **THEN** its auth.active value is true without requiring a provider call
 
-#### Scenario: Inactive authentication does not prompt for credentials
-- **GIVEN** a session is supplied without a configured provider or on stdio
-- **WHEN** an authentication-aware template renders an otherwise available
-  configuration action
-- **THEN** it SHALL present the action without instructing the caller to
-  authenticate
+### Requirement: Authentication template missing-decision predicates
+
+Session rendering with provider-backed request evidence but without a bound
+provider decision SHALL retain active, fail-closed `authenticated`, `user`, and
+`admin` predicates of false. This projection SHALL NOT require a provider call.
 
 #### Scenario: Remote rendering has no provider decision
 - **GIVEN** provider-backed remote request evidence is bound
@@ -210,18 +218,51 @@ instructions regardless of a scope predicate.
 - **THEN** `auth.active` SHALL be true
 - **AND** `auth.authenticated`, `auth.user`, and `auth.admin` SHALL be false
 
-#### Scenario: Template rendering has no session
-- **GIVEN** no session is supplied
-- **WHEN** a template is rendered without a supplied session
-- **THEN** its context SHALL have no `auth` mapping, even during an authenticated request
+### Requirement: Authentication template access predicates
+
+`authenticated`, `user`, and `admin` SHALL express access predicates, not raw
+identity claims. When `active` is false, all three scope predicates SHALL be
+true. With authentication active, `authenticated` SHALL mean that the caller
+has `user` or `admin`; an additional capability scope alone SHALL NOT establish
+authenticated state. `admin` true SHALL imply `authenticated` and `user` true.
+
+#### Scenario: Authentication is inactive
+- **GIVEN** a session is supplied without a configured provider or on stdio
+- **WHEN** a template is rendered with a session without a configured provider or on stdio
+- **THEN** `auth.active` SHALL be false
+- **AND** `auth.authenticated`, `auth.user`, and `auth.admin` SHALL be true
 
 #### Scenario: Authenticated non-admin caller renders a template
 - **GIVEN** the provider-backed caller is authenticated but lacks administrative access
-- **WHEN** a provider-backed caller is authenticated but lacks administrative
-  access
+- **WHEN** a provider-backed caller is authenticated but lacks administrative access
 - **THEN** `auth.active` and `auth.authenticated` SHALL be true
 - **AND** `auth.admin` SHALL be false
 - **AND** `auth.user` SHALL be true and `auth.admin` SHALL be false
+
+### Requirement: Authentication template information boundary
+
+The context SHALL expose no token, principal, provider configuration, or provider
+result detail.
+
+#### Scenario: Template context hides provider details
+- **WHEN** a template renders with provider-backed authentication active
+- **THEN** its auth mapping contains access predicates but no provider or credential detail
+
+### Requirement: Authentication template conditional structure
+
+Template conditionals SHALL use `auth.active` as the sole outer
+authentication gate. A conditional on `auth.authenticated`, `auth.user`, or
+`auth.admin` SHALL occur only within a corresponding `auth.active` section. An
+inactive authentication boundary SHALL retain the action's existing
+instructions regardless of a scope predicate.
+
+#### Scenario: Inactive authentication does not prompt for credentials
+- **GIVEN** a session is supplied without a configured provider or on stdio
+- **WHEN** an authentication-aware template renders an otherwise available
+  configuration action
+- **THEN** it SHALL present the action without instructing the caller to
+  authenticate
+
 
 ### Requirement: Request-safe scope projection
 The `auth` mapping SHALL be calculated from current request decisions and

@@ -7,13 +7,9 @@ Define shared template context, caching, and helper support for document renderi
 
 The system SHALL provide a session-aware template context caching system that integrates with MCP session management.
 
-Template context caching SHALL:
-- Implement SessionListener interface for proper cache invalidation
-- Provide lazy loading of context data with caching for performance
-- Support system, agent, and project context layers
-- Maintain context precedence with proper override behavior
-- Handle missing sessions and projects gracefully
-- Use safe attribute access patterns to avoid coupling to session internals
+Template context caching SHALL implement SessionListener for invalidation,
+provide lazily loaded cached context data, and support system, agent, and
+project context layers with defined precedence.
 
 #### Scenario: Template context cache initialization
 - **WHEN** TemplateContextCache is created
@@ -22,6 +18,11 @@ Template context caching SHALL:
 #### Scenario: Context cache invalidation on session change
 - **WHEN** session changes for a project
 - **THEN** invalidate cached template contexts to ensure fresh data
+
+### Requirement: Template context cache session safety
+
+Template context caching SHALL handle missing sessions and projects gracefully
+and use safe attribute access without coupling to Session internals.
 
 #### Scenario: Safe session access
 - **WHEN** accessing session project data
@@ -138,34 +139,8 @@ Template rendering SHALL:
 
 The system SHALL provide rich context data for template rendering using a type-safe ChainMap-based context system.
 
-Context resolution SHALL use a TemplateContext class that:
-- Extends ChainMap for scope chaining behavior
-- Validates context keys are strings and values are template-safe types
-- Provides automatic priority resolution (inner scopes override outer scopes)
-- Supports both hard deletion (reveals parent) and soft deletion (masks parent)
-- Maintains type safety across all context operations
-
-Context sources SHALL include (in priority order, later overrides earlier):
-1. **System context**: Built-in variables (now, timestamp)
-2. **Agent context**: Agent information and prompt character
-3. **Project context**: Project configuration data
-4. **Collection context**: Collection information (when applicable)
-5. **Category context**: Category configuration data
-6. **File context**: Current file metadata
-7. **Lambda functions**: Template processing functions (format_date, truncate, highlight_code)
-
-Context resolution SHALL:
-- Use TemplateContext.new_child() to create layered contexts
-- Compute context fresh on every template render (stateless approach)
-- Convert datetime objects to ISO 8601 strings
-- Convert Path objects to strings for template compatibility
-- Handle missing optional fields gracefully (None values)
-- Validate all context data at creation time
-- Inject TemplateFunctions lambda functions into context
-
-#### Scenario: TemplateContext type validation
-- **WHEN** creating context with invalid key type
-- **THEN** raise TypeError with clear message about string keys requirement
+TemplateContext SHALL extend ChainMap for scope chaining, priority resolution,
+and hard or soft deletion.
 
 #### Scenario: TemplateContext scope chaining
 - **WHEN** file context contains same key as category context
@@ -178,6 +153,31 @@ Context resolution SHALL:
 #### Scenario: TemplateContext soft deletion
 - **WHEN** soft-deleting key from child context
 - **THEN** key appears missing (KeyError) even if present in parent
+
+### Requirement: Template context source precedence
+
+Context sources SHALL apply in this order, with later sources overriding earlier:
+system context, agent context, and project context.
+
+#### Scenario: Project source overrides system source
+- **WHEN** a context value exists in system and project sources
+- **THEN** the project source value takes precedence
+
+### Requirement: Template context local source precedence
+
+Collection, category, file, and template-lambda sources SHALL apply after
+system, agent, and project sources, in that order.
+
+#### Scenario: Context priority resolution
+- **WHEN** variable defined in multiple context sources
+- **THEN** use value from highest priority source (file overrides category, etc.)
+
+### Requirement: Fresh template context construction
+
+Context resolution SHALL use TemplateContext.new_child(), compute fresh context
+for every render, convert datetime values to ISO 8601 and Path values to
+strings, handle missing optional values, validate data at creation, and inject
+TemplateFunctions.
 
 #### Scenario: Context variable access
 - **WHEN** template uses `{{project.name}}`
@@ -203,22 +203,19 @@ Context resolution SHALL:
 
 The system SHALL enforce type safety for template context data.
 
-TemplateContext SHALL validate:
-- Keys must be strings (for template variable names)
-- Values must be str, dict, list, int, float, bool, or None
-- Nested dictionaries have string keys and valid values
-- List items are valid template values
-- Special sentinel values for soft deletion are handled internally
-
-Type validation SHALL:
-- Occur at context creation and modification time
-- Raise TypeError with descriptive messages for invalid types
-- Allow internal sentinel values for soft deletion masking
-- Prevent invalid data from reaching template rendering
+TemplateContext SHALL accept only string keys and str, dict, list, int, float,
+bool, or None values. Nested dictionaries and list items SHALL also be valid
+template values; internal soft-deletion sentinels remain supported.
 
 #### Scenario: Valid context types
 - **WHEN** setting context with str, int, float, bool, None, dict, or list values
 - **THEN** accept the values without error
+
+### Requirement: TemplateContext validation lifecycle
+
+Type validation SHALL occur at context creation and modification, raise
+descriptive TypeError exceptions for invalid values, and prevent invalid data
+from reaching rendering.
 
 #### Scenario: Invalid key type
 - **WHEN** attempting to set non-string key in context
@@ -259,14 +256,8 @@ Project context SHALL include:
 
 The system SHALL provide file-level context variables for the current file being rendered.
 
-File context SHALL include:
-- `path`: Relative path from category directory (string)
-- `basename`: Filename without .mustache extension (string)
-- `category`: Category name where file is located (string or None)
-- `collection`: Collection name if applicable (string or None)
-- `size`: File size in bytes, rendered content size for templates (integer)
-- `mtime`: File modification time (ISO 8601 string)
-- `ctime`: File creation time (ISO 8601 string or None if unavailable)
+File context SHALL include relative `path`, extension-free `basename`, and
+optional `category` and `collection` names.
 
 #### Scenario: File path access
 - **WHEN** template uses `{{file.path}}`
@@ -275,6 +266,11 @@ File context SHALL include:
 #### Scenario: File basename access
 - **WHEN** template uses `{{file.basename}}`
 - **THEN** substitute with filename without .mustache extension
+
+### Requirement: File context metadata values
+
+File context SHALL include integer `size`, ISO 8601 `mtime`, and optional ISO
+8601 `ctime`; template size SHALL represent rendered content size.
 
 #### Scenario: File size for templates
 - **WHEN** rendering template file
@@ -478,17 +474,19 @@ Integration SHALL:
 
 The system SHALL provide an `_error` template lambda that allows templates to signal application-level errors through the rendering pipeline.
 
-The `_error` lambda SHALL:
-- Be registered in the common rendering pipeline, available to all template types (command, openspec, workflow, context)
-- Render the enclosed block content using the current template context
-- Append the rendered error message to a list on the `TemplateFunctions` instance
-- Return an empty string so no error content appears in the rendered output
-- Support multiple invocations, accumulating all errors
+The `_error` lambda SHALL be registered in the common rendering pipeline for
+all template types, render its enclosed block with the current context, and
+return an empty string so error content is absent from output.
 
 #### Scenario: Template signals missing argument error
 - **WHEN** a command template renders `{{#_error}}Missing required argument{{/_error}}`
 - **THEN** the rendered output SHALL NOT contain the error message
 - **AND** the error message SHALL be captured by the rendering pipeline
+
+### Requirement: Template error accumulation
+
+The `_error` lambda SHALL append each rendered message to TemplateFunctions
+and support multiple invocations in order.
 
 #### Scenario: Multiple errors accumulated
 - **WHEN** a template invokes `_error` multiple times
@@ -544,19 +542,19 @@ The failure result SHALL:
 
 The system SHALL provide a `resource` template lambda that renders content references in a configurable format.
 
-The resource lambda SHALL:
-- Accept an expression string and render it as a content reference
-- Use a feature flag named `format-resource`, exposed by `FLAG_RESOURCE`
-- Default to `guide://expression` URI format when `format-resource` is `false` or unset
-- Render as `get_content("expression")` when `format-resource` is `true`
-- Be registered in the template context as `resource`
-- Use a named feature-flag constant and registered boolean validator/normaliser path rather than ad hoc string-only lookup
-- Use URI rendering as the universal default when `format-resource` is unset
+The resource lambda SHALL accept an expression and be registered in template
+context as `resource`.
 
 #### Scenario: Default rendering (guide:// URI)
 - **WHEN** `{{#resource}}guidelines{{/resource}}` is rendered
 - **AND** `format-resource` is `false` or unset
 - **THEN** output is `guide://guidelines`
+
+### Requirement: Configurable resource-lambda rendering
+
+The resource lambda SHALL use `format-resource`, exposed by `FLAG_RESOURCE` and
+its registered boolean validator/normaliser. It SHALL render `guide://expression`
+when false or unset and `get_content("expression")` when true; URI is default.
 
 #### Scenario: Tool rendering
 - **WHEN** `{{#resource}}guidelines{{/resource}}` is rendered
@@ -567,18 +565,19 @@ The resource lambda SHALL:
 
 The system SHALL automatically inform agents about the guide:// URI scheme via a one-shot instruction.
 
-Guide URI instruction delivery SHALL:
-- Render `_system/guide-uri.mustache` template on project load
-- Queue the rendered content as a non-priority instruction (no acknowledgement)
-- Reference MCP `resources/list` as the standard discovery mechanism
-- Explain that `read_resource` tool resolves guide:// URIs
-- Not require a feature flag (always active)
-- Not be user-visible
-- Use `agent/information` template type
+Guide SHALL render `_system/guide-uri.mustache` on project load and queue it as
+a non-priority, unacknowledged `agent/information` instruction. The instruction
+SHALL be always active and not user-visible.
 
 #### Scenario: Instruction delivery on project load
 - WHEN a project is loaded for the first time in a session
 - THEN the guide URI instruction is queued for delivery on next tool response
+
+### Requirement: Guide URI instruction content
+
+Guide URI instruction delivery SHALL reference MCP `resources/list` discovery
+and explain that `read_resource` resolves guide:// URIs.
+
 
 #### Scenario: Instruction is one-shot
 - WHEN the guide URI instruction has been queued

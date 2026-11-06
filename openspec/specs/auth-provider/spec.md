@@ -1,4 +1,4 @@
-# mcp-authentication Specification
+# auth-provider Specification
 
 ## Purpose
 
@@ -10,24 +10,30 @@ without making Guide an identity provider or interpreting credentials.
 ### Requirement: Pluggable remote authentication provider
 The system SHALL select at most one authentication provider with
 `--auth-provider <provider>`, resolving the name from the
-`mcp_guide.auth_providers` entry-point group. Provider-specific deployment
-configuration SHALL be owned by that provider, including its own environment,
-files, or external services. Guide SHALL NOT offer a provider-config CLI
-argument.
-
-The selected provider SHALL be loaded and started only when a protected remote
-operation needs an authentication decision, and stopped with its remote HTTP(S)
-transport. A provider configuration or startup failure SHALL fail that protected
-operation closed without preventing unprotected remote operations from serving.
-Stdio SHALL reject `--auth-provider`. Guide
-SHALL NOT issue credentials, manage accounts, persist credentials, or parse
-credential formats or contents.
+`mcp_guide.auth_providers` entry-point group.
 
 #### Scenario: No provider is selected
 - **GIVEN** no authentication provider is selected
 - **WHEN** a server starts without `--auth-provider`
 - **THEN** it SHALL not construct a provider
 - **AND** remote operations SHALL retain their existing access behaviour
+
+### Requirement: Authentication provider configuration ownership
+
+Provider-specific deployment configuration SHALL be owned by the provider,
+including its environment, files, or external services. Guide SHALL NOT offer a
+provider-config CLI argument.
+
+#### Scenario: Provider configuration is supplied
+- **WHEN** a selected authentication provider needs deployment configuration
+- **THEN** its provider-owned configuration mechanism supplies it
+
+### Requirement: Authentication provider lifecycle
+
+The selected provider SHALL be loaded and started only when a protected remote
+operation needs an authentication decision, and stopped with its remote HTTP(S)
+transport. A provider configuration or startup failure SHALL fail that protected
+operation closed without preventing unprotected remote operations from serving.
 
 #### Scenario: Provider starts for a protected operation
 - **GIVEN** an authentication provider is selected for the remote transport
@@ -41,33 +47,60 @@ credential formats or contents.
 - **THEN** that operation SHALL return a safe authentication-service-unavailable result
 - **AND** unprotected operations SHALL retain their existing result behaviour
 
+### Requirement: Authentication provider boundary
+
+Stdio SHALL reject `--auth-provider`. Guide SHALL NOT issue credentials, manage
+accounts, persist credentials, or parse credential formats or contents.
+
+#### Scenario: Stdio authentication provider option
+- **WHEN** stdio is started with --auth-provider
+- **THEN** Guide rejects the option
+
 ### Requirement: Opaque request authorisation and handoff
 For each remote request that needs an authentication decision, Guide SHALL
 supply the provider with ephemeral request evidence. The provider SHALL return
 `UserAuthorisation`: a set of scope names and an optional opaque HTTPS
-authentication handoff. Guide SHALL use `user` for ordinary protected operations
-and `admin` for administrative operations; `admin` SHALL also satisfy `user`
-operations.
-
-Authenticated state SHALL mean the presence of `user` or `admin`, with
-unauthenticated state its complement. Future capability scopes SHALL require
-`user` alongside them unless `admin` is present.
-
-Guide SHALL map absence of both `user` and `admin` to `not_authorised` (HTTP 401
-semantics), and insufficient required scope to `forbidden` (HTTP 403 semantics),
-without exposing tokens, principals, provider
-details, or credential data. Guide SHALL NOT redirect an MCP invocation to an
-interactive login flow. A provider requiring interactive authentication SHALL
-own its HTTPS callback or login routes; a capable client MAY follow the returned
-handoff before retrying.
-These codes SHALL be returned inside MCP Result payloads; this mapping SHALL NOT
-change HTTP transport status codes or introduce HTTP authentication challenges.
+authentication handoff.
 
 #### Scenario: Provider supplies user access
 - **GIVEN** the selected provider is authorising a user-protected operation
 - **WHEN** the provider returns `UserAuthorisation` containing `user`
 - **THEN** the system SHALL dispatch a user-protected operation subject to its
   existing validation and behaviour
+
+### Requirement: Authentication scope hierarchy
+
+Guide SHALL use `user` for ordinary protected operations and `admin` for
+administrative operations; `admin` SHALL also satisfy `user` operations.
+
+Authenticated state SHALL mean the presence of `user` or `admin`, with
+unauthenticated state its complement. Future capability scopes SHALL require
+`user` alongside them unless `admin` is present.
+
+#### Scenario: User lacks an administrative scope
+- **GIVEN** the caller has `user` access but not `admin`
+- **WHEN** a user-scoped caller invokes an admin-protected operation
+- **THEN** the system SHALL return a `forbidden` insufficient-authorisation result
+- **AND** it SHALL not perform the operation
+
+### Requirement: Authentication failure result mapping
+
+Guide SHALL map absence of both `user` and `admin` to `not_authorised` (HTTP 401
+semantics), and insufficient required scope to `forbidden` (HTTP 403 semantics),
+without exposing tokens, principals, provider
+details, or credential data. These codes SHALL be returned inside MCP Result
+payloads without changing HTTP transport status codes or introducing HTTP
+authentication challenges.
+
+#### Scenario: Authentication result is an MCP payload
+- **WHEN** Guide rejects a protected operation for authentication or authorisation
+- **THEN** it returns the mapped result in an MCP payload without changing transport status
+
+### Requirement: Authentication handoff interaction boundary
+
+Guide SHALL NOT redirect an MCP invocation to an interactive login flow. A
+provider requiring interactive authentication SHALL own its HTTPS callback or
+login routes; a capable client MAY follow the returned handoff before retrying.
 
 #### Scenario: Provider requires authentication
 - **GIVEN** the selected provider is authorising a protected operation
@@ -76,29 +109,25 @@ change HTTP transport status codes or introduce HTTP authentication challenges.
 - **AND** it SHALL preserve an opaque handoff when supplied
 - **AND** it SHALL not redirect or perform the operation
 
-#### Scenario: User lacks an administrative scope
-- **GIVEN** the caller has `user` access but not `admin`
-- **WHEN** a user-scoped caller invokes an admin-protected operation
-- **THEN** the system SHALL return a `forbidden` insufficient-authorisation result
-- **AND** it SHALL not perform the operation
-
 ### Requirement: Direct operation scope enforcement
 Each protected tool, resource, or prompt SHALL declare its required `AuthScope`
 string-enum value directly. The initial values are `user` and `admin`; `admin`
 SHALL satisfy every protected-operation scope. A later change MAY introduce
 additional scopes or configurable policy.
 
-Operations without a declared scope SHALL retain existing access behaviour.
-The classification SHALL apply only while a provider-backed remote policy is
-active and SHALL be enforced after argument validation and before an operation
-has an effect. Later protected resources and prompts SHALL use this same
-boundary.
-
 #### Scenario: A protected operation is registered
 - **GIVEN** a tool, resource, or prompt is protected
 - **WHEN** a tool, resource, or prompt is protected
 - **THEN** its registration SHALL identify its required scope enum value
 - **AND** that scope requirement SHALL be applied at the request boundary
+
+### Requirement: Provider-policy operation-scope application
+
+Operations without a declared scope SHALL retain existing access behaviour.
+The classification SHALL apply only while a provider-backed remote policy is
+active and SHALL be enforced after argument validation and before an operation
+has an effect. Later protected resources and prompts SHALL use this same
+boundary.
 
 #### Scenario: An unprotected operation is called with provider active
 - **GIVEN** provider-backed remote policy is active

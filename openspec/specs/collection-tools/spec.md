@@ -19,31 +19,52 @@ The tool SHALL:
 - **WHEN** collection_list tool is invoked
 - **THEN** return list of all collections with names and details
 
-### Requirement: collection_add Tool
+### Requirement: collection_add creation
 
 The system SHALL provide a `collection_add` tool that creates a new collection.
+
+The tool SHALL create a collection in project configuration, with omitted
+`categories` defaulting to an empty array.
+
+#### Scenario: Add collection successfully
+- **WHEN** collection_add tool is invoked with valid name
+- **THEN** create new collection and return success
+
+### Requirement: collection_add arguments
+
+The `collection_add` tool SHALL accept these arguments:
 
 Arguments:
 - `name` (required, string): Collection name
 - `description` (optional, string): Collection description
 - `categories` (optional, array of strings): Category names (defaults to empty array)
 
-The tool SHALL:
-- Validate all inputs
-- Check collection doesn't already exist
-- Validate all referenced categories exist
-- Create collection in project configuration
-- Persist configuration to disk
-- Return Result pattern response
+#### Scenario: collection_add argument schema
+- **WHEN** a client inspects the collection_add tool schema
+- **THEN** it exposes the documented name, description, and categories arguments
+
+### Requirement: collection_add validation
+
+The `collection_add` tool SHALL validate all inputs, reject an existing
+collection name, and require every referenced category to exist.
 
 Error types:
 - `already_exists` - Collection with same name exists
 - `invalid_name` - Name fails validation
 - `category_not_found` - Referenced category doesn't exist
 
-#### Scenario: Add collection successfully
-- **WHEN** collection_add tool is invoked with valid name
-- **THEN** create new collection and return success
+#### Scenario: collection_add invalid category
+- **WHEN** collection_add references a category that does not exist
+- **THEN** it returns category_not_found
+
+### Requirement: collection_add persistence and response
+
+The `collection_add` tool SHALL persist a successfully created collection and
+return a Result-pattern response.
+
+#### Scenario: Persisted collection creation
+- **WHEN** collection_add creates a valid collection
+- **THEN** it persists the configuration and returns a successful Result response
 
 ### Requirement: collection_remove Tool
 
@@ -65,9 +86,20 @@ Error types:
 - **WHEN** collection_remove tool is invoked with existing collection name
 - **THEN** remove collection and return success
 
-### Requirement: collection_change Tool
+### Requirement: collection_change replacement
 
 The system SHALL provide a `collection_change` tool that replaces collection configuration.
+
+The tool SHALL replace the specified collection configuration. A supplied
+`categories` value SHALL replace all existing categories.
+
+#### Scenario: Change collection successfully
+- **WHEN** collection_change tool is invoked with valid parameters
+- **THEN** replace collection configuration and return success
+
+### Requirement: collection_change arguments
+
+The `collection_change` tool SHALL accept these arguments:
 
 Arguments:
 - `name` (required, string): Current collection name
@@ -75,48 +107,79 @@ Arguments:
 - `description` (optional, string): New description (empty string to clear)
 - `categories` (optional, array of strings): New categories (replaces all existing)
 
-The tool SHALL:
-- Validate collection exists
-- Validate new_name if provided and doesn't conflict
-- Validate all new values
-- Validate all referenced categories exist
-- Replace collection configuration
-- Persist configuration to disk
-- Return Result pattern response
+#### Scenario: collection_change argument schema
+- **WHEN** a client inspects the collection_change tool schema
+- **THEN** it exposes the documented current-name and replacement-field arguments
+
+### Requirement: collection_change validation
+
+The `collection_change` tool SHALL validate that the collection exists, validate
+all replacement values and referenced categories, and reject a conflicting new
+name.
 
 Error types:
 - `not_found` - Collection doesn't exist
 - `name_conflict` - New name already exists
 - `category_not_found` - Referenced category doesn't exist
 
-#### Scenario: Change collection successfully
-- **WHEN** collection_change tool is invoked with valid parameters
-- **THEN** replace collection configuration and return success
+#### Scenario: collection_change conflicting name
+- **WHEN** collection_change supplies a name already used by another collection
+- **THEN** it returns name_conflict
 
-### Requirement: collection_update Tool
+### Requirement: collection_change persistence and response
+
+The `collection_change` tool SHALL persist a successful replacement and return
+a Result-pattern response.
+
+#### Scenario: Persisted collection replacement
+- **WHEN** collection_change replaces a valid collection
+- **THEN** it persists the configuration and returns a successful Result response
+
+### Requirement: collection_update mutation
 
 The system SHALL provide a `collection_update` tool that modifies specific collection fields.
+
+The tool SHALL add supplied categories and remove supplied categories; removal
+of a category that is absent SHALL be idempotent.
+
+#### Scenario: Update collection successfully
+- **WHEN** collection_update tool is invoked with valid categories
+- **THEN** modify collection categories and return success
+
+### Requirement: collection_update arguments
+
+The `collection_update` tool SHALL accept these arguments:
 
 Arguments:
 - `name` (required, string): Collection name
 - `add_categories` (optional, array of strings): Categories to add
 - `remove_categories` (optional, array of strings): Categories to remove
 
-The tool SHALL:
-- Validate collection exists
-- Add categories if add_categories provided
-- Remove categories if remove_categories provided (idempotent - ignore if not present)
-- Validate added categories exist
-- Persist configuration to disk
-- Return Result pattern response
+#### Scenario: collection_update argument schema
+- **WHEN** a client inspects the collection_update tool schema
+- **THEN** it exposes the documented name, add_categories, and remove_categories arguments
+
+### Requirement: collection_update validation
+
+The `collection_update` tool SHALL validate that the collection exists and that
+every added category exists.
 
 Error types:
 - `not_found` - Collection doesn't exist
 - `category_not_found` - Added category doesn't exist
 
-#### Scenario: Update collection successfully
-- **WHEN** collection_update tool is invoked with valid categories
-- **THEN** modify collection categories and return success
+#### Scenario: collection_update invalid category
+- **WHEN** collection_update adds a category that does not exist
+- **THEN** it returns category_not_found
+
+### Requirement: collection_update persistence and response
+
+The `collection_update` tool SHALL persist a successful mutation and return a
+Result-pattern response.
+
+#### Scenario: Persisted collection mutation
+- **WHEN** collection_update modifies a valid collection
+- **THEN** it persists the configuration and returns a successful Result response
 
 ### Requirement: Collection Name Validation
 

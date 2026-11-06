@@ -5,61 +5,6 @@ Define common Guide tool response, validation, and registration conventions.
 
 ## Requirements
 
-### Requirement: Result Disposition Field
-`Result[T]` SHALL carry an optional `disposition` field identifying how the response should be treated, drawn from the disposition vocabulary defined by the `result-disposition` capability.
-
-A `Result` SHALL prefer setting `disposition` over a prose `instruction` when the disposition alone conveys the required agent behavior. A prose `instruction` SHALL still be included alongside `disposition` when it carries information specific to that response that the disposition alone does not (for example, which arguments conflicted, or what value would succeed).
-
-#### Scenario: Disposition set without a paired instruction
-- **WHEN** a tool result's meaning is fully carried by its disposition
-- **THEN** `Result.disposition` is set
-- **AND** `Result.instruction` is absent
-
-#### Scenario: Disposition set with response-specific instruction
-- **WHEN** a tool result's disposition alone does not convey response-specific detail
-- **THEN** `Result.disposition` is set
-- **AND** `Result.instruction` carries only the detail the disposition does not
-
-### Requirement: Result disposition is never fabricated
-`Result.ok()` and `Result.failure()` SHALL NOT apply a blanket default disposition when none is given. A `Result`'s disposition SHALL be set only where the constructing call site has a genuinely known disposition for that content (a rendered document, skill, or command); otherwise it SHALL remain unset and be omitted from the serialized result.
-
-#### Scenario: No disposition given, none fabricated
-- **WHEN** `Result.ok()` or `Result.failure()` is called without an explicit `disposition`
-- **THEN** the resulting `Result.disposition` is `None`
-- **AND** the serialized result omits the `disposition` key entirely
-
-#### Scenario: Category-specific defaults remain construction-time, not blanket
-- **WHEN** a skill or command template renders with no explicit `type:` in its frontmatter
-- **THEN** its resulting disposition is `agent/instruction`
-- **AND** this default is determined by the rendering path for that content category, not by a `Result`-level fallback applied indiscriminately to every result
-
-### Requirement: Result Pattern Implementation
-The system SHALL provide a Result[T] generic type in mcp_core for tool responses.
-
-#### Scenario: Success result creation
-- **WHEN** a tool succeeds
-- **THEN** Result.ok(value) creates success result with value
-- **AND** success field is True
-- **AND** optional message and instruction fields can be included
-
-#### Scenario: Failure result creation
-- **WHEN** a tool fails
-- **THEN** Result.failure(error, error_type) creates failure result
-- **AND** success field is False
-- **AND** error and error_type fields are populated
-- **AND** optional exception, message, and instruction fields can be included
-
-#### Scenario: JSON serialization
-- **WHEN** Result.to_json_str() is called
-- **THEN** returns JSON string suitable for MCP tool response
-- **AND** exception field is converted to exception_type and exception_message
-- **AND** all optional fields are included if present
-
-#### Scenario: Instruction field for agent guidance
-- **WHEN** Result includes instruction field
-- **THEN** instruction guides agent behavior (prevent remediation, suggest fixes, control modes)
-- **AND** instruction is separate from user-facing message field
-
 ### Requirement: Tool Arguments Base Class
 The system SHALL provide ToolArguments base class in mcp_core with tool collection support.
 
@@ -282,11 +227,17 @@ about the agent/client environment.
 Arguments:
 - `verbose` (optional, boolean): include detailed information when available.
 
-The tool SHALL return a Result pattern response containing available agent name,
-version, client environment details, and a `protocol` field containing the
-established session protocol classification. The protocol classification SHALL
-distinguish MCP `2026-07-28` from `legacy` without exposing a raw negotiated
-revision as a substitute for that classification.
+The tool SHALL return a Result-pattern response containing available agent name,
+version, and client environment details.
+
+#### Scenario: Client information result
+- **WHEN** client_info is invoked for an established session
+- **THEN** it returns available agent name, version, and environment details
+
+### Requirement: Client-info protocol classification
+
+client_info SHALL return a protocol classification distinguishing MCP
+`2026-07-28` from legacy without exposing the raw negotiated revision.
 
 #### Scenario: Retrieve client information
 - **WHEN** `client_info` is invoked for an established session
@@ -355,9 +306,17 @@ The system SHALL support comma-separated expressions for retrieving content from
 
 `CategoryCollectionAddArgs`, `CategoryCollectionChangeArgs`, and `CategoryCollectionUpdateArgs` SHALL reject incompatible field combinations at model construction time with a descriptive `ValueError`.
 
-Fields that are category-only (`dir`, `patterns`, `new_dir`, `new_patterns`, `add_patterns`, `remove_patterns`) MUST NOT be provided when `type='collection'`.
+Category-only fields (`dir`, `patterns`, `new_dir`, `new_patterns`,
+`add_patterns`, `remove_patterns`) MUST NOT be provided when type is collection.
 
-Fields that are collection-only (`categories`, `new_categories`, `add_categories`, `remove_categories`) MUST NOT be provided when `type='category'`.
+#### Scenario: Category-only fields rejected for collection type
+- **WHEN** CategoryCollectionAddArgs is constructed with collection type and dir
+- **THEN** it raises a descriptive ValueError
+
+### Requirement: Collection-only argument validation
+
+Collection-only fields (`categories`, `new_categories`, `add_categories`,
+`remove_categories`) MUST NOT be provided when type is category.
 
 #### Scenario: Category-only fields rejected for collection type
 - **WHEN** `CategoryCollectionAddArgs(type='collection', name='all', dir='docs/')` is constructed
@@ -423,6 +382,12 @@ and SHALL not use a global active session. It may continue to pass raw FastMCP c
 to transitional tool implementations; replacing those handler signatures with resolved
 application RequestContext is deferred to `use-request-context`.
 
+#### Scenario: Tool invocation has no global active session
+- **WHEN** a Guide tool is invoked
+- **THEN** registration normalises it through the request adapter
+
+### Requirement: Shared tool session-id argument handling
+
 The shared tool-argument contract SHALL include an optional FastMCP `session_id`.
 The registration layer SHALL pass it to the request adapter when supplied, rather
 than requiring individual tool implementations to resolve session ownership.
@@ -469,10 +434,16 @@ root's hash, preserving same-named configurations at different roots.
 
 The public `clone_project` tool SHALL accept only source configuration
 `from_project`, merge, and force arguments. `from_project` SHALL accept either a
-display name or an exact hash-suffixed configuration key. The tool SHALL clone into
-the active configuration project of the root-bound interaction and SHALL NOT accept
-`to_project`, a target key, or a target path. The target write SHALL use the active
-configuration's exact key and bound root hash.
+display name or an exact hash-suffixed configuration key. The tool SHALL clone
+into the active configuration project and SHALL NOT accept to_project, target
+key, or target path. The write SHALL use the active exact key and bound hash.
+
+#### Scenario: Clone into current configuration
+- **WHEN** a root-bound interaction calls `clone_project` with an exact source key or a source configuration name
+- **THEN** the tool SHALL copy configuration into that interaction's active configuration
+- **AND** it SHALL NOT create, select, or modify any separately named target configuration
+
+### Requirement: Clone source configuration resolution
 
 An exact hash-suffixed source key SHALL be used directly and SHALL NOT fall back to
 display-name resolution. For a source name without a hash suffix, lookup SHALL use the
@@ -481,10 +452,6 @@ strict match exists, cloning SHALL recover an exact raw hashless YAML key with t
 requested name as its source. Ordinary configuration loading, selection, and listing
 continue to ignore hashless, malformed, and mismatched entries.
 
-#### Scenario: Clone into current configuration
-- **WHEN** a root-bound interaction calls `clone_project` with an exact source key or a source configuration name
-- **THEN** the tool SHALL copy configuration into that interaction's active configuration
-- **AND** it SHALL NOT create, select, or modify any separately named target configuration
 
 #### Scenario: Clone target is supplied
 - **WHEN** a caller supplies a removed target-project argument to `clone_project`
@@ -516,10 +483,18 @@ FastMCP context.
 The common response adapters SHALL use the resolved Session protocol type to
 serialise queued additional agent instructions. Legacy responses SHALL preserve
 the canonical structured Result payload. MCP `2026-07-28` responses SHALL omit
-queued instructions from structured content. When the client negotiated the
-Guide instruction-notification extension, the FastMCP request boundary SHALL
-dispatch them through that extension and omit them from `_meta`; otherwise the
-adapter SHALL use the established response-metadata fallback.
+queued instructions from structured content.
+
+#### Scenario: Legacy structured content is unchanged
+- **WHEN** a legacy Session adapter receives a Result with an additional agent instruction
+- **THEN** its structured content SHALL include `additional_agent_instructions`
+- **AND** it SHALL not add Guide instruction metadata
+
+### Requirement: Modern instruction-notification response adaptation
+
+When a client negotiates the Guide instruction-notification extension, the
+FastMCP request boundary SHALL dispatch queued instructions through it and omit
+them from `_meta`; otherwise the adapter SHALL use established metadata fallback.
 
 #### Scenario: Modern metadata and structured content are independent
 - **WHEN** a modern Session has a queued additional agent instruction
@@ -534,10 +509,6 @@ adapter SHALL use the established response-metadata fallback.
 - **THEN** the native response SHALL include the instruction in `_meta`
 - **AND** its structured content SHALL not include `additional_agent_instructions`
 
-#### Scenario: Legacy structured content is unchanged
-- **WHEN** a legacy Session adapter receives a Result with an additional agent instruction
-- **THEN** its structured content SHALL include `additional_agent_instructions`
-- **AND** it SHALL not add Guide instruction metadata
 
 ### Requirement: Explicit tool cache-policy metadata
 The tool response adapter SHALL attach Guide cache-policy information to `_meta["mcp-guide"]["cache"]` only when the tool supplies an explicitly resolved valid policy.  It SHALL preserve existing non-cache result metadata independently.

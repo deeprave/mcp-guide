@@ -27,10 +27,25 @@ current bound instance per validated client interaction owner. Different owners
 SHALL NOT share a Session. A project switch SHALL replace that owner's bound
 instance rather than change its existing instance's project/root identity.
 
+#### Scenario: Session creation with immediate project context
+- **WHEN** an initial bind operation successfully resolves a project
+- **THEN** its Session SHALL become the current bound instance for that owner
+- **AND** later requests SHALL use that instance until replacement or expiry
+
+### Requirement: Session replacement mutable-state isolation
+
 Each Session SHALL own separate listeners, task state, instruction queues and
 caches. These mutable resources SHALL NOT be copied or shared when an instance
 is replaced. The outgoing instance SHALL be allowed to remain expiring while
 its existing work completes.
+
+#### Scenario: Replacement owns fresh mutable state
+- **GIVEN** an owner's current Session has caches, subscriptions and queued instructions
+- **WHEN** a different project selection succeeds
+- **THEN** the new bound Session SHALL own fresh mutable state
+- **AND** the outgoing Session's mutable resources SHALL NOT become the replacement's resources
+
+### Requirement: Unbound Session representation
 
 A Session SHALL be allowed to exist before its project is bound. Its project
 SHALL be absent rather than a placeholder. Unbound rendering SHALL still have
@@ -53,22 +68,12 @@ access to available agent/client information and global flags.
 - **THEN** there SHALL be no placeholder project to save
 - **AND** the operation SHALL report the defined no-project condition
 
-#### Scenario: Session creation with immediate project context
-- **WHEN** an initial bind operation successfully resolves a project
-- **THEN** its Session SHALL become the current bound instance for that owner
-- **AND** later requests SHALL use that instance until replacement or expiry
-
 #### Scenario: Unbound session exposes agent and client info for template rendering
 - **GIVEN** an unbound Session has received agent/client bootstrap information
 - **WHEN** a system template is rendered
 - **THEN** the available agent information, client information and global flags SHALL be accessible
 - **AND** rendering SHALL NOT require a placeholder or persisted Project
 
-#### Scenario: Replacement owns fresh mutable state
-- **GIVEN** an owner's current Session has caches, subscriptions and queued instructions
-- **WHEN** a different project selection succeeds
-- **THEN** the new bound Session SHALL own fresh mutable state
-- **AND** the outgoing Session's mutable resources SHALL NOT become the replacement's resources
 
 ### Requirement: Async factory for no-project result
 
@@ -140,31 +145,19 @@ interaction state. Session instances SHALL follow the lifecycle
 `unbound -> bound -> expiring`, followed by disposal. An unbound instance that
 never binds SHALL be disposed of when its request work completes.
 
+#### Scenario: Unbound request completes
+- **GIVEN** a request and its nested work use an unbound Session
+- **WHEN** that work finishes without binding
+- **THEN** the ephemeral instance SHALL be cleaned up
+- **AND** it SHALL NOT be retained for a later request under the same owner ID
+
+### Requirement: Bound and expiring Session publication
+
 Unbound request work SHALL be ephemeral. A bound instance SHALL be retained
 under its validated public interaction ID only after successful project binding.
 A switch SHALL publish a fresh bound instance under that same ID and move the
 outgoing instance to expiring. An expiring instance SHALL never become current
 again.
-
-Modern interactions SHALL use a validated explicit FastMCP `session_id`.
-Retained legacy connections that omit the argument SHALL continue using public
-connection identity as their compatibility owner. Modern unbound requests
-SHALL NOT gain cross-request state through that fallback.
-
-There SHALL be at most one expiring instance per public ID. A switch received
-while that ID has an expiring instance SHALL fail without replacing, queueing
-or modifying either existing instance.
-
-Every admitted request and listener/task execution SHALL retain its original
-Session instance through completion. Existing work in an expiring Session SHALL
-be permitted to finish, including configuration writes to its original project.
-New requests and client replies SHALL resolve the current bound Session only.
-Expiring instances SHALL receive no new project scheduling or configuration
-notifications. Their owned resources SHALL be disposed of after admitted work
-finishes, and their expiring entry SHALL then be removed.
-
-Guide interaction state SHALL remain in memory and SHALL NOT be restored after
-a server restart. Global configuration storage and its locking remain shared.
 
 #### Scenario: Session persists from unbound to bound state
 - **GIVEN** an ephemeral Session has no project
@@ -172,6 +165,55 @@ a server restart. Global configuration storage and its locking remain shared.
 - **THEN** that instance SHALL be promoted to the current bound Session
 - **AND** its owned bootstrap state SHALL remain attached
 - **AND** project-specific runtime work SHALL initialise for the bound project
+
+### Requirement: Modern and legacy Session ownership
+
+Modern interactions SHALL use a validated explicit FastMCP `session_id`.
+Retained legacy connections that omit the argument SHALL continue using public
+connection identity as their compatibility owner. Modern unbound requests
+SHALL NOT gain cross-request state through that fallback.
+
+#### Scenario: Modern request resumes a live interaction
+- **GIVEN** the server is running and an interaction has a current bound Session
+- **WHEN** a request supplies its valid public session ID
+- **THEN** it SHALL resolve the current bound instance without requiring the original connection object
+- **AND** it SHALL observe that instance's root and configuration
+
+### Requirement: Session switching while an instance expires
+
+There SHALL be at most one expiring instance per public ID. A switch received
+while that ID has an expiring instance SHALL fail without replacing, queueing
+or modifying either existing instance.
+
+#### Scenario: Another switch while the ID is expiring
+- **GIVEN** the public ID already has an expiring Session
+- **WHEN** any further switch is requested for that ID
+- **THEN** the switch request SHALL fail explicitly before changing either instance
+- **AND** it SHALL NOT create another expiring instance or enqueue a switch
+- **AND** the existing bound and expiring Sessions SHALL remain unchanged
+
+### Requirement: Expiring Session existing-work completion
+
+Every admitted request and listener/task execution SHALL retain its original
+Session instance through completion. Existing work in an expiring Session SHALL
+be permitted to finish, including configuration writes to its original project.
+New requests and client replies SHALL resolve the current bound Session only.
+
+#### Scenario: Existing work saves its original project
+- **GIVEN** an admitted operation belongs to an expiring Session
+- **WHEN** it saves its original project's configuration
+- **THEN** the save SHALL remain permitted through normal shared configuration locking
+- **AND** it SHALL NOT be redirected to the replacement's project or rejected solely because the Session is expiring
+- **AND** normal publication SHALL still reach active users of the saved configuration
+
+### Requirement: Expiring Session disposal
+
+Expiring instances SHALL receive no new project scheduling or configuration
+notifications. Their owned resources SHALL be disposed of after admitted work
+finishes, and their expiring entry SHALL then be removed.
+
+Guide interaction state SHALL remain in memory and SHALL NOT be restored after
+a server restart. Global configuration storage and its locking remain shared.
 
 #### Scenario: Unbound state suppresses project events
 - **GIVEN** a Session has no project binding
@@ -284,11 +326,27 @@ The system SHALL establish an interaction's initial client root through
 require an absolute client path and SHALL reject name-only input or a second
 initial binding, including an unchanged path.
 
+#### Scenario: Initial binding requires an absolute path
+- **WHEN** an unbound interaction supplies a name, relative path or missing path
+- **THEN** the selection SHALL be rejected without binding a project
+- **AND** guidance SHALL request an absolute client root through set_project
+
+### Requirement: Bound Session root immutability
+
 Each bound Session SHALL retain its root and configuration identity unchanged
 for its lifetime. `switch_project(name | path)` SHALL select a fresh current
 Session when the requested selection differs: name-only keeps the interaction's
 current root; path-only uses the normalised path and its basename. The public
 interaction owner and session ID SHALL remain unchanged.
+
+#### Scenario: Path selection replaces the bound Session
+- **GIVEN** the interaction is bound and no instance for its ID is expiring
+- **WHEN** a different root is selected successfully
+- **THEN** the replacement SHALL use the normalised root and its basename configuration
+- **AND** the public session ID SHALL remain unchanged
+- **AND** the outgoing Session SHALL retain its original binding while expiring
+
+### Requirement: Bound root configuration identity
 
 Path normalisation SHALL be lexical and SHALL NOT require client paths to exist
 on the server or resolve client filesystem links. Configuration identity SHALL
@@ -306,11 +364,6 @@ entries SHALL be ignored without legacy configuration migration.
 - **WHEN** a new interaction selects a different root
 - **THEN** the new interaction SHALL receive its own binding
 - **AND** the prior interaction SHALL remain unchanged
-
-#### Scenario: Initial binding requires an absolute path
-- **WHEN** an unbound interaction supplies a name, relative path or missing path
-- **THEN** the selection SHALL be rejected without binding a project
-- **AND** guidance SHALL request an absolute client root through set_project
 
 #### Scenario: Agent supplies a project name rather than a path
 - **WHEN** an unbound interaction supplies a project name instead of an initial path
@@ -369,27 +422,45 @@ entries SHALL be ignored without legacy configuration migration.
 
 ### Requirement: Shared Durable Configuration Publication
 
-`GuideRuntime` SHALL be the process-global Guide state and SHALL create one plainly
-named `ConfigManager` at runtime startup for the shared configuration-file resource,
-replacing the responsibility currently represented by the class-level
-`Session._ConfigManager`. ConfigManager SHALL include persistence, a lock, one complete
-validated configuration image, and one configuration-file watchdog. Every read, write,
-watchdog refresh, diff, and publication SHALL have exclusive access to that image. The
-existing cross-process file lock SHALL remain in use for disk access.
-A Session SHALL consume
-the runtime-owned manager or its configuration view; it SHALL NOT own, reconfigure, or
-watch the shared configuration-file resource. Runtime application code SHALL perform
-configuration operations through a Session and SHALL NOT create another ConfigManager
-or access the runtime-owned manager as a general-purpose service. On a successful
-in-process write, ConfigManager SHALL update its complete cached snapshot and publish
-the resulting diff before returning success:
-global feature-flag changes SHALL be published to every active Guide Session, and a
-project-configuration change SHALL be published to every active Session whose active
-configuration has the exact same `(name, root_hash)` identity. Detected external
-configuration-file changes SHALL be published using the same scope when the watchdog
-observes them. On a watchdog event, ConfigManager SHALL reload and compare the complete
-configuration snapshot, atomically replace its cache before publication, and suppress
-publication when the observed snapshot is unchanged.
+GuideRuntime SHALL create one plainly named ConfigManager at startup for the
+shared configuration-file resource, replacing Session._ConfigManager.
+
+#### Scenario: Shared configuration manager starts
+- **WHEN** GuideRuntime starts
+- **THEN** it creates the one process-wide shared ConfigManager
+
+### Requirement: ConfigManager shared configuration image
+
+ConfigManager SHALL own persistence, a lock, a complete validated configuration
+image, and one file watchdog. Reads, writes, refreshes, diffs, and publications
+SHALL have exclusive image access; the existing cross-process file lock remains
+in use for disk access.
+
+#### Scenario: Configuration changes outside the runtime
+- **WHEN** ConfigManager's watchdog observes a configuration-file change made by
+  another runtime, Session, or external process
+- **THEN** it SHALL reload and atomically replace its complete shared snapshot before
+  publishing the relevant global and project diffs to active Sessions
+- **AND** it SHALL not leave a per-Session configuration watcher to produce divergent state
+
+### Requirement: Session-mediated shared configuration access
+
+A Session SHALL consume the runtime-owned manager or configuration view; it
+SHALL NOT own, reconfigure, or watch the shared resource. Runtime application
+code SHALL perform configuration operations through a Session and SHALL NOT
+create another ConfigManager or access it as a general-purpose service.
+
+#### Scenario: Session configuration accessor
+- **WHEN** Session code needs the process configuration service for project operations
+- **THEN** it obtains that service from its process runtime
+- **AND** it does not import the configuration-service class
+
+### Requirement: In-process configuration publication scope
+
+After a successful in-process write, ConfigManager SHALL update its complete
+cache and publish the resulting diff before success returns. Global flag changes
+SHALL go to all active Sessions; project changes SHALL go only to Sessions with
+the exact `(name, root_hash)` identity.
 
 #### Scenario: One session changes a global feature flag
 - **WHEN** a Session successfully persists a global feature-flag change
@@ -406,13 +477,11 @@ publication when the observed snapshot is unchanged.
 - **AND** it SHALL not publish the project-specific change to Sessions using another
   name or root hash
 
-#### Scenario: Configuration changes outside the runtime
-- **WHEN** ConfigManager's watchdog observes a configuration-file change made by
-  another runtime, Session, or external process
-- **THEN** it SHALL reload and atomically replace its complete shared snapshot before
-  publishing the relevant global and project diffs to active Sessions
-- **AND** it SHALL not leave a per-Session configuration watcher to produce divergent
-  state
+### Requirement: Watchdog configuration publication scope
+
+External configuration changes SHALL use the same publication scope. The
+watchdog SHALL reload and compare the complete snapshot, replace cache atomically
+before publication, and suppress publication when its observed snapshot is unchanged.
 
 #### Scenario: Change affects a configuration used by another project
 - **WHEN** a configuration-file change modifies a project configuration that is not
@@ -430,18 +499,20 @@ publication when the observed snapshot is unchanged.
 ### Requirement: ConfigManager-Owned Immutable Docroot
 
 ConfigManager SHALL resolve docroot once at startup and own the resulting effective
-docroot for its full lifecycle. Docroot SHALL NOT be Session-owned and SHALL NOT be
-changed by a Session operation, an in-process configuration update, or a configuration
-watchdog publication. If ConfigManager observes a persisted docroot value different
-from the running effective docroot, the running ConfigManager SHALL continue using its
-startup-resolved docroot and a restart SHALL be required to adopt the new value.
-GuideRuntime MAY expose this value, but SHALL NOT cache or duplicate it.
+docroot for its full lifecycle. GuideRuntime MAY expose this value but SHALL
+NOT cache or duplicate it.
 
 #### Scenario: Session attempts to change docroot
 - **WHEN** a Session attempts an operation that would change docroot while ConfigManager
   is running
-- **THEN** the operation SHALL be rejected without changing ConfigManager's effective
-  docroot
+- **THEN** the operation SHALL be rejected without changing ConfigManager's effective docroot
+
+### Requirement: Immutable running docroot
+
+Docroot SHALL NOT be Session-owned or changed by a Session operation, in-process
+configuration update, or watchdog publication. If persisted docroot differs,
+ConfigManager SHALL retain the startup docroot until restart.
+
 
 #### Scenario: External configuration change includes a new docroot
 - **WHEN** ConfigManager's watchdog observes a persisted configuration with a

@@ -11,25 +11,66 @@ The system SHALL distinguish process-level server startup from negotiated,
 request-scoped MCP dispatch.
 
 Server startup SHALL NOT assume client roots, request context, project identity, or a
-durable client connection. The server SHALL negotiate a supported MCP protocol
-revision before dispatching context-bearing operations and SHALL use only supported
-public SDK APIs for lifecycle and request handling.
-
-The system SHALL construct the public FastMCP 4 surface without accepting requests
-or creating client interaction state. A `GuideRuntime` SHALL perform configuration,
-process initialization, and shutdown explicitly; it SHALL start before the selected
-transport accepts requests and stop context-owned Guide Sessions before process
-services are torn down. `GuideRuntime` SHALL retain only the Session registry,
-lifecycle, service factories, coordination locks, and the shared durable
-ConfigManager created at runtime startup. Configuration operations SHALL remain
-Session-mediated rather than exposing ConfigManager as a general-purpose application
-service. Mutable agent, active-project selection, rendering, and task
-state SHALL belong to a context-owned Guide Session.
+durable client connection.
 
 #### Scenario: Startup runs before client roots exist
 - **WHEN** `@mcp.on_init()` handlers run during server startup
 - **THEN** they SHALL perform only process-level or project-independent initialization
 - **AND** any client/project-sensitive work SHALL be deferred until a later context-bearing operation
+
+### Requirement: Negotiated public MCP request dispatch
+
+The server SHALL negotiate a supported MCP protocol revision before dispatching
+context-bearing operations and SHALL use only supported public SDK APIs for
+lifecycle and request handling.
+
+#### Scenario: Modern protocol request is negotiated
+- **WHEN** a client negotiates a supported MCP protocol revision
+- **THEN** the server SHALL dispatch requests through the modern request-scoped entry point
+- **AND** it SHALL expose the negotiated revision to the application request context
+
+#### Scenario: Unsupported protocol revision
+- **WHEN** a client requests an unsupported MCP protocol revision
+- **THEN** the server SHALL reject the request using the selected SDK's protocol-compliant response
+- **AND** it SHALL NOT execute project-bound application logic
+
+### Requirement: Server construction and GuideRuntime ownership
+
+The system SHALL construct the public FastMCP 4 surface without accepting
+requests or creating client interaction state.
+
+#### Scenario: Server construction has no startup side effects
+- **WHEN** server construction registers the MCP surface
+- **THEN** it SHALL NOT accept a transport connection, create a context-owned Guide Session, or start task timers
+- **AND** `GuideRuntime.start()` SHALL perform the current process initialization exactly once before request acceptance
+
+### Requirement: GuideRuntime process lifecycle
+
+`GuideRuntime` SHALL perform configuration, process initialisation, and shutdown
+explicitly. It SHALL start before the selected transport accepts requests and
+stop context-owned Guide Sessions before process services are torn down.
+
+#### Scenario: Controlled shutdown
+- **WHEN** the selected transport stops or startup fails after the runtime begins
+- **THEN** the system SHALL stop affected Guide Sessions, their task managers, watchers, and timers before stopping process-level services
+- **AND** repeated shutdown calls SHALL be safe
+
+### Requirement: GuideRuntime process-owned state
+
+`GuideRuntime` SHALL retain only the Session registry, lifecycle, service
+factories, coordination locks, and the shared durable ConfigManager created at
+runtime startup.
+
+#### Scenario: Process runtime state
+- **WHEN** GuideRuntime starts
+- **THEN** it retains only its defined process-owned coordination and service state
+
+### Requirement: Guide Session-owned mutable state
+
+Configuration operations SHALL remain Session-mediated rather than exposing
+ConfigManager as a general-purpose application service. Mutable agent,
+active-project selection, rendering, and task state SHALL belong to a
+context-owned Guide Session.
 
 #### Scenario: Real project binding happens from client context
 - **WHEN** a later tool, prompt, resource, or equivalent context-bearing operation arrives
@@ -57,15 +98,6 @@ state SHALL belong to a context-owned Guide Session.
 - **THEN** the system SHALL stop affected Guide Sessions, their task managers, watchers, and timers before stopping process-level services
 - **AND** repeated shutdown calls SHALL be safe
 
-#### Scenario: Modern protocol request is negotiated
-- **WHEN** a client negotiates a supported MCP protocol revision
-- **THEN** the server SHALL dispatch requests through the modern request-scoped entry point
-- **AND** it SHALL expose the negotiated revision to the application request context
-
-#### Scenario: Unsupported protocol revision
-- **WHEN** a client requests an unsupported MCP protocol revision
-- **THEN** the server SHALL reject the request using the selected SDK's protocol-compliant response
-- **AND** it SHALL NOT execute project-bound application logic
 
 #### Scenario: Agent selects a project
 - **WHEN** an agent determines its project root and invokes Guide's explicit project-selection operation

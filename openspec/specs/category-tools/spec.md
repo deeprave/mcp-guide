@@ -31,22 +31,12 @@ The tool SHALL:
 - **WHEN** verbose is false or omitted
 - **THEN** include all fields (name, dir, description, patterns)
 
-### Requirement: category_add Tool
+### Requirement: category_add Tool creation
 
 The system SHALL provide a `category_add` tool that creates a new category.
 
-Arguments:
-- `name` (required, string): Category name
-- `dir` (optional, string): Relative directory path (defaults to name if omitted)
-- `description` (optional, string): Category description
-- `patterns` (optional, array of strings): Glob patterns (defaults to empty array)
-
-The tool SHALL:
-- Validate all inputs
-- Check category doesn't already exist
-- Create category in project configuration
-- Persist configuration to disk
-- Return Result pattern response
+The tool SHALL create the category in project configuration. An omitted `dir`
+SHALL default to `name`, and omitted `patterns` SHALL default to an empty array.
 
 #### Scenario: Create category with minimal args
 - **WHEN** name is provided and valid
@@ -55,6 +45,25 @@ The tool SHALL:
 #### Scenario: Create category with all args
 - **WHEN** all arguments are provided and valid
 - **THEN** create category with specified configuration
+
+### Requirement: category_add arguments
+
+The `category_add` tool SHALL accept these arguments:
+
+Arguments:
+- `name` (required, string): Category name
+- `dir` (optional, string): Relative directory path (defaults to name if omitted)
+- `description` (optional, string): Category description
+- `patterns` (optional, array of strings): Glob patterns (defaults to empty array)
+
+#### Scenario: category_add argument schema
+- **WHEN** a client inspects the category_add tool schema
+- **THEN** it exposes the documented name, dir, description, and patterns arguments
+
+### Requirement: category_add input validation
+
+The `category_add` tool SHALL validate all inputs and reject a name that is
+already configured.
 
 #### Scenario: Category already exists
 - **WHEN** category with same name already exists
@@ -67,6 +76,15 @@ The tool SHALL:
 #### Scenario: Invalid directory
 - **WHEN** dir fails validation
 - **THEN** return Result.failure with error_type "invalid_dir"
+
+### Requirement: category_add persistence and response
+
+The `category_add` tool SHALL persist a successfully created category to disk
+and return a Result-pattern response.
+
+#### Scenario: Persisted category creation
+- **WHEN** category_add creates a valid category
+- **THEN** it persists the configuration and returns a successful Result response
 
 ### Requirement: category_remove Tool
 
@@ -94,29 +112,13 @@ The tool SHALL:
 - **WHEN** category is in collections
 - **THEN** remove from all collections automatically
 
-### Requirement: category_change Tool
+### Requirement: category_change Tool replacement
 
 The system SHALL provide a `category_change` tool that replaces category configuration.
 
-Arguments:
-- `name` (required, string): Current category name
-- `new_name` (optional, string): New name if renaming
-- `dir` (optional, string): New directory path
-- `description` (optional, string): New description (empty string to clear)
-- `patterns` (optional, array of strings): New patterns (replaces all existing)
-
-The tool SHALL:
-- Validate category exists
-- Validate new_name if provided and doesn't conflict
-- Validate all new values
-- Replace category configuration
-- Update category name in collections if renamed
-- Persist configuration to disk
-- Return Result pattern response
-
-#### Scenario: Rename category
-- **WHEN** new_name is provided and valid
-- **THEN** rename category and update in all collections
+The tool SHALL replace the specified category configuration. A supplied
+`patterns` value SHALL replace all existing patterns, and an empty `description`
+SHALL clear the description.
 
 #### Scenario: Change directory
 - **WHEN** dir is provided and valid
@@ -130,9 +132,40 @@ The tool SHALL:
 - **WHEN** description is empty string
 - **THEN** remove description from category
 
+### Requirement: category_change arguments
+
+The `category_change` tool SHALL accept these arguments:
+
+Arguments:
+- `name` (required, string): Current category name
+- `new_name` (optional, string): New name if renaming
+- `dir` (optional, string): New directory path
+- `description` (optional, string): New description (empty string to clear)
+- `patterns` (optional, array of strings): New patterns (replaces all existing)
+
+#### Scenario: category_change argument schema
+- **WHEN** a client inspects the category_change tool schema
+- **THEN** it exposes the documented current-name and replacement-field arguments
+
+### Requirement: category_change validation
+
+The `category_change` tool SHALL validate that the category exists, validate
+every new value, and reject a supplied `new_name` that conflicts with another
+category.
+
 #### Scenario: New name conflicts
 - **WHEN** new_name already exists as different category
 - **THEN** return Result.failure with error_type "name_conflict"
+
+### Requirement: category_change collection and persistence effects
+
+When a category is renamed, `category_change` SHALL update its collection
+references, persist the configuration to disk, and return a Result-pattern
+response.
+
+#### Scenario: Persisted category rename
+- **WHEN** category_change renames a valid category
+- **THEN** it updates collection references, persists the configuration, and returns a successful Result response
 
 ### Requirement: category_update Tool
 
@@ -187,16 +220,11 @@ Validation SHALL enforce:
 - **WHEN** name exceeds 30 characters
 - **THEN** validation fails with clear error message
 
-### Requirement: Directory Path Validation
+### Requirement: Category directory path safety
 
-Directory paths SHALL be validated for safety and correctness.
-
-Validation SHALL enforce:
-- Relative paths only (no absolute paths)
-- No path traversal (no ".." components)
-- Valid filename characters in each path component
-- No leading or trailing double underscores "__" in any component
-- Defaults to category name if omitted
+Directory paths SHALL be relative, SHALL contain no path-traversal component,
+and SHALL use valid filename characters in every component. A component SHALL
+NOT begin or end with double underscores.
 
 #### Scenario: Valid relative path
 - **WHEN** dir is "docs/examples"
@@ -213,6 +241,10 @@ Validation SHALL enforce:
 #### Scenario: Invalid component name
 - **WHEN** path component has leading/trailing "__"
 - **THEN** validation fails with error_type "invalid_component"
+
+### Requirement: Category directory path default
+
+An omitted category directory path SHALL default to the category name.
 
 #### Scenario: Default to name
 - **WHEN** dir is omitted
@@ -279,23 +311,20 @@ Validation SHALL enforce:
 - **WHEN** pattern starts with "/"
 - **THEN** validation fails with error_type "absolute_path"
 
-### Requirement: Configuration Persistence (Auto-Save)
+### Requirement: Immediate category configuration persistence
 
-All tools SHALL persist configuration changes to disk IMMEDIATELY after modification.
-
-**CRITICAL**: Configuration MUST be saved automatically on every change. If the user exits without explicit save, changes would be lost. This is an "auto-save" requirement.
-
-Persistence SHALL:
-- Save configuration to disk immediately after any modification
-- Use file locking to prevent concurrent modification
-- Validate configuration before writing
-- Handle write errors gracefully
-- Return error if persistence fails
-- Never return success without persisting changes
+All category tools SHALL persist configuration changes to disk immediately after
+modification and SHALL NOT return success until persistence succeeds.
 
 #### Scenario: Successful persistence
 - **WHEN** configuration is valid and writable
 - **THEN** write to disk immediately and return success
+
+### Requirement: Safe category configuration persistence
+
+Category configuration persistence SHALL use file locking to avoid concurrent
+modification, validate configuration before writing, and return a failure when
+validation or writing fails.
 
 #### Scenario: Write error
 - **WHEN** file cannot be written
@@ -400,19 +429,21 @@ Tools SHALL:
 - **WHEN** tool is called without active session
 - **THEN** return Result.failure with error_type "no_session"
 
-### Requirement: Dict-based Configuration Compatibility
+### Requirement: Dictionary-based category configuration
 
-The system SHALL ensure all category tools work correctly with dict-based project configuration.
-
-Category tools SHALL:
-- Access categories using `project.categories.get(name)` instead of iterating with `.name` attribute
-- Use category name from dict key instead of non-existent `.name` field
-- Handle symlinked docroot directories correctly
-- Support pattern matching for basename with any extension (e.g., `general` matches `general.md.mustache`)
+All category tools SHALL work correctly with dictionary-based project
+configuration. They SHALL access categories through `project.categories.get(name)`
+and use the dictionary key as the category name rather than a `.name` attribute.
 
 #### Scenario: Category lookup with dict-based config
 - **WHEN** category tools access project categories
 - **THEN** use dict key lookup instead of `.name` attribute access
+
+### Requirement: Category document path compatibility
+
+Category tools SHALL handle symlinked docroot directories consistently and
+support a basename pattern with any extension; for example, `general` matches
+`general.md.mustache`.
 
 #### Scenario: Symlinked docroot support
 - **WHEN** docroot is a symlink to actual content directory
@@ -428,7 +459,15 @@ Category tools SHALL:
 
 ### Requirement: category_list_files Tool
 
-The system SHALL provide a `category_list_files` tool that lists all files in a category directory.
+The system SHALL provide a `category_list_files` tool that lists a category's
+filesystem files and stored documents.
+
+#### Scenario: List all sources (default)
+- **WHEN** `category_list_files` is called without a source filter
+- **THEN** output includes both filesystem files and stored documents
+- **AND** each entry indicates its source
+
+### Requirement: category_list_files source filtering
 
 The tool SHALL accept an optional `source` filter parameter to control which entries are returned:
 - `files` — filesystem files only (current behaviour)
@@ -437,13 +476,6 @@ The tool SHALL accept an optional `source` filter parameter to control which ent
 
 Each entry in the response SHALL indicate its source (`file` or `store`).
 
-A category that has no directory in the docroot SHALL be listed normally, as a category with no filesystem files; the absence of the directory SHALL NOT be reported as an error.
-
-#### Scenario: List all sources (default)
-- **WHEN** `category_list_files` is called without a source filter
-- **THEN** output includes both filesystem files and stored documents
-- **AND** each entry indicates its source
-
 #### Scenario: List filesystem files only
 - **WHEN** `category_list_files` is called with source filter `files`
 - **THEN** only filesystem files are returned
@@ -451,6 +483,11 @@ A category that has no directory in the docroot SHALL be listed normally, as a c
 #### Scenario: List stored documents only
 - **WHEN** `category_list_files` is called with source filter `stored`
 - **THEN** only stored documents are returned
+
+### Requirement: category_list_files absent-directory handling
+
+A category without a docroot directory SHALL be listed normally with no
+filesystem files; its absent directory SHALL NOT be reported as an error.
 
 #### Scenario: No stored documents exist
 - **WHEN** `category_list_files` is called for a category with no stored documents
@@ -483,30 +520,59 @@ The system SHALL provide a `document_remove` MCP tool to delete a document from 
 - **WHEN** `document_remove` is called with a non-existent category/name
 - **THEN** an error result is returned
 
-### Requirement: Document Ingestion via Task Manager
+### Requirement: Task-manager document ingestion
 
-The system SHALL provide a `DocumentTask` registered with the task manager that listens for `FS_FILE_CONTENT` events and ingests documents into the store.
-
-The task SHALL match events based on the presence of required metadata fields, not path patterns. Other tasks listening for `FS_FILE_CONTENT` continue to receive the event independently.
-
-Required fields in event data:
-- `category` — must reference an existing category (validated)
-- `name` — document name as stored; defaults to basename of the path if not provided
-- `source` — origin identifier (file path or URL)
-- `mtime` — source modification time (epoch float)
-- `content` — document body
-
-Optional fields:
-- `force` — overwrite regardless of mtime (default false)
-- `type` — frontmatter type: `agent/instruction` (default), `agent/information`, `user/information`
-
-Content-Type SHALL be auto-detected from the content using the public `detect_text_subtype` function from `mcp_guide.content.formatters.mime` and stored in the metadata JSON blob. This function MUST NOT be accessed as a private method.
+The system SHALL provide a `DocumentTask` registered with the task manager that
+listens for `FS_FILE_CONTENT` events and ingests documents into the store.
 
 #### Scenario: Ingest a new document
 - **WHEN** a `FS_FILE_CONTENT` event contains the required metadata fields
 - **AND** no document with that category/name exists
 - **THEN** the document is added to the store with auto-detected content-type
 - **AND** the event result confirms successful ingestion
+
+### Requirement: Document-ingestion event matching
+
+The DocumentTask SHALL match events from the presence of required metadata
+fields rather than path patterns. Other tasks listening for `FS_FILE_CONTENT`
+SHALL continue to receive the event independently.
+
+#### Scenario: Unmatched event remains available
+- **WHEN** an FS_FILE_CONTENT event does not have the required ingestion metadata
+- **THEN** DocumentTask does not match it and other listeners can receive it
+
+### Requirement: Document-ingestion metadata
+
+Document-ingestion event data SHALL contain these required fields:
+- `category` — must reference an existing category (validated)
+- `name` — document name as stored; defaults to basename of the path if not provided
+- `source` — origin identifier (file path or URL)
+- `mtime` — source modification time (epoch float)
+- `content` — document body
+
+#### Scenario: Event metadata schema
+- **WHEN** DocumentTask evaluates an ingestion event
+- **THEN** category, name, source, mtime, and content are required metadata fields
+
+### Requirement: Optional document-ingestion metadata
+
+DocumentTask SHALL accept optional `force`, which overwrites regardless
+of mtime and defaults to false, and `type`, whose values are
+`agent/instruction` by default, `agent/information`, or `user/information`.
+
+#### Scenario: Optional ingestion metadata
+- **WHEN** a document-ingestion event supplies force or type metadata
+- **THEN** DocumentTask applies the documented optional-field semantics
+
+### Requirement: Document-ingestion content-type detection
+
+DocumentTask SHALL auto-detect Content-Type with the public
+`detect_text_subtype` function from `mcp_guide.content.formatters.mime`, store
+it in the metadata JSON blob, and SHALL NOT access that function privately.
+
+#### Scenario: Content type is auto-detected
+- **WHEN** DocumentTask ingests content
+- **THEN** it stores the public-function-detected content type in metadata
 
 #### Scenario: Update with newer mtime
 - **WHEN** a `FS_FILE_CONTENT` event matches an existing document
@@ -534,14 +600,17 @@ Content-Type SHALL be auto-detected from the content using the public `detect_te
 
 ### Requirement: Category Document Discovery
 
-The system SHALL provide a `discover_category_documents(category, pattern)` function that returns
-the set of document paths for a category without rendering their content.
+The system SHALL provide a `discover_category_documents(category, pattern)`
+function that returns a category's document paths without rendering content.
 
-The function SHALL:
-- Query both the filesystem template corpus and stored project documents for the category
-- Exclude files and directories with a `_` prefix from results
-- Apply the given pattern as a filter (or return all documents if pattern is None/empty)
-- Return results in a consistent, reproducible order
+#### Scenario: Combined discovery
+- **WHEN** the category has both filesystem and stored documents
+- **THEN** both sources are included in the returned set without duplication
+
+### Requirement: Category document discovery sources
+
+The function SHALL query the filesystem template corpus and stored project
+documents for the category, excluding files and directories with a `_` prefix.
 
 #### Scenario: Filesystem documents discovered
 - **WHEN** the category has documents in the filesystem template corpus
@@ -551,13 +620,15 @@ The function SHALL:
 - **WHEN** the category has documents stored as project documents
 - **THEN** those stored documents are included in the returned set
 
-#### Scenario: Combined discovery
-- **WHEN** the category has both filesystem and stored documents
-- **THEN** both sources are included in the returned set without duplication
-
 #### Scenario: Underscore prefix exclusion
 - **WHEN** a document or directory has a `_` prefix
 - **THEN** it is excluded from the returned set
+
+### Requirement: Category document discovery filtering and order
+
+The function SHALL apply the supplied pattern as a filter, or return all
+documents when it is None or empty, and SHALL return results in a consistent,
+reproducible order.
 
 #### Scenario: Empty category
 - **WHEN** the category has no documents matching the pattern
