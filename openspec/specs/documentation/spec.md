@@ -92,9 +92,10 @@ content that reflects the current set of guide documents.
 
 ### Requirement: Expanded profile catalogue documentation
 User documentation for profiles SHALL describe the composable base-language,
-extension/framework, platform, and test-stack model. It SHALL distinguish `lang/`
-language guidance, `lang/build/` build guidance, and `checks/` testing guidance,
-and name only profiles that exist.
+template-syntax, extension/framework, platform, and test-stack model. It SHALL
+distinguish `lang/` language and template-language guidance, `lang/build/` build
+guidance, and `checks/` testing guidance, name only profiles that exist, and
+link each template syntax to its primary reference.
 
 #### Scenario: Profiles documentation explains composition
 - **WHEN** a user reads the profiles documentation
@@ -102,3 +103,10 @@ and name only profiles that exist.
   `ios`, and `xctest`
 - **AND** it SHALL explain that these profiles add guidance rather than replacing
   one another
+
+#### Scenario: Profiles documentation names template languages
+- **WHEN** a user reads the profiles documentation
+- **THEN** it SHALL identify the available template-language profiles and their
+  primary references
+- **AND** it SHALL explain that each can be combined with the project’s
+  programming-language and framework profiles
