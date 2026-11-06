@@ -4,8 +4,8 @@
 
 ### Requirement: Base-language profiles
 The system SHALL provide bundled, selectable base-language profiles for C, Swift,
-Objective-C, Ruby, Dart, Scala, Elixir, Clojure, Lua, R, F#, Haskell, Zig,
-Jinja2, and Chevron. Each profile SHALL add focused guidance from the `lang`
+Objective-C, Ruby, Dart, Scala, Elixir, Clojure, Lua, R, F#, Haskell, Zig, and
+the documented template syntaxes. Each profile SHALL add focused guidance from the `lang`
 category without removing existing category selections. Template-language
 profiles SHALL be additive to programming-language, framework, platform, and
 testing profiles.
@@ -16,7 +16,7 @@ testing profiles.
 - **AND** existing language selections SHALL remain
 
 #### Scenario: Apply a template-language profile
-- **WHEN** a user applies the `jinja2` or `chevron` profile
+- **WHEN** a user applies a documented template-language profile
 - **THEN** the project language category SHALL select the corresponding
   template-language guidance
 - **AND** existing language and framework selections SHALL remain
@@ -26,3 +26,8 @@ testing profiles.
   programming-language or framework profile
 - **THEN** the project SHALL receive the guidance from every selected profile
 - **AND** applying a selected profile again SHALL not duplicate selections
+
+#### Scenario: Apply the Django profile
+- **WHEN** a user applies the `django` profile
+- **THEN** the project language category SHALL select Django Templates guidance
+- **AND** it SHALL NOT implicitly select Jinja2 or another third-party template engine

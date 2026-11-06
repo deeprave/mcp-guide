@@ -1,0 +1,18 @@
+---
+cache: long
+title: Django Templates Guidance
+type: agent/instruction
+tags: [django, django-templates, python, templates]
+---
+{{h1}}Django Templates
+
+Django Templates is Django's own template language, distinct from Jinja.
+
+{{h2}}Authoring
+- Use inheritance, blocks, includes, template tags, and filters following project conventions.
+- Keep application logic in views, forms, or template tags rather than templates.
+- Preserve Django auto-escaping and treat `safe` and `mark_safe` as security-sensitive.
+- Validate rendered behaviour with the project's Django test approach.
+
+{{h2}}Reference
+- [Django template language](https://docs.djangoproject.com/en/stable/ref/templates/language/)

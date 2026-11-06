@@ -1,0 +1,19 @@
+---
+cache: long
+title: Mustache Template Guidance
+type: agent/instruction
+tags: [mustache, templates]
+---
+{{h1}}Mustache
+
+Mustache is a logic-less template syntax. Chevron is a Python implementation; other implementations may support optional extensions.
+
+{{h2}}Authoring
+- Use variables, sections, inverted sections, and partials within the supported specification.
+- Keep decisions and transformation in the view data rather than templates.
+- Confirm escaping and partial-loading behaviour in the configured implementation.
+- Preserve whitespace conventions and validate rendered output.
+
+{{h2}}Reference
+- [Mustache specification](https://github.com/mustache/spec)
+- [Mustache implementations](https://mustache.github.io/)

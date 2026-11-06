@@ -16,9 +16,11 @@ files, but does not alter Guide's own Mustache rendering implementation.
 
 **Goals:**
 
-- Supply concise, practical `jinja2` and `chevron` language guidance.
-- Make each profile independently selectable and composable with the existing
-  language, framework, and testing profiles.
+- Supply concise, practical guidance for the agreed template syntaxes and
+  code-first markup DSLs.
+- Make every template profile independently selectable and composable with the
+  existing language, framework, and testing profiles, except that Django adds
+  its own Django Templates guidance automatically.
 - Document template-language profiles in the user profile catalogue.
 - Validate profile discovery and real project application behaviour.
 
@@ -26,37 +28,40 @@ files, but does not alter Guide's own Mustache rendering implementation.
 
 - Adding a Jinja2, Mustache, or Chevron renderer to Guide.
 - Selecting a renderer from project configuration or inferring one at runtime.
-- Defining guidance for every template language in this change.
+- Inferring a template engine from filenames, dependencies, or project layout.
 - Reworking profile storage, profile discovery, or onboarding mechanics.
 
 ## Decisions
 
-### Use one profile and one `lang/` document per template language
+### Use one profile and one `lang/` document per distinct syntax
 
-Add `jinja2.yaml` and `chevron.yaml`, each selecting exactly its matching
-`lang/` document. This is consistent with the existing language-profile shape,
-keeps application idempotent, and makes a future language a small, isolated
-addition.
+Each distinct syntax receives an independently selectable profile and matching
+`lang/` document. The profiles are additive and idempotent, so a project can
+select more than one engine without losing existing guidance. This avoids
+conflicting syntax and escaping advice while retaining a small, repeatable
+profile shape.
 
-The alternative—a generic template profile containing all template guidance—was
-rejected because it would give an agent conflicting syntax and escaping advice
-when only one engine is used.
+### Treat Mustache as a generic syntax
 
-### Treat Chevron as Mustache-family guidance
+The `mustache` document covers the formal Mustache syntax and links to its
+specification and implementation catalogue. Chevron is identified as a Python
+implementation, not a separate syntax profile. Handlebars is separate because
+its helpers, blocks, and escaping behaviour extend the Mustache family.
 
-The `chevron` document will identify Chevron as a Python implementation of
-Mustache and cover Mustache syntax, sections, inverted sections, partials,
-escaping, and the absence of arbitrary expression evaluation. It will name the
-profile after the engine users select in Guide rather than creating a second,
-overlapping `mustache` profile.
+### Keep Django Templates distinct
+
+Django Templates is distinct from Jinja2 even though Django can be configured
+with different engines. The existing Django profile adds `django-templates`
+guidance automatically; Jinja2 and all other template profiles remain explicit.
 
 ### Keep documents concise and action-oriented
 
-Each language document will give an AI a crash course: basic syntax, control
-flow and composition, auto-escaping and safe-data rules, whitespace/partial
-pitfalls, and behaviour-focused validation. It will link to authoritative
-language documentation where that helps, rather than duplicating a language
-reference.
+Each guidance document gives an AI a short, non-opinionated editing checklist:
+identify the configured engine and escaping mode, preserve the project's
+composition and whitespace conventions, keep application logic out of templates
+where the engine permits it, and validate rendered behaviour. Each document
+links to the engine's primary reference rather than duplicating a language
+tutorial. Code-first markup DSL documents explicitly identify that distinction.
 
 ### No renderer coupling
 
@@ -78,9 +83,8 @@ avoids introducing a runtime dependency merely to provide instructions.
 
 ## Migration Plan
 
-1. Package the two new profile YAML files and language documents.
-2. Update the profile catalogue documentation.
-3. Add behavioural coverage that applies each profile to a project and confirms
-   the corresponding language guidance is selected once.
-4. Existing projects remain unchanged until a user applies a new profile; no
-   migration or rollback action is required.
+1. Package the agreed profile YAML files and matching language documents.
+2. Wire Django Templates into the Django profile.
+3. Update the profile catalogue documentation and primary references.
+4. Existing projects remain unchanged until a user applies a template profile;
+   no migration or rollback action is required.
