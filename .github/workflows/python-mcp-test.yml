@@ -35,10 +35,23 @@ jobs:
 
       - name: Run tests with pytest
         # Override the local timing-test default: CI validates every test category.
-        run: uv run --locked --no-sync --no-build pytest tests/ -v -Walways -m "not timing or timing"
+        run: |
+          junit_args=()
+          if [[ "${{ matrix.python-version }}" == "3.14" ]]; then
+            junit_args=(--junitxml=pytest-junit.xml -o junit_duration_report=call)
+          fi
+          uv run --locked --no-sync --no-build pytest tests/ -v -Walways -m "not timing or timing" "${junit_args[@]}"
         env:
           NO_COLOR: "1"
           TERM: "dumb"
+
+      - name: Upload test timing report
+        if: ${{ always() && matrix.python-version == '3.14' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pytest-timings-python-3.14
+          path: pytest-junit.xml
+          if-no-files-found: error
 
   quality:
     runs-on: ubuntu-latest
