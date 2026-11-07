@@ -8,6 +8,7 @@ from mcp_guide.tools.tool_document import DocumentRemoveArgs, internal_document_
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_remove_document_persists_deletion_and_reports_missing(runtime, tmp_path, monkeypatch):
     # Isolate the database location, not the persistence operations.
     monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: tmp_path / "documents.db")

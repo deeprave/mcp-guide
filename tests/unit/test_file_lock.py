@@ -93,6 +93,7 @@ class TestLockUpdate:
         assert not lock_file.exists()
 
     @pytest.mark.anyio
+    @pytest.mark.synchronisation
     async def test_contending_updates_are_serialised_and_release_the_lock(self, tmp_path, monkeypatch):
         monkeypatch.setattr("mcp_guide.file_lock.LOCK_RETRY_SECONDS", 0.001)
         test_file = tmp_path / "test.txt"

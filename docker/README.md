@@ -14,14 +14,7 @@ The base `Dockerfile` uses a three-stage build:
 
 The published image uses `mcp-guide` as its entrypoint. Container commands are
 CLI arguments, such as `stdio` or `http://0.0.0.0:8080`. With no arguments it
-prints CLI help. Optional local transport images supply their transport default
-and forward CLI options or an explicit transport URL.
-
-### Transport-Specific Dockerfiles
-
-- **Dockerfile.stdio**: STDIO transport for MCP clients
-- **Dockerfile.http**: HTTP transport without SSL
-- **Dockerfile.https**: HTTPS transport with SSL support
+prints CLI help.
 
 ## Quick Start
 
@@ -199,28 +192,19 @@ defaults remain IPv4-only; review network exposure before choosing `[::]`.
 
 ## Building Images
 
-### Build all images
+### Build the published image
 
 From the repository root:
 
 ```bash
-# Build the image used by the publishing workflow
+# Build the image used by the publishing workflow and Compose
 docker build -t mcp-guide:base -f docker/Dockerfile .
-
-# Build STDIO image
-docker build -t mcp-guide:stdio -f docker/Dockerfile.stdio docker
-
-# Build HTTP image
-docker build -t mcp-guide:http -f docker/Dockerfile.http docker
-
-# Build HTTPS image
-docker build -t mcp-guide:https -f docker/Dockerfile.https docker
 ```
 
 ### Using Docker Compose
 
 ```bash
-# Compose runs the published image; it does not build transport images
+# Compose runs the published image
 docker compose --profile http up
 docker compose --profile https up
 ```

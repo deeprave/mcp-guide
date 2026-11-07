@@ -88,6 +88,8 @@ if os.name == "nt":
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+TEST_ROOT = Path(__file__).resolve().parent
+TEST_CLASSIFICATIONS = frozenset({"integration", "unit"})
 
 
 def is_gitignored(repo_root: Path, path: Path) -> bool:
@@ -303,6 +305,18 @@ def pytest_configure(config):
     if os.name == "nt":
         os.environ["APPDATA"] = str(test_config_dir)
         os.environ["LOCALAPPDATA"] = str(test_config_dir)
+
+
+def pytest_collection_modifyitems(config, items):
+    """Enforce and classify tests from the canonical top-level hierarchy."""
+    for item in items:
+        relative_path = Path(str(item.path)).resolve().relative_to(TEST_ROOT)
+        classification = relative_path.parts[0]
+        if classification not in TEST_CLASSIFICATIONS:
+            raise pytest.UsageError(
+                f"Test module {relative_path} must be located under tests/unit or tests/integration."
+            )
+        item.add_marker(classification)
 
 
 def pytest_unconfigure(config):

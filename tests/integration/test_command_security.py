@@ -66,6 +66,7 @@ class TestCommandSecurity:
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_command_permission_failure_returns_a_clear_error(runtime, tmp_path):
     import yaml
 
@@ -88,6 +89,7 @@ async def test_command_permission_failure_returns_a_clear_error(runtime, tmp_pat
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_command_template_syntax_error_is_agent_fixable(runtime, tmp_path):
     import yaml
 
@@ -109,6 +111,7 @@ async def test_command_template_syntax_error_is_agent_fixable(runtime, tmp_path)
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_command_unclassified_render_failure_is_unknown_error(runtime, tmp_path):
     import yaml
 

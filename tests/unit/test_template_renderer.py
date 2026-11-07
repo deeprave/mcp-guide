@@ -7,6 +7,7 @@ from pathlib import Path
 import anyio
 import chevron
 import pytest
+from tests.template_render_cases import TEMPLATE_RENDER_CASES, TemplateRenderCase
 
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.render.context import TemplateContext
@@ -15,7 +16,6 @@ from mcp_guide.render.renderer import (
     is_template_file,
     render_template_content,
 )
-from tests.template_render_cases import TEMPLATE_RENDER_CASES, TemplateRenderCase
 
 
 class TestTemplateDetection:

@@ -22,7 +22,7 @@ from mcp_guide.tools.tool_category import (
     CategoryCollectionUpdateArgs,
 )
 from tests.conftest import call_mcp_tool
-from tests.helpers import bind_isolated_test_session, unique_test_project_name
+from tests.helpers import create_bound_test_session, unique_test_project_name
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def mcp_server(mcp_server_factory):
 @pytest.fixture
 async def empty_session(runtime, mcp_server, monkeypatch):
     """Create an isolated Session for legacy protocol exercises."""
-    session = await bind_isolated_test_session(runtime, project_name=unique_test_project_name())
+    session = await create_bound_test_session(runtime, project_name=unique_test_project_name())
 
     @asynccontextmanager
     async def session_request(owner):
@@ -72,7 +72,7 @@ async def test_session(empty_session):
 async def _get_test_session(runtime, project_name: str = "test") -> Session:
     """Reload a bound Session from the process runtime's configuration."""
     await runtime.start()
-    return await bind_isolated_test_session(runtime, project_name=project_name)
+    return await create_bound_test_session(runtime, project_name=project_name)
 
 
 # Phase 2: Collection Management Workflow Tests

@@ -69,6 +69,7 @@ async def test_mcp_skills_extension_is_registered_only_when_enabled(tmp_path) ->
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_native_skill_resource_preserves_arbitrary_query_arguments(tmp_path, monkeypatch, applications) -> None:
     """A native resource read preserves every skill template keyword."""
     from fastmcp import Client

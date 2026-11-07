@@ -6,6 +6,7 @@ import pytest
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_mcp_v2_arguments_execute_against_the_modern_fastmcp_surface(tmp_path, monkeypatch) -> None:
     """Nested arguments bind and resume one modern interaction."""
     from fastmcp import Client
@@ -53,6 +54,7 @@ async def test_mcp_v2_arguments_execute_against_the_modern_fastmcp_surface(tmp_p
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_prompt_and_resource_boundaries_handle_invalid_and_unbound_sessions(tmp_path, monkeypatch) -> None:
     """Prompt and resource adapters return Guide's invalid_session result, not a protocol error."""
     import importlib
@@ -467,6 +469,7 @@ async def test_client_that_declines_the_form_gets_the_skills_fallback_guidance(t
 
 
 @pytest.mark.anyio
+@pytest.mark.timing
 async def test_legacy_client_that_never_answers_gets_the_skills_fallback_guidance(tmp_path, monkeypatch) -> None:
     """A legacy client that leaves the request unanswered must not stall the call."""
     import anyio

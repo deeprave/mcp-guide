@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 import yaml
-from tests.helpers import create_test_session, create_unbound_test_session, request_context_for
+from tests.helpers import create_bound_test_session, create_unbound_test_session, request_context_for
 
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.models import Category, Collection, Project
@@ -46,7 +46,7 @@ async def test_unbound_project_tools_return_guidance(runtime):
 @pytest.mark.anyio
 @pytest.mark.parametrize("verbose,has_data", [(False, True), (True, True), (False, False)])
 async def test_bind_and_get_project_output_excludes_global_flags(runtime, tmp_path, verbose, has_data):
-    source = await create_test_session(runtime, "target")
+    source = await create_bound_test_session(runtime, "target")
     if has_data:
         await source.update_config(
             lambda p: replace(
@@ -108,8 +108,8 @@ async def test_binding_error_mapping(runtime, monkeypatch, error, error_type):
 
 @pytest.mark.anyio
 async def test_listing_current_named_and_exact_projects_without_switching(runtime):
-    current = await create_test_session(runtime, "current")
-    other = await create_test_session(runtime, "other")
+    current = await create_bound_test_session(runtime, "current")
+    other = await create_bound_test_session(runtime, "other")
     await other.update_config(lambda p: p.with_category("docs", Category(dir="docs", patterns=["*.md"])))
     context = await request_context_for(current)
     listed = await internal_list_projects(ListProjectsArgs(), context)
@@ -130,8 +130,8 @@ async def test_listing_current_named_and_exact_projects_without_switching(runtim
 @pytest.mark.anyio
 @pytest.mark.parametrize("merge", [True, False], ids=["merge", "replace"])
 async def test_clone_persists_transferable_settings_and_retains_identity(runtime, merge):
-    source = await create_test_session(runtime, "source")
-    target = await create_test_session(runtime, "target")
+    source = await create_bound_test_session(runtime, "source")
+    target = await create_bound_test_session(runtime, "target")
     for session, own in [(source, "source"), (target, "target")]:
         await session.update_config(
             lambda p, own=own: replace(
@@ -175,7 +175,7 @@ async def test_clone_persists_transferable_settings_and_retains_identity(runtime
 @pytest.mark.anyio
 async def test_clone_recovers_explicit_hashless_legacy_source(runtime):
     """Clone can recover a deliberately named pre-hash YAML entry."""
-    target = await create_test_session(runtime, "target")
+    target = await create_bound_test_session(runtime, "target")
 
     config_manager = target._config()
     config = yaml.safe_load(config_manager.config_file.read_text())
@@ -195,8 +195,8 @@ async def test_clone_recovers_explicit_hashless_legacy_source(runtime):
 @pytest.mark.anyio
 async def test_clone_prefers_hashless_legacy_source_over_same_named_hashed_project(runtime):
     """An exact legacy key must not be shadowed by the new root's project record."""
-    target = await create_test_session(runtime, "target")
-    source = await create_test_session(runtime, "source")
+    target = await create_bound_test_session(runtime, "target")
+    source = await create_bound_test_session(runtime, "source")
 
     config_manager = target._config()
     config = yaml.safe_load(config_manager.config_file.read_text())
@@ -221,8 +221,8 @@ async def test_clone_prefers_hashless_legacy_source_over_same_named_hashed_proje
 
 @pytest.mark.anyio
 async def test_clone_rejects_invalid_missing_sources_and_reports_write_failure(runtime, monkeypatch):
-    source = await create_test_session(runtime, "source")
-    target = await create_test_session(runtime, "target")
+    source = await create_bound_test_session(runtime, "source")
+    target = await create_bound_test_session(runtime, "target")
     context = await request_context_for(target)
     for name, error in [("../etc", "invalid_name"), ("missing", "not_found")]:
         result = await internal_clone_project(CloneProjectArgs(from_project=name), context)
@@ -241,9 +241,9 @@ async def test_clone_rejects_invalid_missing_sources_and_reports_write_failure(r
 
 @pytest.mark.anyio
 async def test_clone_safeguard_uses_reloaded_dirty_project(runtime):
-    target = await create_test_session(runtime, "target")
+    target = await create_bound_test_session(runtime, "target")
     await target.update_config(lambda p: p.with_category("docs", Category(dir="docs", patterns=["*.md"])))
-    await create_test_session(runtime, "source")
+    await create_bound_test_session(runtime, "source")
     current = target.project
     # Simulate a stale in-memory snapshot while retaining real persisted data.
     target._Session__delegate.bind(Project(name=current.name, key=current.key, hash=current.hash))

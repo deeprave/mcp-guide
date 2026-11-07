@@ -849,6 +849,7 @@ class TestProjectTaskLifecycle:
         assert task_manager.command_cache == {}
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_stop_failure_still_unsubscribes_stale_instance(self, caplog) -> None:
         """A failing stop hook cannot leave old project subscriptions active."""
         from mcp_guide.decorators import task_register
@@ -869,6 +870,7 @@ class TestProjectTaskLifecycle:
         assert "Error stopping project-scoped task" in caplog.text
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_unexpected_stop_failure_does_not_block_remaining_stops(self, monkeypatch, caplog) -> None:
         """An unexpected stop helper failure cannot block other stale task stops."""
         from mcp_guide.decorators import task_register
@@ -901,6 +903,7 @@ class TestProjectTaskLifecycle:
         assert "Error stopping project-scoped task" in caplog.text
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_start_failure_does_not_block_other_registered_tasks(self, caplog) -> None:
         """A failing start hook cannot abort lifecycle restart for later tasks."""
         from mcp_guide.decorators import task_register
@@ -1063,6 +1066,7 @@ class TestProjectTaskLifecycle:
 
     @pytest.mark.anyio
     @pytest.mark.parametrize("failing_class", [_FailingStopProjectTask, _CancelledStopProjectTask])
+    @pytest.mark.slow
     async def test_disposal_reports_failure_after_attempting_remaining_tasks(self, failing_class) -> None:
         """Disposal must not report success when a task's stop hook failed."""
         task_manager = TaskManager()
@@ -1084,6 +1088,7 @@ class TestProjectTaskLifecycle:
         assert task_manager.get_subscription_count() == 0
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_start_failure_unsubscribe_failure_does_not_block_later_tasks(self, monkeypatch, caplog) -> None:
         """A failed startup cleanup unsubscribe cannot abort later task startup."""
         from mcp_guide.decorators import task_register

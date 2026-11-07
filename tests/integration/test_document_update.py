@@ -10,6 +10,7 @@ from tests.helpers import create_bound_test_session, request_context_for
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_document_update_persists_mutations_and_preserves_state_on_errors(runtime, tmp_path, monkeypatch):
     # Redirect the database location while exercising real storage operations.
     monkeypatch.setattr("mcp_guide.store.document_store.get_documents_db", lambda: tmp_path / "documents.db")

@@ -3,7 +3,7 @@
 import pytest
 
 import mcp_guide.session
-from tests.helpers import create_test_session, request_context_for
+from tests.helpers import create_bound_test_session, request_context_for
 
 
 @pytest.fixture(scope="module")
@@ -22,7 +22,7 @@ async def test_session(runtime, tmp_path, monkeypatch, enable_default_profile):
     monkeypatch.setenv("PWD", str(tmp_path))
 
     # Build an isolated, explicitly bound session.
-    session = await create_test_session(runtime, "test")
+    session = await create_bound_test_session(runtime, "test")
 
     yield session
 

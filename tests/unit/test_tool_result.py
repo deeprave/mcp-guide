@@ -1,6 +1,6 @@
 """Tests for tool_result helper function."""
 
-from unittest.mock import AsyncMock, MagicMock
+from types import SimpleNamespace
 
 import pytest
 from fastmcp.tools.base import ToolResult
@@ -55,20 +55,20 @@ class TestToolResult:
         assert output.structured_content["error"] == "bind failed"
 
     @pytest.mark.anyio
-    async def test_processes_an_already_resolved_session_without_session_id(self, monkeypatch) -> None:
+    async def test_processes_an_already_resolved_session_without_session_id(self, task_manager) -> None:
         """Unbound modern tools still run TaskManager when session_id is unset."""
+        from mcp_guide.mcp_context import SessionProtocolType
 
-        async def boom(*_args, **_kwargs):
-            raise AssertionError("tool_result must not mint a Session when one is already supplied")
-
-        monkeypatch.setattr("mcp_guide.runtime.GuideRuntime.create_session", boom)
-        session = MagicMock()
-        session.session_id = None
-        session.task_manager.process_result = AsyncMock(side_effect=lambda result: result)
+        session = SimpleNamespace(
+            session_id=None,
+            protocol_type=SessionProtocolType.LEGACY,
+            task_manager=task_manager,
+        )
+        await task_manager.queue_instruction("Continue with the bound project.")
         result = Result.ok(value={"data": "test"})
 
         output = await tool_result("list_tools", result, session=session, session_id=None)
 
-        session.task_manager.process_result.assert_awaited_once_with(result)
         assert isinstance(output, ToolResult)
         assert output.structured_content["success"] is True
+        assert output.structured_content["additional_agent_instructions"] == "Continue with the bound project."

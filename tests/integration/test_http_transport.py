@@ -171,6 +171,8 @@ async def test_http_transport_defers_selected_auth_service_until_a_protected_ope
 
 
 @pytest.mark.anyio
+@pytest.mark.timing
+@pytest.mark.slow
 async def test_reused_http_session_authorises_each_tool_request(tmp_path):
     """An admin-opened session must not retain privileges when credentials change."""
     from mcp_guide.cli import ServerConfig

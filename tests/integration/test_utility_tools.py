@@ -22,6 +22,7 @@ def mcp_server(mcp_server_factory):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_client_info_returns_consistent_agent_info_without_project(mcp_server):
     """Test that client_info returns agent information from MCP client."""
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True)) as client:

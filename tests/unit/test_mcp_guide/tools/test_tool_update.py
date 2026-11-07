@@ -7,6 +7,7 @@ from mcp_guide.tools.tool_update import UpdateDocumentsArgs, internal_update_doc
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_update_documents_propagates_docroot_resolution_error(runtime, monkeypatch):
     """Test update_documents returns a structured failure for docroot resolution issues."""
     context = await request_context_for(create_unbound_test_session(runtime))
@@ -51,6 +52,7 @@ async def test_update_documents_does_not_write_installer_metadata_in_development
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("old_version", [None, "0.0.1"], ids=["new-docroot", "older-documents"])
+@pytest.mark.slow
 async def test_update_installs_documents_and_version_then_skips_current(runtime, tmp_path, old_version):
     """The unbound tool performs real locked installation, then avoids a second update."""
     import yaml

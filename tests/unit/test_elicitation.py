@@ -687,6 +687,7 @@ async def test_declined_form_does_not_apply_schema_defaults() -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.timing
 async def test_legacy_unanswered_form_renders_fallback_instead_of_applying_defaults(
     legacy_elicitation_context, monkeypatch
 ) -> None:
@@ -1637,7 +1638,11 @@ async def _never_answer(*_args: object) -> None:
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("answer", [_decline, _never_answer], ids=["declined", "unanswered"])
+@pytest.mark.parametrize(
+    "answer",
+    [_decline, pytest.param(_never_answer, marks=pytest.mark.timing, id="unanswered")],
+    ids=["declined", "unanswered"],
+)
 async def test_legacy_form_without_render_fallback_fails_when_not_answered(
     legacy_elicitation_context, monkeypatch, answer
 ) -> None:

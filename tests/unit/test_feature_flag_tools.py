@@ -24,6 +24,7 @@ async def flag_context(runtime, tmp_path):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_listing_flags_without_a_bound_project_returns_guidance(runtime):
     context = await request_context_for(create_unbound_test_session(runtime))
     result = await internal_list_project_flags(ListFlagsArgs(), context)

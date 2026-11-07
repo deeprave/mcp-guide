@@ -163,6 +163,7 @@ class TestSafeLambdaWrapper:
     """Test safe lambda wrapper functionality."""
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_safe_lambda_error_handling(self):
         """Test that safe lambda wrapper catches and formats errors."""
         context = TemplateContext({"invalid_date": "not_a_date"})
@@ -176,6 +177,7 @@ class TestSafeLambdaWrapper:
         assert "not a datetime object" in rendered_content
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_safe_lambda_error_handling_truncate(self):
         """Test that safe lambda wrapper catches and formats errors for truncate."""
         # Negative length should trigger a validation error inside truncate
@@ -189,6 +191,7 @@ class TestSafeLambdaWrapper:
         assert "[Template Error (" in rendered_content
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_safe_lambda_error_handling_highlight_code(self):
         """Test that safe lambda wrapper catches and formats errors for highlight_code."""
         # Invalid language name (contains invalid characters) should trigger a validation error

@@ -2,7 +2,7 @@
 
 import pytest
 from pydantic_core import ValidationError
-from tests.helpers import create_test_runtime, create_test_session, create_unbound_test_session
+from tests.helpers import create_bound_test_session, create_test_runtime, create_unbound_test_session
 
 from mcp_guide.runtime import OwnerKey
 
@@ -11,25 +11,28 @@ class TestConfigValidation:
     """Test input validation in configuration methods."""
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_set_project_flag_invalid_name(self, runtime, tmp_path):
         """Test that project flags reject invalid flag names."""
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         flags = session.project_flags("test-project")
         with pytest.raises(ValidationError, match="Invalid feature flag name"):
             await flags.set("invalid.name", True)
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_set_project_flag_invalid_value(self, runtime, tmp_path):
         """Test that project flags reject invalid flag values."""
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         flags = session.project_flags("test-project")
         with pytest.raises(ValidationError):
             await flags.set("valid-name", 123)
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_valid_inputs_accepted(self, runtime, tmp_path):
         """Test that valid inputs are accepted."""
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         project_flags = session.project_flags("test-project")
         # These should not raise exceptions
         await project_flags.set("valid-name", True)
@@ -90,9 +93,10 @@ class TestConfigValidation:
         assert list(projects) == []
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_clone_source_prefers_an_exact_hashless_legacy_key(self, runtime, tmp_path):
         """Clone recovers an explicit legacy key ahead of a same-named hashed project."""
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         config_manager = session._config()
         first_hash = "a" * 64
         second_hash = "b" * 64

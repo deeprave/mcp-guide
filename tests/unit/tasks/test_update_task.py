@@ -2,7 +2,7 @@
 
 import pytest
 import yaml
-from tests.helpers import bind_isolated_test_session, create_unbound_test_session
+from tests.helpers import create_bound_test_session, create_unbound_test_session
 
 from mcp_guide import __version__
 from mcp_guide.feature_flags.constants import FLAG_HANDOFF_CONTEXT
@@ -36,7 +36,7 @@ async def test_startup_prompt_and_acknowledgement(runtime, tmp_path, flag, versi
             {"docroot": str(docroot), "projects": {}, "feature_flags": {} if flag is None else {"autoupdate": flag}}
         )
     )
-    session = await bind_isolated_test_session(runtime)
+    session = await create_bound_test_session(runtime)
     manager = session.task_manager
     task = manager.get_task_by_type(StartupTask)
     assert task is not None
@@ -102,7 +102,7 @@ async def test_startup_task_queues_rendered_handoff_context_guidance(runtime, tm
         "{{/handoff_context.target}}{{^handoff_context.target}}disabled{{/handoff_context.target}}"
     )
     runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
-    session = await bind_isolated_test_session(runtime)
+    session = await create_bound_test_session(runtime)
     await session.project_flags().set(FLAG_HANDOFF_CONTEXT, value)
     task = session.task_manager.get_task_by_type(StartupTask)
     assert task is not None
@@ -125,7 +125,7 @@ async def test_document_update_guidance_precedes_handoff_guidance(runtime, tmp_p
     runtime.configuration_service().config_file.write_text(
         yaml.safe_dump({"docroot": str(docroot), "projects": {}, "feature_flags": {"autoupdate": True}})
     )
-    session = await bind_isolated_test_session(runtime)
+    session = await create_bound_test_session(runtime)
     await session.project_flags().set(FLAG_HANDOFF_CONTEXT, True)
     task = session.task_manager.get_task_by_type(StartupTask)
     assert task is not None

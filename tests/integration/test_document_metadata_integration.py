@@ -10,6 +10,7 @@ from tests.helpers import create_bound_test_session
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_metadata_persisted_through_document_task(runtime, tmp_path, monkeypatch):
     """Event metadata and frontmatter merge correctly and persist in the store."""
     db = tmp_path / "documents.db"

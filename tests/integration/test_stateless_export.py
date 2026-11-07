@@ -20,7 +20,6 @@ from mcp_guide.tools.tool_project import SetCurrentProjectArgs
 from mcp_guide.tools.tool_resource import ReadResourceArgs, internal_read_resource
 from tests.conftest import call_mcp_tool
 from tests.helpers import (
-    bind_isolated_test_session,
     create_bound_test_session,
     request_context_for,
     tool_result_payload,
@@ -212,7 +211,7 @@ class TestStatelessExport:
         data["projects"][key]["exports"] = legacy_exports
         config.write_text(yaml.safe_dump(data))
         before = config.read_bytes()
-        reloaded = await bind_isolated_test_session(runtime, project_name="stateless-export")
+        reloaded = await create_bound_test_session(runtime, project_name="stateless-export")
         result = await internal_get_content(ContentArgs(expression="docs"), await request_context_for(reloaded))
         assert result.success is True
         assert "Current server content" in result.value

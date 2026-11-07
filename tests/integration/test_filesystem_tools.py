@@ -167,6 +167,7 @@ async def test_directory_listing_preserves_task_guidance_message(runtime):
         ),
     ],
 )
+@pytest.mark.slow
 async def test_wrapper_serialises_unexpected_boundary_errors(runtime, handler, args, boundary, label):
     from tests.helpers import create_unbound_test_session
 

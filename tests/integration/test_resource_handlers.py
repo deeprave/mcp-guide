@@ -668,6 +668,7 @@ async def test_unknown_skill_has_a_clear_not_found_response(resource_project):
         (Exception("Unexpected error"), "Unexpected error: Unexpected error"),
     ],
 )
+@pytest.mark.slow
 async def test_resource_serialises_propagated_errors(resource_project, exception, expected):
     # Inject propagated failures deterministically; normal content errors become Results before this boundary.
     with patch("mcp_guide.resources.internal_get_content", new=AsyncMock(side_effect=exception)):

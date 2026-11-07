@@ -1,8 +1,0 @@
-FROM mcp-guide:base AS final
-
-COPY --chmod=755 entrypoint-https.sh /entrypoint.sh
-
-EXPOSE 8443
-
-ENTRYPOINT ["/entrypoint.sh"]
-CMD []

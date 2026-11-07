@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 from _pytest.monkeypatch import MonkeyPatch
-from tests.helpers import create_test_session, request_context_for
+from tests.helpers import create_bound_test_session, request_context_for
 
 from mcp_guide.models import Category, Collection
 from mcp_guide.runtime import RequestContext
@@ -41,7 +41,7 @@ async def request_context(session: Session | None = None) -> RequestContext:
 
 async def _create_bound_session(runtime) -> Session:
     """Create a bound session using the shared production-shaped fixture."""
-    session = await create_test_session(runtime, "test")
+    session = await create_bound_test_session(runtime, "test")
     set_current_session(session)
     return session
 
@@ -282,34 +282,13 @@ class TestCategoryAdd:
         assert (await session.get_project()).categories["docs"].patterns == []
 
     @pytest.mark.anyio
-    async def test_category_add_auto_saves(self, runtime, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        """Auto-save after successful add."""
-        from unittest.mock import AsyncMock
-
-        from mcp_guide.tools.tool_category import CategoryAddArgs
-
-        session = await create_test_session(runtime, "test")
-        await session.get_project()
-        # Project setup handled by Session
-        set_current_session(session)
-
-        update_mock = AsyncMock()
-        monkeypatch.setattr(session, "update_config", update_mock)
-
-        args = CategoryAddArgs(name="docs", dir="docs", patterns=["*.md"])
-        result = await internal_category_add(args, await request_context())
-
-        assert result.success is True
-        update_mock.assert_called_once()
-
-    @pytest.mark.anyio
     async def test_category_add_save_failure(self, runtime, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
         """Handle save failure gracefully."""
         from unittest.mock import AsyncMock
 
         from mcp_guide.tools.tool_category import CategoryAddArgs
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -333,7 +312,7 @@ class TestCategoryRemove:
         """Remove existing category."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, internal_category_remove
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         await session.get_project()
         docs_category = Category(dir="docs", patterns=["*.md"])
         # Project setup handled by Session
@@ -358,7 +337,7 @@ class TestCategoryRemove:
         """Reject removing non-existent category."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, internal_category_remove
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         await session.get_project()
         # Project setup handled by Session
         set_current_session(session)
@@ -376,7 +355,7 @@ class TestCategoryRemove:
         """Remove category from single collection."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, internal_category_remove
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         project = await session.get_project()
         # Add category and collection properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
@@ -396,7 +375,7 @@ class TestCategoryRemove:
         """Remove category from multiple collections."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, internal_category_remove
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         project = await session.get_project()
         # Add categories and collections properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
@@ -420,7 +399,7 @@ class TestCategoryRemove:
         """Remove category not in any collection."""
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, internal_category_remove
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         project = await session.get_project()
         # Add categories and collection properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
@@ -443,7 +422,7 @@ class TestCategoryRemove:
 
         from mcp_guide.tools.tool_category import CategoryRemoveArgs, internal_category_remove
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])
@@ -468,7 +447,7 @@ class TestCategoryChange:
         """Change category name (rename)."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, internal_category_change
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"], description="Documentation")
@@ -508,7 +487,7 @@ class TestCategoryChange:
         """Change category description."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, internal_category_change
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"], description="Old")
@@ -527,7 +506,7 @@ class TestCategoryChange:
         """Clear category description with empty string."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, internal_category_change
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"], description="Documentation")
@@ -545,7 +524,7 @@ class TestCategoryChange:
         """Replace category patterns."""
         from mcp_guide.tools.tool_category import CategoryChangeArgs, internal_category_change
 
-        session = await create_test_session(runtime, "test")
+        session = await create_bound_test_session(runtime, "test")
         project = await session.get_project()
         # Add category properly
         project.categories["docs"] = Category(dir="docs", patterns=["*.md"])

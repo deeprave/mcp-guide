@@ -12,7 +12,7 @@ from mcp_guide.prompts.guide_prompt import handle_command
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType, TaskActivation
-from tests.helpers import bind_isolated_test_session, request_context_for
+from tests.helpers import create_bound_test_session, request_context_for
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ async def openspec_session(runtime, tmp_path):
     command.parent.mkdir(parents=True)
     command.write_text("{{openspec.changes_refresh_id}}")
     runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docs), "projects": {}}))
-    session = await bind_isolated_test_session(runtime)
+    session = await create_bound_test_session(runtime)
     await session.project_flags().set("openspec", FeatureValue(True))
     return session
 
