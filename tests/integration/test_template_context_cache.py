@@ -50,6 +50,7 @@ async def test_complete_context_contains_real_project_category_and_system(sessio
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_unbound_context_does_not_create_or_borrow_a_project(runtime):
     unbound = create_unbound_test_session(runtime)
     for cache in (TemplateContextCache(), unbound.template_cache):
@@ -61,6 +62,7 @@ async def test_unbound_context_does_not_create_or_borrow_a_project(runtime):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_sessionless_render_omits_auth_even_during_an_authenticated_request(runtime):
     """Request authorisation alone must not enrich pre-session guidance."""
     from mcp_guide.auth import AuthScope, UserAuthorisation, bind_user_authorisation
@@ -104,6 +106,7 @@ async def test_session_render_updates_auth_without_caching_request_access(sessio
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("error", [ValueError, AttributeError])
+@pytest.mark.slow
 async def test_project_read_failure_uses_empty_context(session, monkeypatch, error):
     # Inject an unavailable configuration boundary; normal fixtures cannot reliably cause it.
     async def unavailable():

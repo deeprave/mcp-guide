@@ -182,6 +182,7 @@ async def test_use_skill_rejects_member_paths(resource_project):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_use_skill_without_a_project_returns_standard_guidance(runtime):
     context = SimpleNamespace(
         request_context=SimpleNamespace(
@@ -706,6 +707,7 @@ async def test_invalid_scheme(resource_project):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_read_resource_uri_session_id_resumes_bound_session(runtime, tmp_path) -> None:
     """A unique URI session_id selects the already-bound Session before scope."""
     from types import SimpleNamespace

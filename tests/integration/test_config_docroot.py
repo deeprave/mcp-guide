@@ -6,7 +6,7 @@ import pytest
 import yaml
 
 from mcp_guide.runtime import create_runtime, get_runtime
-from tests.helpers import create_test_session
+from tests.helpers import create_bound_test_session
 
 
 @pytest.mark.anyio
@@ -33,9 +33,10 @@ async def test_default_user_anchored_config_path_reads_home_configuration(tmp_pa
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_new_config_has_docroot(runtime, tmp_path):
     """Test new config file includes docroot field."""
-    session = await create_test_session(runtime, "test-project")
+    session = await create_bound_test_session(runtime, "test-project")
 
     # Create a project to trigger config file creation
     await session.get_project()
@@ -60,7 +61,7 @@ async def test_blank_docroot_is_replaced_with_and_persists_the_default(runtime, 
         config["docroot"] = configured_docroot
     config_file.write_text(yaml.dump(config))
 
-    session = await create_test_session(runtime, "test-project")
+    session = await create_bound_test_session(runtime, "test-project")
 
     assert await get_runtime().get_docroot() == str(tmp_path / "docs")
     persisted = yaml.safe_load(config_file.read_text())["docroot"]
@@ -133,6 +134,7 @@ async def test_filling_missing_docroot_does_not_unpack_templates(tmp_path):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_first_run_persists_supplied_docroot(tmp_path, monkeypatch):
     """First-run --docroot docs leaves the supplied value in config.yaml."""
     from mcp_guide.installer.core import ORIGINAL_ARCHIVE
@@ -151,6 +153,7 @@ async def test_first_run_persists_supplied_docroot(tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_relative_docroot_resolver_returns_absolute_paths(tmp_path, monkeypatch):
     """A persisted relative docroot still yields host-absolute resolved paths."""
     from mcp_guide.discovery.files import discover_document_files
@@ -174,6 +177,7 @@ async def test_relative_docroot_resolver_returns_absolute_paths(tmp_path, monkey
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_first_run_persists_tilde_and_env_docroot(tmp_path, monkeypatch):
     """CLI tilde and $VAR docroot values are written unchanged; the resolver expands them."""
     from mcp_guide.installer.core import ORIGINAL_ARCHIVE
@@ -244,6 +248,7 @@ async def test_tilde_docroot_discovers_command_templates(tmp_path, monkeypatch):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_relative_config_dir_persists_absolute_docroot(tmp_path, monkeypatch):
     """First-run install stores an absolute docroot even when config_dir is relative."""
     monkeypatch.chdir(tmp_path)
@@ -272,9 +277,9 @@ async def test_project_creation_and_save_preserve_raw_docroot(runtime, tmp_path,
     """Project writes preserve configured server-side path expressions verbatim."""
     config_file = runtime.configuration_service().config_file
     config_file.write_text(yaml.safe_dump({"docroot": raw_docroot, "projects": {}}))
-    first = await create_test_session(runtime, "first")
+    first = await create_bound_test_session(runtime, "first")
     await first.update_config(lambda project: project)
     assert yaml.safe_load(config_file.read_text())["docroot"] == raw_docroot
-    second = await create_test_session(runtime, "second")
+    second = await create_bound_test_session(runtime, "second")
     assert (await second.get_project()).name == "second"
     assert yaml.safe_load(config_file.read_text())["docroot"] == raw_docroot

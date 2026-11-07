@@ -37,6 +37,7 @@ def test_switch_project_requires_exactly_one_name_or_path() -> None:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("mode", ["legacy", "2026-07-28"])
+@pytest.mark.slow
 async def test_switch_project_supports_name_and_root_rebinding_forms(mcp_server: Any, mode: str) -> None:
     """A retained MCP session can switch by configuration name or root path."""
     async with Client(FastMCPTransport(mcp_server, raise_exceptions=True), mode=mode) as client:

@@ -82,12 +82,18 @@ filterwarnings = ["error"]
 addopts = [
     "--strict-markers",
     "--strict-config",
+    "-m",
+    "not timing and not slow",
     "--cov=src/mcp_guide",
     "--cov-report=term-missing",
 ]
 markers = [
     "e2e: marks tests as end-to-end tests",
+    "integration: marks tests that exercise multiple Guide components or protocol boundaries",
     "slow: marks tests as slow running",
+    "synchronisation: marks tests that coordinate concurrent work",
+    "timing: marks tests that rely on elapsed time or scheduling",
+    "unit: marks tests that exercise an isolated production component",
 ]
 
 [tool.ruff]
@@ -122,6 +128,7 @@ dev = [
     "bandit>=1.9.2",
     "osvcheck>=1.0.0b1",
     "vulture>=2.14",
+    "pytest-testmon>=2.3.0",
 ]
 debug = [
     "debugpy>=1.8.0",

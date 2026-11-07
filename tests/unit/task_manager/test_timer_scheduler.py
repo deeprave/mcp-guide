@@ -8,6 +8,8 @@ import pytest
 from mcp_guide.task_manager import EventType, TaskManager
 from mcp_guide.task_manager.manager import EventResult
 
+pytestmark = [pytest.mark.synchronisation, pytest.mark.timing]
+
 
 class RecordingTimerSubscriber:
     def __init__(self):

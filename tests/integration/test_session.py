@@ -13,7 +13,7 @@ from mcp_guide.session import (
     bind_session_project,
     request_context_scope,
 )
-from tests.helpers import create_test_runtime, create_test_session, create_unbound_test_session
+from tests.helpers import create_bound_test_session, create_test_runtime, create_unbound_test_session
 
 
 @pytest.fixture
@@ -51,6 +51,7 @@ class TestSetProject:
     """Tests for explicit project binding."""
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_set_project_creates_and_loads(self, tmp_path, monkeypatch):
         """Binding creates/loads project successfully."""
         _runtime, ctx = runtime_context(tmp_path)
@@ -62,6 +63,7 @@ class TestSetProject:
         assert project.name == "new-project"
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_set_project_with_invalid_name(self, tmp_path, monkeypatch):
         """Binding raises for an invalid project name."""
         from mcp_guide.validation import InvalidProjectNameError
@@ -74,6 +76,7 @@ class TestSetProject:
                 await bind_session_project(request_context.session, "relative/invalid@name")
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_set_project_rejects_second_binding(self, tmp_path, monkeypatch):
         """A Session root is immutable after the first explicit binding."""
         _runtime, ctx = runtime_context(tmp_path)
@@ -85,6 +88,7 @@ class TestSetProject:
                 await bind_session_project(request_context.session, "/client/workspace/second-project")
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_set_project_binds_the_explicit_runtime_session(self, tmp_path, monkeypatch):
         """Modern binding updates the Session selected by the supplied FastMCP ID."""
         runtime, ctx = runtime_context(tmp_path, "set-project-request")
@@ -136,6 +140,7 @@ class TestGetOrCreateSession:
             Session()  # ty: ignore[missing-argument]
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_session_establishment_logs_modern_protocol_revision(self, tmp_path, caplog) -> None:
         """A newly established session records the negotiated modern protocol."""
         _runtime, ctx = runtime_context(tmp_path)
@@ -149,6 +154,7 @@ class TestGetOrCreateSession:
         assert records[0].protocol_revision == "2026-07-28"
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_session_establishment_marks_modern_protocol_type(self, tmp_path) -> None:
         """A negotiated modern interaction retains its response protocol type."""
         runtime, ctx = runtime_context(tmp_path)
@@ -163,6 +169,7 @@ class TestGetOrCreateSession:
         )
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_session_rejects_protocol_type_change(self, tmp_path) -> None:
         """A retained interaction cannot silently change its response contract."""
         _runtime, ctx = runtime_context(tmp_path)
@@ -178,6 +185,7 @@ class TestGetOrCreateSession:
                 pass
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_request_local_work_does_not_log_interaction_establishment(self, tmp_path, caplog) -> None:
         """ID-less requests must not masquerade as newly established interactions."""
         _runtime, ctx = runtime_context(tmp_path)
@@ -188,6 +196,7 @@ class TestGetOrCreateSession:
         assert not [record for record in caplog.records if record.msg == "Established Guide session"]
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_session_establishment_logs_legacy_protocol_revision(self, tmp_path, caplog) -> None:
         """A legacy connection records its negotiated protocol revision."""
         _runtime, ctx = runtime_context(tmp_path)
@@ -204,6 +213,7 @@ class TestGetOrCreateSession:
 
     @pytest.mark.anyio
     @pytest.mark.parametrize("protocol", ["2026-07-28", "2025-06-18"])
+    @pytest.mark.slow
     async def test_session_establishment_logs_protocol_once_for_retained_session(
         self, tmp_path, caplog, protocol
     ) -> None:
@@ -231,12 +241,14 @@ class TestGetOrCreateSession:
         assert records[0].protocol_revision == protocol
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_creates_session_with_explicit_name(self, runtime, tmp_path, monkeypatch):
         """Creates session when explicit project_name provided."""
-        session = await create_test_session(runtime, "explicit-project")
+        session = await create_bound_test_session(runtime, "explicit-project")
         assert session.project_name == "explicit-project"
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_context_does_not_bind_a_project_from_client_roots(self, tmp_path, monkeypatch):
         """Remote context metadata never determines a client filesystem root."""
         _runtime, mock_ctx = runtime_context(tmp_path)
@@ -246,6 +258,7 @@ class TestGetOrCreateSession:
             assert request_context.session.project_is_bound is False
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_stdio_context_with_session_id_does_not_bind_from_inherited_pwd(self, tmp_path, monkeypatch):
         """An explicit session ID never permits PWD project inference."""
         _runtime, mock_ctx = runtime_context(tmp_path)
@@ -256,6 +269,7 @@ class TestGetOrCreateSession:
             assert request_context.session.project_is_bound is False
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_set_project_uses_explicit_path_when_stdio_has_pwd(self, tmp_path, monkeypatch):
         """Explicit binding takes precedence over inherited PWD."""
         _runtime, ctx = runtime_context(tmp_path)
@@ -270,6 +284,7 @@ class TestGetOrCreateSession:
         assert project.name == "explicit-project"
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_request_scope_reuses_and_releases_unbound_session(self, tmp_path, monkeypatch):
         """An unbound Session is shared only for one request."""
         runtime, ctx = runtime_context(tmp_path)
@@ -279,6 +294,7 @@ class TestGetOrCreateSession:
         assert runtime.find_session(OwnerKey("same-session")) is None
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_request_scope_uses_legacy_fastmcp_session_id(self, tmp_path):
         """Legacy request scopes use FastMCP's public connection ID as their owner."""
         runtime = create_test_runtime(str(tmp_path))
@@ -296,6 +312,7 @@ class TestGetOrCreateSession:
         assert runtime.find_session(OwnerKey("legacy-fastmcp-session")) is None
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_request_context_scope_constructs_one_context_from_the_runtime_session(self, tmp_path):
         """The transport boundary supplies the exact resolved Session downstream."""
         runtime, ctx = runtime_context(tmp_path)
@@ -307,6 +324,7 @@ class TestGetOrCreateSession:
             assert context.project is None
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_stdio_pwd_bootstrap_does_not_retain_unbound_owner(self, tmp_path, monkeypatch):
         """A PWD-bound Session is retained only under its minted id, never unbound:*."""
         from mcp_guide.lazy_path import LazyPath
@@ -347,6 +365,7 @@ class TestGetOrCreateSession:
         assert OwnerKey("minted-stdio-session") in runtime._sessions
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_runtime_session_receives_standard_listeners(self, tmp_path):
         """Runtime resolution preserves the creation-path listener contract."""
         runtime = create_test_runtime(str(tmp_path))
@@ -365,6 +384,7 @@ class TestGetOrCreateSession:
         assert getattr(session, "_guide_listeners_attached") is True
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_runtime_keeps_explicit_session_owners_isolated(self, tmp_path):
         """Explicit session IDs select separate runtime-owned Sessions."""
         runtime = create_test_runtime(str(tmp_path))
@@ -390,16 +410,18 @@ class TestGetOrCreateSession:
         assert first is not second
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_project_name_bootstrap_is_test_local(self, runtime, tmp_path):
         """Test-only project-name bootstrap does not create global session state."""
-        session1 = await create_test_session(runtime, "project1")
-        session2 = await create_test_session(runtime, "project2")
+        session1 = await create_bound_test_session(runtime, "project1")
+        session2 = await create_bound_test_session(runtime, "project2")
 
         assert session1 is not session2
         assert session1.project_name == "project1"
         assert session2.project_name == "project2"
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_project_switch_regenerates_startup_instructions_after_restart(
         self, runtime, tmp_path, monkeypatch, empty_task_registry
     ):
@@ -424,7 +446,7 @@ class TestGetOrCreateSession:
         monkeypatch.setattr("mcp_guide.startup_listener.render_content", render_startup_content)
         monkeypatch.setattr("mcp_guide.guide_uri_listener.render_content", render_guide_content)
 
-        session = await create_test_session(runtime, "project-one")
+        session = await create_bound_test_session(runtime, "project-one")
         task_manager = session.task_manager
         initial_instructions = [instruction.content for instruction in task_manager._pending_instructions]
         await task_manager.queue_instruction("stale project instruction")

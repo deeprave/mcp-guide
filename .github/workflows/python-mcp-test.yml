@@ -34,7 +34,8 @@ jobs:
         run: uv sync --frozen --dev --extra auth-ref --python ${{ matrix.python-version }}
 
       - name: Run tests with pytest
-        run: uv run pytest tests/ -v -Walways
+        # Override the local timing-test default: CI validates every test category.
+        run: uv run pytest tests/ -v -Walways -m "not timing or timing"
         env:
           NO_COLOR: "1"
           TERM: "dumb"

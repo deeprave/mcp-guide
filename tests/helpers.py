@@ -74,22 +74,7 @@ def create_unbound_test_session(runtime: "GuideRuntime[Session]") -> "Session":
     return runtime.resolve_session(OwnerKey(f"test-session:{uuid.uuid4().hex}"))
 
 
-async def bind_isolated_test_session(
-    runtime: "GuideRuntime[Session]",
-    *,
-    project_name: str = "test",
-) -> "Session":
-    """Bind a new Session using a client root under the runtime config directory."""
-    from mcp_guide.session import bind_session_project
-
-    session = create_unbound_test_session(runtime)
-    project_root = runtime_config_dir(runtime) / "client-roots" / project_name
-    project_root.mkdir(parents=True, exist_ok=True)
-    await bind_session_project(session, project_root)
-    return session
-
-
-async def _bind_named_test_session(runtime: "GuideRuntime[Session]", project_name: str) -> "Session":
+async def create_bound_test_session(runtime: "GuideRuntime[Session]", project_name: str = "test") -> "Session":
     """Create a runtime-owned Session and bind it through the production path."""
     from mcp_guide.session import bind_session_project
 
@@ -98,13 +83,3 @@ async def _bind_named_test_session(runtime: "GuideRuntime[Session]", project_nam
     project_root.mkdir(parents=True, exist_ok=True)
     await bind_session_project(session, project_root)
     return session
-
-
-async def create_bound_test_session(runtime: "GuideRuntime[Session]", project_name: str) -> "Session":
-    """Create a session bound directly to a project for fast test setup."""
-    return await _bind_named_test_session(runtime, project_name)
-
-
-async def create_test_session(runtime: "GuideRuntime[Session]", project_name: str) -> "Session":
-    """Create a Session through the explicit client-root binding path."""
-    return await _bind_named_test_session(runtime, project_name)

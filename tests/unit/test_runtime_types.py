@@ -198,6 +198,7 @@ async def test_failed_replacement_preparation_leaves_the_original_active(tmp_pat
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_failed_expiry_cleanup_keeps_the_switch_guard(tmp_path, monkeypatch) -> None:
     """Failed outgoing disposal cannot overturn a successful request or release its guard."""
     runtime = runtime_for_config(tmp_path)
@@ -270,6 +271,7 @@ async def test_switch_response_does_not_wait_for_disposal_but_shutdown_does(
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_failed_idle_disposal_keeps_ownership_and_blocks_rebinding(tmp_path, monkeypatch) -> None:
     """Idle cleanup failure must not orphan a Session or allow its ID to be rebound."""
     runtime = runtime_for_config(tmp_path)
@@ -353,6 +355,7 @@ async def test_stop_releases_the_process_runtime_for_a_successor(tmp_path) -> No
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_start_reinstalls_the_process_runtime_after_stop(tmp_path) -> None:
     """FastMCP lifespan start reclaims the process slot after stop() released it."""
     runtime = create_runtime(lambda _owner: object(), config_dir=str(tmp_path))
@@ -373,6 +376,7 @@ def test_create_runtime_refuses_a_second_install(tmp_path) -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_request_context_resolves_only_safe_document_relative_paths(tmp_path) -> None:
     """Application code can resolve a document path without receiving docroot."""
     docroot = tmp_path / "documents"
@@ -637,6 +641,7 @@ async def test_runtime_shutdown_cleans_up_its_sessions() -> None:
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("failure_type", [RuntimeError, asyncio.CancelledError])
+@pytest.mark.slow
 async def test_runtime_shutdown_continues_after_a_session_cleanup_failure(tmp_path, failure_type) -> None:
     """A failed cleanup cannot prevent shared runtime shutdown."""
     events: list[str] = []

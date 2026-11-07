@@ -9,6 +9,7 @@ from mcp.client.stdio import stdio_client
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_mcp_client_can_initialize_and_list_tools(tmp_path):
     """Test end-to-end stdio MCP protocol: client initializes and lists tools.
 
@@ -83,6 +84,7 @@ def _application(tmp_path, *, use_pwd):
 @pytest.mark.anyio
 @pytest.mark.parametrize("mode", ["2026-07-28", "legacy"])
 @pytest.mark.parametrize("how", ["env", "flag"])
+@pytest.mark.slow
 async def test_opted_in_stdio_binds_from_pwd_that_is_the_server_directory(
     tmp_path, monkeypatch, stdio_transport, mode, how
 ):
@@ -114,6 +116,7 @@ async def test_opted_in_stdio_binds_from_pwd_that_is_the_server_directory(
 @pytest.mark.anyio
 @pytest.mark.parametrize("mode", ["2026-07-28", "legacy"])
 @pytest.mark.parametrize("how", ["env", "flag"])
+@pytest.mark.slow
 async def test_opted_in_stdio_ignores_pwd_that_is_not_the_server_directory(
     tmp_path, monkeypatch, stdio_transport, mode, how
 ):

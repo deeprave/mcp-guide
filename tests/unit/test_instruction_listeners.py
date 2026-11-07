@@ -1,7 +1,5 @@
 """Listener behaviour through real templates and delivered instructions."""
 
-from unittest.mock import Mock
-
 import pytest
 import yaml
 from tests.helpers import create_bound_test_session
@@ -43,7 +41,7 @@ async def test_project_change_delivers_instructions_in_priority_order_without_co
     for content in expected:
         assert (await manager.process_result(Result.ok())).additional_agent_instructions == content
     assert manager.is_queue_empty()
-    await listener.on_configuration_changed(session, Mock())
+    await listener.on_configuration_changed(session, object())
     assert manager.is_queue_empty()
 
 
@@ -80,6 +78,7 @@ async def test_blank_or_requirement_filtered_templates_deliver_nothing(listener_
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("failure", ["missing", "unexpected"])
+@pytest.mark.slow
 async def test_unavailable_startup_does_not_suppress_onboarding(listener_session, monkeypatch, failure):
     session, system = listener_session
     (system / "_onboard_prompt.mustache").write_text("Onboard this project")
@@ -103,6 +102,7 @@ async def test_unavailable_startup_does_not_suppress_onboarding(listener_session
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("failure", ["missing", "unexpected"])
+@pytest.mark.slow
 async def test_unavailable_guide_template_does_not_inject_instructions(listener_session, monkeypatch, failure):
     session, _ = listener_session
     if failure == "unexpected":

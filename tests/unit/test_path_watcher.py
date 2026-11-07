@@ -3,7 +3,6 @@
 import asyncio
 import os
 import tempfile
-import time
 from unittest.mock import Mock
 
 import pytest
@@ -206,11 +205,12 @@ class TestPathWatcherCallbackSystem:
 
             # Initialize
             await watcher.has_changed()
+            previous_mtime = os.stat(tmp_file.name).st_mtime
 
             # Modify file content
-            time.sleep(0.1)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
+            _bump_mtime(tmp_file.name, previous_mtime)
 
             # Check for changes (should trigger both callbacks)
             await watcher.has_changed()
@@ -223,6 +223,7 @@ class TestPathWatcherCallbackSystem:
             os.unlink(tmp_file.name)
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_callback_exceptions_dont_crash_watcher(self):
         """Callback exceptions don't crash watcher."""
 
@@ -237,11 +238,12 @@ class TestPathWatcherCallbackSystem:
 
             # Initialize
             await watcher.has_changed()
+            previous_mtime = os.stat(tmp_file.name).st_mtime
 
             # Modify file content
-            time.sleep(0.1)  # Ensure time difference
             with open(tmp_file.name, "w") as f:
                 f.write("modified content")
+            _bump_mtime(tmp_file.name, previous_mtime)
 
             # Check for changes (callback should fail but not crash)
             has_changed = await watcher.has_changed()
@@ -301,6 +303,7 @@ class TestPathWatcherAsyncTaskManagement:
             await watcher.stop()
 
     @pytest.mark.anyio
+    @pytest.mark.timing
     async def test_task_polls_at_configurable_intervals(self):
         """Task polls at configurable intervals."""
         callback = Mock()
@@ -471,6 +474,8 @@ class TestPathWatcherSingleInstanceManagement:
             await watcher.stop()
 
     @pytest.mark.anyio
+    @pytest.mark.timing
+    @pytest.mark.slow
     async def test_path_watcher_handles_task_exceptions_gracefully(self):
         """PathWatcher handles task exceptions gracefully."""
         with tempfile.NamedTemporaryFile() as tmp_file:

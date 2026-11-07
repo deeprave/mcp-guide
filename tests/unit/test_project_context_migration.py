@@ -25,6 +25,7 @@ def runtime_for_config(config_dir: str | Path) -> GuideRuntime[Session]:
 
 class TestProjectBindingSelection:
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_binding_is_initial_only_and_name_switches_keep_root(self, tmp_path: Path) -> None:
         """Initial binding is immutable while name-only switching keeps its root."""
         runtime = runtime_for_config(tmp_path)
@@ -55,6 +56,7 @@ class TestProjectBindingSelection:
             ("file://LOCALHOST/client/workspace/local-host", Path("/client/workspace/local-host")),
         ],
     )
+    @pytest.mark.slow
     async def test_binding_accepts_percent_encoded_local_file_uris(
         self, tmp_path: Path, path: str, expected_root: Path
     ) -> None:
@@ -69,6 +71,7 @@ class TestProjectBindingSelection:
         await session.cleanup()
 
     @pytest.mark.anyio
+    @pytest.mark.slow
     async def test_switch_project_requires_a_name_or_path_at_the_session_boundary(self, tmp_path: Path) -> None:
         """Direct Session callers cannot bypass the public selection requirement."""
         runtime = runtime_for_config(tmp_path)
@@ -83,6 +86,7 @@ class TestProjectBindingSelection:
 
     @pytest.mark.anyio
     @pytest.mark.parametrize("path", ["", "   "])
+    @pytest.mark.slow
     async def test_switch_project_rejects_blank_path_selectors(self, tmp_path: Path, path: str) -> None:
         """Blank paths are not valid root-rebinding selectors."""
         runtime = runtime_for_config(tmp_path)
@@ -98,6 +102,7 @@ class TestProjectBindingSelection:
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_mutating_tool_does_not_update_a_project_rebound_mid_request(tmp_path: Path, monkeypatch) -> None:
     """A request resolved for an old root cannot persist into its replacement."""
     from anyio import Path as AsyncPath
@@ -134,6 +139,7 @@ async def test_mutating_tool_does_not_update_a_project_rebound_mid_request(tmp_p
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_switch_project_rebinds_a_relative_root_with_the_same_public_id(tmp_path: Path, monkeypatch) -> None:
     """A relative root is normalised from the current root without filesystem lookup."""
     from mcp_guide.lazy_path import LazyPath
@@ -154,6 +160,7 @@ async def test_switch_project_rebinds_a_relative_root_with_the_same_public_id(tm
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_switch_project_rebinds_to_an_expanded_home_root(tmp_path: Path, monkeypatch) -> None:
     """A root switch expands a user anchor and derives its configuration name."""
     from mcp_guide.lazy_path import LazyPath
@@ -173,6 +180,7 @@ async def test_switch_project_rebinds_to_an_expanded_home_root(tmp_path: Path, m
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_switch_project_rebinds_to_a_specific_user_home(tmp_path: Path, monkeypatch) -> None:
     """A root switch expands an explicit current-user anchor lexically."""
     from mcp_guide.lazy_path import LazyPath
@@ -190,6 +198,7 @@ async def test_switch_project_rebinds_to_a_specific_user_home(tmp_path: Path, mo
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_switch_project_rejects_an_unknown_user_anchor(tmp_path: Path, monkeypatch) -> None:
     """An unknown user anchor returns the standard invalid-name result."""
     from mcp_guide.lazy_path import LazyPath
@@ -210,6 +219,7 @@ async def test_switch_project_rejects_an_unknown_user_anchor(tmp_path: Path, mon
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_switch_project_keeps_same_name_configurations_distinct_by_root(tmp_path: Path) -> None:
     """Same-name root rebinding refreshes identity, templates, and resolved flags."""
     runtime = runtime_for_config(tmp_path)
@@ -236,6 +246,7 @@ async def test_switch_project_keeps_same_name_configurations_distinct_by_root(tm
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_initial_bind_listener_can_publish_a_configuration_mutation(tmp_path: Path) -> None:
     """Initial binding runs listeners in the task that owns the transition gate."""
     runtime = runtime_for_config(tmp_path)
@@ -258,6 +269,7 @@ async def test_initial_bind_listener_can_publish_a_configuration_mutation(tmp_pa
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_switch_project_reports_root_rebinding(tmp_path: Path) -> None:
     """A path switch reports its root-rebinding behaviour to callers."""
     runtime = runtime_for_config(tmp_path)
@@ -274,6 +286,7 @@ async def test_switch_project_reports_root_rebinding(tmp_path: Path) -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_binding_user_anchored_root_expands_before_storing(tmp_path: Path, monkeypatch) -> None:
     """A bound root stores the expanded absolute client path."""
     from mcp_guide.lazy_path import LazyPath
@@ -291,6 +304,7 @@ async def test_binding_user_anchored_root_expands_before_storing(tmp_path: Path,
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_same_configuration_name_at_distinct_roots_has_independent_strict_keys(tmp_path: Path) -> None:
     """Hash-suffixed keys prevent name-only cross-root selection."""
     runtime = runtime_for_config(tmp_path)
@@ -332,6 +346,7 @@ async def test_mismatched_persisted_entry_is_ignored_and_correct_key_is_created(
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_project_writes_reject_a_key_that_does_not_match_its_hash(tmp_path: Path) -> None:
     """Configuration persistence cannot introduce a malformed project identity."""
     runtime = runtime_for_config(tmp_path)
@@ -346,6 +361,7 @@ async def test_project_writes_reject_a_key_that_does_not_match_its_hash(tmp_path
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_concurrent_bind_project_path_rejects_the_second_root(tmp_path: Path) -> None:
     """Concurrent initial preparations cannot overwrite a successful binding."""
     runtime = runtime_for_config(tmp_path)

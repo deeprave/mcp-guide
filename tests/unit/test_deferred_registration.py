@@ -67,6 +67,7 @@ async def test_register_tools_publishes_metadata_once_per_server():
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_project_binding_tool_does_not_allocate_pre_binding_session(tmp_path):
     """A binding tool must mint its FastMCP ID before task interception runs."""
 
@@ -118,6 +119,7 @@ async def test_unmintable_binding_tool_returns_project_error(tmp_path, monkeypat
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_deferred_tool_adapts_an_internal_result_to_native_fastmcp_response(tmp_path):
     """Migrated tools can return Result without adopting a second boundary."""
 
@@ -134,6 +136,7 @@ async def test_deferred_tool_adapts_an_internal_result_to_native_fastmcp_respons
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_deferred_tool_preserves_native_error_status(tmp_path):
     """The decorator must not discard FastMCP's native tool error signal."""
 
@@ -150,6 +153,7 @@ async def test_deferred_tool_preserves_native_error_status(tmp_path):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_protected_tool_returns_provider_denial_before_side_effects(tmp_path, monkeypatch):
     """A protected tool stops before task handling or its application function."""
     from mcp_guide.auth import AuthScope

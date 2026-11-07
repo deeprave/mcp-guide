@@ -17,6 +17,8 @@ async def test_config_watcher_requires_existing_file(tmp_path):
 
 
 @pytest.mark.anyio
+@pytest.mark.synchronisation
+@pytest.mark.timing
 async def test_polling_notifies_all_callbacks_and_survives_callback_failure(tmp_path, monkeypatch):
     # Suppress expected exception logging, not watcher execution.
     monkeypatch.setattr("mcp_guide.core.path_watcher.logger.exception", lambda *args, **kwargs: None)

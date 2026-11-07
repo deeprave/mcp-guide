@@ -26,6 +26,7 @@ async def test_unbound_guidance_falls_back_without_a_runtime_and_bound_contexts_
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_unbound_guidance_renders_project_root_template_once(runtime):
     result = await make_no_project_result()
     assert result.error_type == ERROR_NO_PROJECT

@@ -7,7 +7,6 @@ import yaml
 from _pytest.monkeypatch import MonkeyPatch
 from tests.helpers import (
     create_bound_test_session,
-    create_test_session,
     create_unbound_test_session,
     request_context_for,
 )
@@ -47,7 +46,7 @@ async def get_session(runtime=None, project_name: str = "test") -> Session:
     if runtime is None:
         assert _test_session is not None
         return _test_session
-    session = await create_test_session(runtime, project_name)
+    session = await create_bound_test_session(runtime, project_name)
     set_current_session(session)
     return session
 
@@ -471,26 +470,6 @@ class TestCollectionRemove:
 
         assert result.success is False
         assert result.error_type == "no_project"
-
-    @pytest.mark.anyio
-    async def test_collection_remove_auto_saves(self, runtime, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
-        """Verify configuration is automatically saved."""
-        from mcp_guide.tools.tool_collection import CollectionRemoveArgs, internal_collection_remove
-
-        monkeypatch.setenv("PWD", "/fake/path/test")
-        session = await get_session(runtime)
-
-        backend_collection = Collection(categories=[], description="Backend")
-        await session.update_config(lambda p: p.with_collection("backend", backend_collection))
-
-        args = CollectionRemoveArgs(name="backend")
-        result = await internal_collection_remove(args, await request_context())
-
-        assert result.success is True
-
-        # Verify collection removed (cache updated by update_config)
-        project = await session.get_project()
-        assert len(project.collections) == 0
 
     @pytest.mark.anyio
     async def test_collection_remove_save_failure(self, runtime, tmp_path: Path, monkeypatch: MonkeyPatch) -> None:

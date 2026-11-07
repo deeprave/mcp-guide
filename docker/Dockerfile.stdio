@@ -1,6 +1,0 @@
-FROM mcp-guide:base AS final
-
-COPY --chmod=755 entrypoint-stdio.sh /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
-CMD []

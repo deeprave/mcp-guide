@@ -7,6 +7,8 @@ import pytest
 
 from mcp_guide.async_lock import AsyncReentrantLock
 
+pytestmark = pytest.mark.synchronisation
+
 
 @pytest.mark.anyio
 async def test_async_reentrant_lock_allows_nested_acquisition_by_the_owner() -> None:

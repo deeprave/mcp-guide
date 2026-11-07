@@ -28,6 +28,7 @@ async def test_initial_binding_rejects_relative_paths(runtime, monkeypatch, shar
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("shared", [None, False, True])
+@pytest.mark.slow
 async def test_initial_binding_normalises_absolute_parent_components(runtime, tmp_path, monkeypatch, shared):
     from tests.helpers import create_unbound_test_session
 
@@ -93,6 +94,7 @@ async def test_instruction_dispatch_notification_waits_behind_queue():
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_only_one_probe_is_pending_and_disposal_removes_queued_probe(runtime, tmp_path, monkeypatch):
     from tests.helpers import create_unbound_test_session
 
@@ -126,6 +128,7 @@ async def test_only_one_probe_is_pending_and_disposal_removes_queued_probe(runti
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("parent", ["missing", "embedded\0null"], ids=["missing-directory", "invalid-path"])
+@pytest.mark.slow
 async def test_probe_creation_failure_leaves_binding_usable(runtime, tmp_path, monkeypatch, parent):
     from tests.helpers import create_unbound_test_session
 
@@ -150,6 +153,7 @@ async def test_probe_creation_failure_leaves_binding_usable(runtime, tmp_path, m
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_probe_creation_cancellation_removes_created_probe(runtime, tmp_path, monkeypatch):
     """Cancellation after exclusive creation cannot orphan a server-owned probe."""
     from tests.helpers import create_unbound_test_session
@@ -184,6 +188,7 @@ async def test_probe_creation_cancellation_removes_created_probe(runtime, tmp_pa
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_verification_does_not_change_an_already_bound_lexical_identity(runtime, tmp_path, monkeypatch):
     from tests.helpers import create_unbound_test_session, request_context_for
 
@@ -203,6 +208,7 @@ async def test_verification_does_not_change_an_already_bound_lexical_identity(ru
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("matches", [True, False])
+@pytest.mark.slow
 async def test_probe_consumes_only_its_response_and_cleans_up(runtime, tmp_path, monkeypatch, matches):
     from tests.helpers import create_unbound_test_session
 
@@ -257,6 +263,8 @@ async def test_probe_consumes_only_its_response_and_cleans_up(runtime, tmp_path,
 
 
 @pytest.mark.anyio
+@pytest.mark.timing
+@pytest.mark.slow
 async def test_probe_timeout_starts_at_dispatch_not_queue(runtime, tmp_path, monkeypatch):
     from tests.helpers import create_unbound_test_session
 
@@ -304,6 +312,7 @@ async def test_probe_timeout_starts_at_dispatch_not_queue(runtime, tmp_path, mon
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_disabled_probe_does_not_create_or_queue(runtime, tmp_path, monkeypatch):
     from tests.helpers import create_unbound_test_session
 
@@ -325,6 +334,7 @@ async def test_disabled_probe_does_not_create_or_queue(runtime, tmp_path, monkey
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("transport", ["stdio", "http", "https"])
+@pytest.mark.slow
 async def test_application_start_sets_probe_policy(tmp_path, monkeypatch, transport):
     from tests.helpers import create_unbound_test_session
 
@@ -361,6 +371,7 @@ async def test_application_start_sets_probe_policy(tmp_path, monkeypatch, transp
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("shared", [None, False, True])
+@pytest.mark.slow
 async def test_switch_enforces_verified_shorthand(runtime, tmp_path, monkeypatch, shared):
     from tests.helpers import create_unbound_test_session
 

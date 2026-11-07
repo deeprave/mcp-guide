@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import yaml
 from pydantic_core import ValidationError
-from tests.helpers import bind_isolated_test_session, create_bound_test_session, create_test_runtime
+from tests.helpers import create_bound_test_session, create_test_runtime
 
 from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.feature_flags.validators import FlagValidationError
@@ -54,7 +54,7 @@ async def test_project_flags_remain_separate_and_persist_across_sessions(tmp_pat
     assert await flags.list() == expected
     assert await global_flags.list() == {"persistent_flag": "test_value"}
 
-    second = await bind_isolated_test_session(runtime, project_name="test-project")
+    second = await create_bound_test_session(runtime, project_name="test-project")
     assert await second.project_flags().list() == expected
     persisted = yaml.safe_load((tmp_path / "config.yaml").read_text())
     assert persisted["projects"][session.project.key]["project_flags"] == expected

@@ -248,6 +248,7 @@ async def test_trailing_slash_multiple_matching_patterns(tmp_path):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_missing_policy_fallback_identifies_each_topic(tmp_path):
     """A missing template produces actionable, topic-specific fallback text."""
     context = await _request_context(tmp_path, _MockSession(""))
@@ -298,6 +299,7 @@ async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, monkeypatch):
     """Topic with no matching policy files → placeholder content for that topic."""
     policy_file = tmp_path / "doc.md.mustache"

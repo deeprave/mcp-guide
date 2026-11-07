@@ -11,6 +11,7 @@ from mcp_guide.server import create_application
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("mode", ["legacy", "2026-07-28"])
+@pytest.mark.slow
 async def test_native_expression_resource_reads_categories_collections_and_combined_content(
     tmp_path, monkeypatch, mode
 ):

@@ -22,6 +22,8 @@ from mcp_guide.cli import ServerConfig
 from mcp_guide.server import create_application
 from mcp_guide.transports.http import HttpTransport
 
+pytestmark = pytest.mark.timing
+
 
 @pytest.fixture
 def ipv6_port() -> int:
@@ -88,6 +90,7 @@ class TokenProvider:
 @pytest.mark.anyio
 @pytest.mark.parametrize("scheme", ["http", "https"])
 @pytest.mark.parametrize("protected", [False, True])
+@pytest.mark.slow
 async def test_dual_stack_mcp_and_authorisation(scheme, protected, ipv6_port, tls_files, tmp_path):
     application = create_application(ServerConfig(transport_mode=scheme, configdir=str(tmp_path)))
     service = AuthService(TokenProvider) if protected else None
@@ -139,6 +142,7 @@ async def test_dual_stack_mcp_and_authorisation(scheme, protected, ipv6_port, tl
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("host", [None, "localhost", "0.0.0.0", "::1", "dual-stack.test"])
+@pytest.mark.slow
 async def test_existing_bind_addresses_are_preserved(host, ipv6_port, tmp_path, monkeypatch):
     original_getaddrinfo = socket.getaddrinfo
 

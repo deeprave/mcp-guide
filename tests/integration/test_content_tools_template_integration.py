@@ -24,6 +24,7 @@ def file_info(path):
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_batch_renders_templates_and_partials_but_removes_broken_files(content_context, tmp_path):
     partials = tmp_path / "partials"
     partials.mkdir()

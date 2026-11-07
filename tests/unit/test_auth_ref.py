@@ -249,6 +249,7 @@ async def test_reference_provider_rejects_an_unexpected_service_response() -> No
 
 
 @pytest.mark.anyio
+@pytest.mark.slow
 async def test_reference_provider_rejects_a_service_certificate_outside_system_trust(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
