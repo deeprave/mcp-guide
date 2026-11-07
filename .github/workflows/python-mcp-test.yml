@@ -31,11 +31,11 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --frozen --dev --extra auth-ref --python ${{ matrix.python-version }}
+        run: uv sync --locked --no-build --dev --extra auth-ref --python ${{ matrix.python-version }}
 
       - name: Run tests with pytest
         # Override the local timing-test default: CI validates every test category.
-        run: uv run pytest tests/ -v -Walways -m "not timing or timing"
+        run: uv run --locked --no-sync --no-build pytest tests/ -v -Walways -m "not timing or timing"
         env:
           NO_COLOR: "1"
           TERM: "dumb"
@@ -57,13 +57,13 @@ jobs:
           python-version: "3.14"
 
       - name: Install dependencies
-        run: uv sync --frozen --dev --extra auth-ref --python 3.14
+        run: uv sync --locked --no-build --dev --extra auth-ref --python 3.14
 
       - name: Lint with Ruff
-        run: uv run ruff check
+        run: uv run --locked --no-sync --no-build ruff check
 
       - name: Check formatting with Ruff
-        run: uv run ruff format --check src/ tests/ --exclude '*.md'
+        run: uv run --locked --no-sync --no-build ruff format --check src/ tests/ --exclude '*.md'
 
       - name: Type check with Ty
-        run: uv run ty check src/
+        run: uv run --locked --no-sync --no-build ty check src/
