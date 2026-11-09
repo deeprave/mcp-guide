@@ -45,6 +45,31 @@ def _expand_client_path(path: str | Path, *, relative_to: Path | None = None) ->
     return LazyPath(path_text).client_resolve(relative_to=relative_to)
 
 
+def _validate_shared_worktree_binding(root_path: Path, worktree_path: Path) -> None:
+    """Verify a linked checkout belongs to root when both paths are locally observable."""
+    if LazyPath.client_filesystem_shared is not True or worktree_path == root_path:
+        return
+    root_git_dir = root_path / ".git"
+    worktree_git_file = worktree_path / ".git"
+    if not root_git_dir.is_dir() or not worktree_git_file.is_file():
+        raise ValueError("Worktree path is not a configured Git worktree for the project root")
+    try:
+        declaration = worktree_git_file.read_text(encoding="utf-8").strip()
+    except OSError as error:
+        raise ValueError("Worktree path is not a configured Git worktree for the project root") from error
+    prefix = "gitdir:"
+    if not declaration.startswith(prefix):
+        raise ValueError("Worktree path is not a configured Git worktree for the project root")
+    git_dir_text = declaration.removeprefix(prefix).strip()
+    git_dir = Path(git_dir_text)
+    if not git_dir.is_absolute():
+        git_dir = worktree_path / git_dir
+    try:
+        git_dir.resolve().relative_to((root_git_dir / "worktrees").resolve())
+    except ValueError as error:
+        raise ValueError("Worktree path is not a configured Git worktree for the project root") from error
+
+
 class DocrootError(RuntimeError):
     """Raised when `docroot` cannot be created or is invalid."""
 
@@ -61,6 +86,20 @@ class UnmintableGuideSessionError(RuntimeError):
     """FastMCP could not mint a session_id for this request's protocol."""
 
     pass
+
+
+class WorktreeRebindingError(ValueError):
+    """A bound session cannot be reassigned to a different worktree."""
+
+    def __init__(self, *, root_path: Path, current_worktree: Path | None, requested_worktree: Path):
+        self.root_path = root_path
+        self.current_worktree = current_worktree
+        self.requested_worktree = requested_worktree
+        super().__init__(
+            "This Guide session is already bound to a different worktree. Keep it unchanged and create a fresh "
+            "Guide interaction without this session ID. Report the new working directory, then call "
+            f"set_project(path=`{root_path}`, worktree=`{requested_worktree}`)."
+        )
 
 
 class ConfigurationService(Protocol):
@@ -97,6 +136,8 @@ class Session:
         """
         self.__delegate: ProjectDelegate = ProjectDelegate()
         self.__bound_root_path: Path | None = None
+        self.__worktree_path: Path | None = None
+        self.__worktree_name: str | None = None
         self._runtime = runtime
         self._expiring = False
         self._active_work = 0
@@ -123,10 +164,12 @@ class Session:
             from mcp_guide.tasks.document_task import DocumentTask
             from mcp_guide.tasks.retry_task import RetryTask
             from mcp_guide.tasks.update_task import StartupTask
+            from mcp_guide.worktree_task import WorktreeTask
 
             RetryTask(self.task_manager)
             DocumentTask(self.task_manager, self)
             StartupTask(self.task_manager, self)
+            WorktreeTask
         except Exception as error:
             logger.warning("Unable to initialise Session task subscriptions: %s", error, exc_info=True)
 
@@ -163,6 +206,34 @@ class Session:
         return self.__bound_root_path
 
     @property
+    def worktree_path(self) -> Path | None:
+        """The immutable client worktree selected for this Session, if any."""
+        return self.__worktree_path
+
+    @property
+    def worktree_name(self) -> str | None:
+        """Return the current label for this Session's worktree."""
+        return self.__worktree_name
+
+    def adopt_worktree_name(self, name: str) -> None:
+        """Adopt the label recorded by this linked worktree's workflow file."""
+        if (
+            self.__worktree_path is None
+            or self.__bound_root_path is None
+            or self.__worktree_path == self.__bound_root_path
+        ):
+            raise ValueError("Only linked worktrees can adopt a workflow label")
+        if not _NAME_REGEX.match(name):
+            raise ValueError(
+                "Workflow worktree label must contain only alphanumeric characters, underscores, and hyphens"
+            )
+        if name == "root":
+            raise ValueError("Only the primary checkout may use the `root` worktree label")
+        self.__worktree_name = name
+        if self._template_cache is not None:
+            self._template_cache.invalidate()
+
+    @property
     def protocol_type(self) -> SessionProtocolType | None:
         """Return the immutable response-contract type for this Session."""
         return self._protocol_type
@@ -183,12 +254,12 @@ class Session:
         project = self.__delegate.project
         return (project.name, project.hash) if project.hash is not None else None
 
-    async def bind_project_path(self, path: str | Path) -> None:
+    async def bind_project_path(self, path: str | Path, *, worktree: str | Path | None = None) -> None:
         """Bind once, promote through runtime, then activate this instance."""
         async with self._runtime.configuration_transition_lock:
-            await self._bind_project_path(path)
+            await self._bind_project_path(path, worktree=worktree)
 
-    async def _bind_project_path(self, path: str | Path) -> None:
+    async def _bind_project_path(self, path: str | Path, *, worktree: str | Path | None = None) -> None:
         """Bind this unbound Session to an absolute client project root.
 
         The path is client-supplied identity, not a server filesystem lookup. It is
@@ -210,19 +281,59 @@ class Session:
                 "Project path basename must contain only alphanumeric characters, underscores, and hyphens"
             )
 
-        await self.prepare_binding(root_path.name, root_path)
+        if worktree is None:
+            worktree_path = root_path
+        else:
+            try:
+                worktree_path = _expand_client_path(worktree, relative_to=root_path)
+            except (RuntimeError, OSError) as error:
+                raise InvalidProjectNameError(f"Unable to expand worktree path '{worktree}': unknown user") from error
+            except ValueError as error:
+                raise InvalidProjectNameError(str(error)) from error
+            if not worktree_path.is_absolute():
+                raise InvalidProjectNameError("Worktree path must be an absolute client filesystem path")
+
+        try:
+            _validate_shared_worktree_binding(root_path, worktree_path)
+        except ValueError as error:
+            raise InvalidProjectNameError(str(error)) from error
+
+        await self.prepare_binding(root_path.name, root_path, worktree_path=worktree_path)
         self._runtime.promote_session(self)
         await self._notify_project_changed("", self.project_name)
 
-    async def prepare_binding(self, name: str, root_path: Path) -> None:
+    async def prepare_binding(
+        self,
+        name: str,
+        root_path: Path,
+        *,
+        worktree_path: Path | None = None,
+        worktree_name: str | None = None,
+    ) -> None:
         """Bind an unpublished instance once without activating its listeners."""
         if self.__bound_root_path is not None:
+            requested_worktree = root_path if worktree_path is None else worktree_path
+            if root_path == self.__bound_root_path and requested_worktree != self.__worktree_path:
+                raise WorktreeRebindingError(
+                    root_path=self.__bound_root_path,
+                    current_worktree=self.__worktree_path,
+                    requested_worktree=requested_worktree,
+                )
             raise ValueError("Project root is already bound; use switch_project to select another root")
         _key, project = await self._config().get_or_create_project_config(name, root_path=root_path)
         # Initial preparations can await configuration I/O. Recheck before publishing.
         if self.__bound_root_path is not None:
             raise ValueError("Project root is already bound; use switch_project to select another root")
         self.__bound_root_path = root_path
+        self.__worktree_path = root_path if worktree_path is None else worktree_path
+        if self.__worktree_path == root_path:
+            self.__worktree_name = "root"
+        elif worktree_name is not None:
+            self.__worktree_name = worktree_name
+        else:
+            from mcp_guide.worktree_names import allocate_worktree_name
+
+            self.__worktree_name = allocate_worktree_name()
         self.__delegate.bind(project)
         self._project_dirty = False
 
@@ -296,8 +407,13 @@ class Session:
         replacement.client_params = self.client_params.copy() if self.client_params is not None else None
         replacement._protocol_type = self._protocol_type
         replacement._protocol_logged = self._protocol_logged
+        binding_kwargs = (
+            {"worktree_path": self.__worktree_path, "worktree_name": self.__worktree_name}
+            if root_path == self.__bound_root_path
+            else {}
+        )
         try:
-            await replacement.prepare_binding(selected_project_name, root_path)
+            await replacement.prepare_binding(selected_project_name, root_path, **binding_kwargs)
             self._runtime.replace_session(self, replacement)
         except BaseException:
             await replacement.cleanup()
@@ -569,7 +685,9 @@ def initial_filesystem_sharing(transport_mode: str, use_pwd: bool) -> bool | Non
     return None
 
 
-async def bind_session_project(session: Session, project_path: str | Path) -> Project:
+async def bind_session_project(
+    session: Session, project_path: str | Path, *, worktree: str | Path | None = None
+) -> Project:
     """Bind a resolved Session through Guide's single project-binding path.
 
     Both explicit ``set_project(path)`` and the optional stdio-PWD bootstrap use
@@ -578,7 +696,7 @@ async def bind_session_project(session: Session, project_path: str | Path) -> Pr
     selection exactly as it does for an explicit bind.
     """
     _attach_session_listeners(session)
-    await session.bind_project_path(project_path)
+    await session.bind_project_path(project_path, worktree=worktree)
     return await session.get_project()
 
 

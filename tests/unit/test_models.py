@@ -173,13 +173,23 @@ class TestAllowedPaths:
         with pytest.raises(ValidationError, match="Filesystem root"):
             Project(name="test", allowed_write_paths=[path])
 
-    def test_project_has_default_allowed_paths(self):
-        """Project should have default allowed_write_paths when created."""
+    def test_project_keeps_only_user_added_write_paths(self):
+        """Built-in write defaults are runtime-derived, never project state."""
         from mcp_guide.models import DEFAULT_ALLOWED_WRITE_PATHS
 
         project = Project(name="test")
-        assert project.allowed_write_paths == DEFAULT_ALLOWED_WRITE_PATHS
-        assert project.allowed_write_paths is not DEFAULT_ALLOWED_WRITE_PATHS  # Should be a copy
+        assert project.allowed_write_paths == []
+
+        migrated = Project(name="test", allowed_write_paths=[*DEFAULT_ALLOWED_WRITE_PATHS, "generated/"])
+        assert migrated.allowed_write_paths == ["generated/"]
+
+    def test_project_serialisation_omits_runtime_defaults_but_keeps_static_paths(self):
+        from mcp_guide.configuration import ConfigManager
+
+        assert "allowed_write_paths" not in ConfigManager._project_to_dict(Project(name="test"))
+        assert ConfigManager._project_to_dict(Project(name="test", allowed_write_paths=["generated/"]))[
+            "allowed_write_paths"
+        ] == ["generated/"]
 
     def test_additional_read_paths_accepts_valid_absolute_path(self, tmp_path):
         """Valid absolute, non-system additional_read_paths should be accepted."""
@@ -217,16 +227,16 @@ class TestAllowedPaths:
     def test_allowed_paths_supports_files_and_directories(self):
         """Allowed write paths can be files or directories."""
         # Directories with trailing slash
-        project1 = Project(name="test", allowed_write_paths=["docs/", "src/"])
-        assert project1.allowed_write_paths == ["docs/", "src/"]
+        project1 = Project(name="test", allowed_write_paths=["generated-docs/", "src/"])
+        assert project1.allowed_write_paths == ["generated-docs/", "src/"]
 
         # Specific files without trailing slash
         project2 = Project(name="test", allowed_write_paths=["config.json", ".guide.yaml"])
         assert project2.allowed_write_paths == ["config.json", ".guide.yaml"]
 
         # Mix of files and directories
-        project3 = Project(name="test", allowed_write_paths=["docs/", "config.json"])
-        assert project3.allowed_write_paths == ["docs/", "config.json"]
+        project3 = Project(name="test", allowed_write_paths=["generated-docs/", "config.json"])
+        assert project3.allowed_write_paths == ["generated-docs/", "config.json"]
 
     def test_allowed_paths_preserved_on_modification(self):
         """with_category and without_category should preserve allowed_write_paths."""

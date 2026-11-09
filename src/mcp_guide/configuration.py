@@ -183,6 +183,8 @@ class _ConfigManagerCore:
             data["project_flags"] = {
                 flag_name: to_raw_feature_value(flag_value) for flag_name, flag_value in project.project_flags.items()
             }
+        if not project.allowed_write_paths:
+            data.pop("allowed_write_paths", None)
         return data
 
     @staticmethod

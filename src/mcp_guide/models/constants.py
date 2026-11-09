@@ -2,6 +2,8 @@
 
 import re
 
+from mcp_guide.feature_flags.constants import DEFAULT_DOCUMENTS_PATH
+
 # Default allowed filesystem paths for projects.
 # These paths are relative to the project root and must have trailing slashes.
 # Used by the filesystem interaction feature for security fencing.
@@ -12,7 +14,7 @@ DEFAULT_ALLOWED_WRITE_PATHS: list[str] = [
     "specs/",
     "tasks/",
     "docs/",
-    ".todo/",
+    DEFAULT_DOCUMENTS_PATH,
     ".issues/",
 ]
 

@@ -38,6 +38,6 @@ Issue: <issue-id or path>
 
 ## Change Rules
 
-- Can update OpenSpec and `.todo/` documentation in any phase
+- Can update OpenSpec and configured working-document files in any phase
 - MUST NOT make changes to production code or tests in discussion/planning/exploration phases
 - MAY make changes to production code and tests during implementation/check/review phases

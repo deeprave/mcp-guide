@@ -7,6 +7,8 @@ from mcp_guide.feature_flags.types import FeatureValueLike, to_raw_feature_value
 from mcp_guide.feature_flags.validators import coerce_boolean_like, normalise_handoff_context_target
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
 
+HANDOFF_CONTEXT_LOCK_STALE_SECONDS = 90
+
 
 @dataclass(frozen=True)
 class HandoffContext:
@@ -24,9 +26,7 @@ def resolve_handoff_context(
     allowed_write_paths: list[str],
 ) -> HandoffContext:
     """Resolve a configured project-relative handoff target and its eligibility."""
-    if value is None:
-        return HandoffContext(target=None, format=None, eligible=False)
-    raw = to_raw_feature_value(value)
+    raw = True if value is None else to_raw_feature_value(value)
     boolean = coerce_boolean_like(raw)
     if boolean is False:
         return HandoffContext(target=None, format=None, eligible=False)
@@ -59,6 +59,6 @@ def resolve_handoff_context(
 def _format_for_target(target: str) -> str:
     """Return the requested handoff format implied by a target extension."""
     extension = PurePosixPath(target).suffix.lower()
-    return {".json": "JSON", ".md": "Markdown", ".txt": "plain text"}.get(
+    return {".json": "JSON", ".yaml": "YAML", ".yml": "YAML", ".md": "Markdown", ".txt": "plain text"}.get(
         extension, extension.removeprefix(".").upper() or "text"
     )

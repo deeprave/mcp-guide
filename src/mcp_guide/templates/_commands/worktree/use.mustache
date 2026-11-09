@@ -1,0 +1,25 @@
+---
+type: agent/instruction
+description: Hand an existing linked worktree to a fresh agent session
+usage: "guide://_worktree/use/<worktree-name>"
+minargs: 1
+requires-handoff-context: true
+requires-worktree-support: true
+includes:
+  - ../_partials/handoff-context-target
+---
+Using the current Git worktree inventory, read {{>handoff-context-target}}.
+Locate the `worktrees.{{args.0.value}}` entry. It must exist, and its recorded
+absolute `path` must appear in the fresh Git worktree inventory. If either check
+fails, do not allocate a replacement name or hand off a child; refresh or repair
+the handoff entry first. Use the recorded path, task metadata, phase, plan, and
+instructions as the child handoff. Do not alter unrelated top-level entries or
+worktree entries.
+
+Give the child the worktree name `{{args.0.value}}`, its absolute recorded path,
+and the complete handoff entry. Do not forward this session ID. The child must
+work from that path, create a fresh Guide interaction, bind the shared project
+root and that worktree, submit its local workflow file, then read the shared
+handoff context before proceeding. The local workflow file is authoritative for
+the label; if it is absent or unlabelled, add `worktree: {{args.0.value}}` while
+preserving the workflow state before submitting it.

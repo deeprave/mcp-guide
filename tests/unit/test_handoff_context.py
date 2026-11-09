@@ -42,7 +42,7 @@ def test_project_handoff_context_overrides_global_value():
 @pytest.mark.parametrize(
     ("value", "target", "format", "eligible"),
     [
-        (None, None, None, False),
+        (None, ".todo/context.json", "JSON", True),
         (False, None, None, False),
         (True, ".todo/context.json", "JSON", True),
         ("notes.md", ".todo/notes.md", "Markdown", True),

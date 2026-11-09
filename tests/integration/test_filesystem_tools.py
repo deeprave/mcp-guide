@@ -104,10 +104,12 @@ async def test_filesystem_replies_dispatch_content_and_metadata_to_the_session(r
             },
         )
 
-    result = await internal_send_working_directory(SendWorkingDirectoryArgs(path="/client/project"), context)
+    assert session.worktree_path is not None
+    working_directory = str(session.worktree_path)
+    result = await internal_send_working_directory(SendWorkingDirectoryArgs(path=working_directory), context)
     assert result.success
-    assert result.value == {"working_directory": "/client/project"}
-    assert received[-1] == (EventType.FS_CWD, {"working_directory": "/client/project"})
+    assert result.value == {"working_directory": working_directory}
+    assert received[-1] == (EventType.FS_CWD, {"working_directory": working_directory})
     count = len(received)
     invalid = await internal_send_file_content(SendFileContentArgs(path=" ", content=""), context)
     assert not invalid.success
@@ -141,6 +143,66 @@ async def test_directory_listing_preserves_task_guidance_message(runtime):
     assert result.success
     assert result.message == "Run guide://_openspec/init."
     assert result.value is None
+
+
+@pytest.mark.anyio
+async def test_client_worktree_inventory_authorises_reads_from_active_linked_worktrees(runtime):
+    runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
+    session = await create_bound_test_session(runtime, "filesystem-worktrees")
+    linked_worktree = session.bound_root_path.parent / "filesystem-worktrees_languid-lizard"
+    context = await request_context_for(session)
+
+    inventory = await internal_send_file_content(
+        SendFileContentArgs(path=".git-worktrees.json", content=f'["{session.bound_root_path}", "{linked_worktree}"]'),
+        context,
+    )
+    assert inventory.success
+
+    result = await internal_send_directory_listing(
+        SendDirectoryListingArgs(path=str(linked_worktree / ".todo"), entries=[]), context
+    )
+
+    assert result.success
+    assert result.value["path"] == str(linked_worktree / ".todo")
+
+
+@pytest.mark.anyio
+async def test_linked_worktree_authorises_root_shared_default_paths(runtime):
+    runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
+    from mcp_guide.session import bind_session_project
+    from tests.helpers import create_unbound_test_session
+
+    root = runtime.configuration_service().config_file.parent / "client-roots" / "filesystem-root"
+    linked_worktree = root.parent / "unrelated-directory-name"
+    root.mkdir(parents=True)
+    linked_worktree.mkdir()
+    session = create_unbound_test_session(runtime)
+    await bind_session_project(session, root, worktree=linked_worktree)
+
+    result = await internal_send_directory_listing(
+        SendDirectoryListingArgs(path=str(root / ".todo"), entries=[]), await request_context_for(session)
+    )
+
+    assert result.success
+    assert result.value["path"] == str(root / ".todo")
+
+
+@pytest.mark.anyio
+async def test_working_directory_propagates_worktree_preflight_rejection(runtime):
+    runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
+    session = await create_bound_test_session(runtime, "filesystem-preflight")
+    context = await request_context_for(session)
+    inventory = await internal_send_file_content(
+        SendFileContentArgs(path=".git-worktrees.json", content=f'["{session.bound_root_path}"]'), context
+    )
+    assert inventory.success
+
+    result = await internal_send_working_directory(
+        SendWorkingDirectoryArgs(path=str(session.bound_root_path.parent / "other-worktree")), context
+    )
+
+    assert not result.success
+    assert "not a configured Git worktree" in result.error
 
 
 @pytest.mark.anyio

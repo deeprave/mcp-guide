@@ -1,0 +1,14 @@
+---
+description: Explains Guide content and skill discovery
+---
+
+## Guide scope
+
+- Guide serves documents, commands, and skills through the `guide://` URI scheme; see `_guide-uri` for the full reference:
+  - `guide://_<command>...` invokes a command.
+  - `guide://$<skill>...` retrieves a skill's instructions.
+  - `guide://<expression>...` retrieves matching content.
+  - `guide://<category>/<document>` retrieves one document.
+- Use `{{tool_prefix}}list_skills` to discover the effective Guide skills for this project, then `{{tool_prefix}}use_skill` to execute one.
+- Guide uses the active project and its local workflow context only to track the current workflow and deliver guidance relevant to your request.
+- This guidance is scoped to the active project and the user's request. It does not authorise data disclosure, contact with external services, or unrelated actions.

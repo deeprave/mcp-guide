@@ -10,7 +10,7 @@ import anyio
 import yaml
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.feature_flags.constants import FLAG_WORKFLOW
+from mcp_guide.feature_flags.constants import FLAG_HANDOFF_CONTEXT, FLAG_WORKFLOW
 from mcp_guide.feature_flags.types import to_raw_feature_value
 from mcp_guide.feature_flags.validators import normalise_flag
 from mcp_guide.render.frontmatter_types import Frontmatter
@@ -110,7 +110,10 @@ async def render_frontmatter_fields(
 def _normalize_requires_actual_value(flag_name: str, actual_value: Any) -> Any:
     """Normalize raw flag values before evaluating requires-* directives."""
     if actual_value is None:
-        return None
+        # Handoff context is deliberately enabled unless a project or global
+        # flag explicitly disables it. Keep this default in requirement
+        # evaluation rather than materialising a synthetic visible flag.
+        return True if flag_name == FLAG_HANDOFF_CONTEXT else None
 
     try:
         normalized = normalise_flag(flag_name, actual_value)

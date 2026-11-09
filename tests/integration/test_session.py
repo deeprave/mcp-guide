@@ -102,6 +102,47 @@ class TestSetProject:
         assert session.bound_root_path == Path("/client/workspace/runtime-project")
 
     @pytest.mark.anyio
+    async def test_set_project_keeps_project_identity_and_binds_worktree(self, tmp_path):
+        """A linked checkout is session state, not a second project identity."""
+        _runtime, ctx = runtime_context(tmp_path)
+        async with request_context_scope(
+            ctx, "worktree-session", allow_pwd_bootstrap=False, mint_session_if_unbound=True
+        ) as request_context:
+            await bind_session_project(
+                request_context.session,
+                "/client/workspace/project",
+                worktree="/client/workspace/project_languid-lizard",
+            )
+
+        assert request_context.session.bound_root_path == Path("/client/workspace/project")
+        assert request_context.session.worktree_path == Path("/client/workspace/project_languid-lizard")
+
+    @pytest.mark.anyio
+    async def test_shared_filesystem_binding_requires_a_configured_git_worktree(self, tmp_path, monkeypatch):
+        from mcp_guide.lazy_path import LazyPath
+
+        root = tmp_path / "project"
+        linked = tmp_path / "project_languid-lizard"
+        git_dir = root / ".git" / "worktrees" / "languid-lizard"
+        git_dir.mkdir(parents=True)
+        linked.mkdir()
+        (linked / ".git").write_text(f"gitdir: {git_dir}\n")
+        monkeypatch.setattr(LazyPath, "client_filesystem_shared", True)
+        _runtime, ctx = runtime_context(tmp_path)
+
+        async with request_context_scope(
+            ctx, "shared-worktree-session", allow_pwd_bootstrap=False, mint_session_if_unbound=True
+        ) as request_context:
+            await bind_session_project(request_context.session, root, worktree=linked)
+            assert request_context.session.worktree_path == linked
+
+        invalid = tmp_path / "not-a-worktree"
+        invalid.mkdir()
+        session = create_unbound_test_session(_runtime)
+        with pytest.raises(Exception, match="configured Git worktree"):
+            await bind_session_project(session, root, worktree=invalid)
+
+    @pytest.mark.anyio
     async def test_unmintable_legacy_set_project_raises_typed_error(self, tmp_path, monkeypatch):
         """A legacy client with no connection session cannot mint via set_project."""
         from types import SimpleNamespace
@@ -464,6 +505,19 @@ class TestGetOrCreateSession:
         assert any(instruction.startswith("_startup:") for instruction in pending_instructions)
         assert any(instruction.startswith("_onboard_prompt:") for instruction in pending_instructions)
         assert any(instruction.startswith("_guide-uri:") for instruction in pending_instructions)
+
+    @pytest.mark.anyio
+    async def test_same_root_configuration_switch_preserves_worktree(self, runtime):
+        """Changing configuration names does not change a linked checkout binding."""
+        session = create_unbound_test_session(runtime)
+        root = Path("/client/project")
+        worktree = Path("/client/project_languid-lizard")
+        await session.bind_project_path(root, worktree=worktree)
+
+        replacement = await session.switch_project("alternate-project")
+
+        assert replacement.bound_root_path == root
+        assert replacement.worktree_path == worktree
 
 
 class TestUnboundSession:

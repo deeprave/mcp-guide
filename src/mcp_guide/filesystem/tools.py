@@ -1,12 +1,10 @@
 """Filesystem MCP tools for agent-server interaction."""
 
 import time
-from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
-from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
 from mcp_guide.result_constants import ERROR_CACHE, ERROR_UNEXPECTED, ERROR_VALIDATION
 from mcp_guide.session import Session
 
@@ -173,29 +171,9 @@ async def send_directory_listing(
         )
 
     try:
-        project = await session.get_project()
+        from mcp_guide.filesystem.project_paths import resolve_project_path_policy
 
-        # Project identity comes from the request-resolved Session, never an
-        # ambient MCP context lookup.
-        project_root = session.bound_root_path
-        if project_root is None:
-            raise ValueError("Project context not available. Call set_project(path) first.")
-
-        # Create client_resolve function for security policy
-        def client_resolve_func(path: Union[str, Path]) -> Path:
-            from mcp_guide.utils.client_path import client_resolve
-
-            return client_resolve(path, project_root)
-
-        # Validate path against security policy
-        policy = ReadWriteSecurityPolicy(
-            write_allowed_paths=project.allowed_write_paths,
-            additional_read_paths=project.additional_read_paths,
-            client_resolve=client_resolve_func,
-        )
-
-        # Set project root for default read access
-        policy.set_project_root(str(project_root))
+        policy = await resolve_project_path_policy(session)
 
         validated_path = policy.validate_read_path(path)
 
@@ -281,6 +259,8 @@ async def send_command_location(
 
         # Aggregate results
         result = aggregate_event_results(event_results)
+        if not result.success:
+            return result
         if result.value:
             return result
 
@@ -335,6 +315,8 @@ async def send_working_directory(session: Session, working_directory: str) -> "R
 
         # Aggregate results
         result = aggregate_event_results(event_results)
+        if not result.success:
+            return result
         if result.value:
             return result
 

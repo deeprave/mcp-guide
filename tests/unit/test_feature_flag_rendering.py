@@ -28,7 +28,7 @@ async def test_flag_display_and_workflow_structure_use_real_project_and_global_f
     project_display = {"content-style": "plain", "workflow": str(effective_phases), "workflow-consent": str(consent)}
     assert display(context["project"]["project_flag_values"]) == project_display
     assert display(context["feature_flag_values"]) == {"autoupdate": "true"}
-    assert display(context["flag_values"]) == {"autoupdate": "true", **project_display}
+    assert display(context["flag_values"]) == {"autoupdate": "true", "handoff-context": True, **project_display}
     expected_values = {**values, "workflow": effective_phases}
     for flag, value in expected_values.items():
         assert context["project"]["project_flags"][flag] == FeatureValue(value)

@@ -26,6 +26,7 @@ from mcp_guide.result_constants import (
 )
 from mcp_guide.runtime import RequestContext
 from mcp_guide.session import (
+    WorktreeRebindingError,
     bind_session_project,
     list_all_projects,
 )
@@ -63,6 +64,13 @@ class SetCurrentProjectArgs(ToolArguments):
     """Arguments for set_project tool."""
 
     path: str = Field(description="Absolute client filesystem path of the project root to bind")
+    worktree: str | None = Field(
+        default=None,
+        description=(
+            "Absolute client filesystem path of the current Git worktree. Omit for the primary worktree, "
+            "which is the project root. This does not change the project's configuration identity."
+        ),
+    )
     verbose: bool = Field(
         default=False, description="If True, return full project details; if False, return simple confirmation"
     )
@@ -157,6 +165,7 @@ async def internal_get_project(args: GetCurrentProjectArgs, request_context: Req
     result_dict = await format_project_data(project, verbose=args.verbose, session=session)
     # Include project name in response for single project operations
     result_dict["project"] = project.name
+    result_dict["worktree"] = {"path": str(session.worktree_path), "name": session.worktree_name}
 
     return Result.ok(result_dict)
 
@@ -186,7 +195,16 @@ async def internal_set_project(args: SetCurrentProjectArgs, request_context: Req
         Result containing switch confirmation and optional project details
     """
     try:
-        project = await bind_session_project(request_context.session, args.path)
+        project = await bind_session_project(request_context.session, args.path, worktree=args.worktree)
+    except WorktreeRebindingError as error:
+        return Result.failure(
+            str(error),
+            error_type=ERROR_PROJECT,
+            instruction=(
+                "Keep the existing Guide session unchanged. Create a fresh interaction without its session ID, "
+                "report the new working directory, then bind the shared project root and that worktree."
+            ),
+        )
     except InvalidProjectNameError as error:
         return Result.failure(str(error), error_type=ERROR_INVALID_NAME)
     except ValueError as error:
@@ -196,6 +214,10 @@ async def internal_set_project(args: SetCurrentProjectArgs, request_context: Req
 
     response = await format_project_data(project, verbose=args.verbose, session=request_context.session)
     response["project"] = project.name
+    response["worktree"] = {
+        "path": str(request_context.session.worktree_path),
+        "name": request_context.session.worktree_name,
+    }
     return Result.ok(response, message=f"Bound project root for '{project.name}'")
 
 

@@ -20,6 +20,8 @@ includes:
 {{b}}Tool Prefix:{{b}} `{{tool_prefix_display}}`
 {{#agent.class}}{{b}}Family:{{b}} `{{agent.class}}`
 {{/agent.class}}{{b}}Project:{{b}} `{{project.name}}`
+{{#worktree.name}}{{b}}Worktree:{{b}} `{{worktree.name}}` (`{{worktree.path}}`)
+{{/worktree.name}}
 {{^agent}}
 
 {{>client-info}}

@@ -17,8 +17,8 @@ instruction: >
 - You MUST NOT create, edit, rename or delete project files!
   {{b}}Exceptions:{{b}}
   - Discussion briefs, analysis documents, specifications and plans
-  {{#openspec}}- Documents in specs/, openspec/, .todo/, or similar write-allowed folders.{{/openspec}}
-  {{^openspec}}- Documents in specs/, .todo/, or similar write-allowed folders.{{/openspec}}
+  {{#openspec}}- Documents in specs/, openspec/, `{{documents-path}}`, or similar write-allowed folders.{{/openspec}}
+  {{^openspec}}- Documents in specs/, `{{documents-path}}`, or similar write-allowed folders.{{/openspec}}
   - if `{{workflow.file}}` file exists, provide a brief list of tasks queued for development
     - The user may wish to remove completed tasks
     - But you MUST wait for the user's explicit instruction

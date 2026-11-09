@@ -1,6 +1,7 @@
 """Project tools operate on real bindings and persisted configuration."""
 
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 import yaml
@@ -95,7 +96,8 @@ async def test_bind_and_get_project_output_excludes_global_flags(runtime, tmp_pa
 )
 async def test_binding_error_mapping(runtime, monkeypatch, error, error_type):
     # Inject failure at binding to cover the tool's distinct error mappings.
-    async def fail_binding(*args):
+    async def fail_binding(*args, **kwargs):
+        del args, kwargs
         raise error
 
     monkeypatch.setattr("mcp_guide.tools.tool_project.bind_session_project", fail_binding)
@@ -104,6 +106,75 @@ async def test_binding_error_mapping(runtime, monkeypatch, error, error_type):
     assert not result.success
     assert result.error_type == error_type
     assert result.error == str(error)
+
+
+@pytest.mark.anyio
+async def test_set_project_accepts_an_explicit_worktree(runtime):
+    session = create_unbound_test_session(runtime)
+    context = await request_context_for(session)
+
+    result = await internal_set_project(
+        SetCurrentProjectArgs(path="/client/project", worktree="/client/project_languid-lizard"), context
+    )
+
+    assert result.success
+    assert session.bound_root_path is not None
+    assert str(session.worktree_path) == "/client/project_languid-lizard"
+    assert result.value["worktree"]["path"] == "/client/project_languid-lizard"
+    assert result.value["worktree"]["name"] != "root"
+
+
+@pytest.mark.anyio
+async def test_set_project_allocates_a_label_for_an_existing_worktree(runtime, monkeypatch):
+    monkeypatch.setattr("mcp_guide.worktree_names.secrets.choice", lambda names: "calm-otter")
+    session = create_unbound_test_session(runtime)
+    context = await request_context_for(session)
+
+    result = await internal_set_project(
+        SetCurrentProjectArgs(path="/client/project", worktree="/client/existing-checkout"), context
+    )
+
+    assert result.success
+    assert result.value["worktree"] == {
+        "path": "/client/existing-checkout",
+        "name": "calm-otter",
+    }
+    assert session.worktree_name == "calm-otter"
+
+
+@pytest.mark.anyio
+async def test_set_project_never_derives_a_worktree_label_from_its_directory(runtime, monkeypatch):
+    monkeypatch.setattr("mcp_guide.worktree_names.secrets.choice", lambda names: "calm-otter")
+    session = create_unbound_test_session(runtime)
+    context = await request_context_for(session)
+
+    result = await internal_set_project(
+        SetCurrentProjectArgs(path="/client/project", worktree="/client/project_root"), context
+    )
+
+    assert result.success
+    assert session.worktree_name == "calm-otter"
+
+
+@pytest.mark.anyio
+async def test_set_project_rejects_rebinding_an_existing_session_to_a_different_worktree(runtime):
+    session = create_unbound_test_session(runtime)
+    context = await request_context_for(session)
+    first = await internal_set_project(
+        SetCurrentProjectArgs(path="/client/project", worktree="/client/project_languid-lizard"), context
+    )
+
+    rejected = await internal_set_project(
+        SetCurrentProjectArgs(path="/client/project", worktree="/client/project-calm-otter"), context
+    )
+
+    assert first.success
+    assert not rejected.success
+    assert rejected.error_type == "project_error"
+    assert "fresh Guide interaction" in rejected.error
+    assert "worktree=`/client/project-calm-otter`" in rejected.error
+    assert rejected.instruction is not None
+    assert session.worktree_path == Path("/client/project_languid-lizard")
 
 
 @pytest.mark.anyio

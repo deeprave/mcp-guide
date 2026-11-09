@@ -73,8 +73,8 @@ async def test_initialisation_and_file_events_deliver_guidance_and_update_state(
     await task.handle_event(EventType.TIMER, {"timer_interval": 600.0})
     assert not manager.is_queue_empty()
     content = "phase: discussion\nissue: example\n"
-    for _ in range(2):
-        event = await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": content})
+    for path in (".guide.yaml", str(session.worktree_path / ".guide.yaml")):
+        event = await task.handle_event(EventType.FS_FILE_CONTENT, {"path": path, "content": content})
         response = aggregate_event_results([event])
         assert response.value == "# Workflow format"
         assert response.instruction == "Follow the workflow format"
@@ -95,7 +95,7 @@ async def test_initialisation_and_file_events_deliver_guidance_and_update_state(
 @pytest.mark.anyio
 @pytest.mark.parametrize("semantic_available", [True, False], ids=["semantic-response", "filtered-fallback"])
 async def test_semantic_changes_use_matching_template_or_filtered_fallback(workflow_task, semantic_available):
-    _, manager, task, templates = workflow_task
+    session, manager, task, templates = workflow_task
     from mcp_guide.workflow.parser import parse_workflow_state
 
     manager.set_cached_data("workflow_state", parse_workflow_state("phase: discussion\n"))
@@ -113,22 +113,19 @@ async def test_semantic_changes_use_matching_template_or_filtered_fallback(workf
 
 
 @pytest.mark.anyio
-async def test_rejects_phase_disabled_by_project_workflow_configuration(workflow_task):
-    """Submitted workflow state cannot select a phase the project has disabled."""
-    session, manager, _, _ = workflow_task
+async def test_accepts_known_phase_disabled_by_project_workflow_configuration(workflow_task):
+    """A recognised workflow phase remains valid outside the configured sequence."""
+    session, manager, _, templates = workflow_task
     await session.project_flags().set("workflow", ["discussion", "implementation"])
     task = manager.get_task_by_type(WorkflowMonitorTask)
     assert task is not None
+    (templates / "state-format.mustache").write_text("Workflow received")
 
     event = await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": "phase: planning\n"})
 
     assert event is not None
-    assert event.result is False
-    assert event.message == (
-        "Invalid workflow file: phase `planning` is not enabled for this project; "
-        "enabled phases are: discussion, implementation, exploration"
-    )
-    assert manager.get_cached_data("workflow_state") is None
+    assert event.result is True
+    assert manager.get_cached_data("workflow_state").phase == "planning"
 
 
 @pytest.mark.anyio
