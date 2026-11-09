@@ -145,6 +145,8 @@ Verify that an implementation matches the change artifacts (specs, tasks, design
 
 **Verification Heuristics**
 
+Every OpenSpec task must be a change-specific implementation step. Standard development checks, including tests, linters, type checks, verification, review, and CI, are not OpenSpec tasks. Do not treat their absence from a change task list as an incomplete task or recommend adding them; perform or report such checks through the project's normal development workflow. This rule has no exceptions.
+
 - **Completeness**: Focus on objective checklist items (checkboxes, requirements list)
 - **Correctness**: Use keyword search, file path analysis, reasonable inference - don't require perfect certainty
 - **Coherence**: Look for glaring inconsistencies, don't nitpick style

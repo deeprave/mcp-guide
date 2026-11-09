@@ -139,6 +139,7 @@ What would you like to do?
 ```
 
 **Guardrails**
+- Every OpenSpec task must be a change-specific implementation step. Standard-practice tasks—such as running tests, linters, type checks, verification, review, or CI—must never be added to or retained in an OpenSpec change. They are normal development hygiene and belong to the project's standard workflow, not to the change checklist. This rule has no exceptions.
 - Keep going through tasks until done or blocked
 - Always read context files before starting (from the apply instructions output)
 - If task is ambiguous, pause and ask before implementing

@@ -1,6 +1,10 @@
 """Tests for mcp_core.mcp_log module."""
 
 import logging
+import logging.handlers
+import re
+import subprocess
+import sys
 
 import pytest
 
@@ -59,8 +63,8 @@ class TestMessageSanitization:
 class TestRedactedFormatter:
     """Tests for RedactedFormatter."""
 
-    def test_formatter_includes_required_fields(self):
-        """Test formatter includes timestamp, level, name, message."""
+    def test_formatter_includes_writing_process_id(self):
+        """Text output identifies the process that created the record."""
         import logging
 
         from mcp_guide.core.mcp_log import RedactedFormatter
@@ -77,9 +81,7 @@ class TestRedactedFormatter:
         )
 
         result = formatter.format(record)
-        assert "INFO" in result
-        assert "test.logger" in result
-        assert "test message" in result
+        assert re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} \[\d+\]test\.logger - INFO - test message", result)
 
     def test_formatter_calls_redaction_function(self, monkeypatch):
         """Test formatter calls redaction function."""
@@ -110,6 +112,7 @@ class TestRedactedFormatter:
         output = formatter.format(record)
         assert "[REDACTED] data" in output
         assert "sensitive" not in output
+        assert f"[{record.process}]" in output
 
     def test_formatter_handles_exceptions(self):
         """Test formatter includes exception info."""
@@ -172,9 +175,11 @@ class TestStructuredJSONFormatter:
         assert data["message"] == "test message"
         assert data["module"] == "test_module"
         assert data["function"] == "test_func"
+        assert data["pid"] == record.process
 
     def test_json_formatter_calls_redaction(self, monkeypatch):
         """Test JSON formatter calls redaction function."""
+        import json
         import logging
 
         from mcp_guide.core.mcp_log import StructuredJSONFormatter
@@ -202,6 +207,7 @@ class TestStructuredJSONFormatter:
         output = formatter.format(record)
         assert '"message": "[REDACTED]"' in output
         assert "sensitive" not in output
+        assert json.loads(output)["pid"] == record.process
 
     def test_json_formatter_includes_exception(self):
         """Test JSON formatter includes exception info."""
@@ -233,6 +239,74 @@ class TestStructuredJSONFormatter:
 
         assert "exception" in data
         assert "ValueError" in data["exception"]
+
+
+class TestProcessIdOutputPaths:
+    """Tests for process IDs across logging output paths."""
+
+    def test_startup_buffer_replay_preserves_creating_process_id(self, monkeypatch, tmp_path):
+        """Buffered records retain their originating process ID when replayed."""
+        from mcp_guide.core import mcp_log
+
+        buffered_handler = mcp_log.StartupBufferingHandler()
+        record = logging.LogRecord("test.buffered", logging.INFO, "test.py", 10, "buffered message", (), None)
+        buffered_handler.emit(record)
+        log_file = tmp_path / "buffered.log"
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setFormatter(mcp_log.RedactedFormatter())
+        root = logging.getLogger()
+        root.addHandler(file_handler)
+        monkeypatch.setattr(mcp_log, "_startup_handler", buffered_handler)
+        monkeypatch.setattr(mcp_log, "_original_root_level", None)
+
+        try:
+            mcp_log.flush_startup_buffer()
+        finally:
+            root.removeHandler(file_handler)
+            file_handler.close()
+
+        assert f"[{record.process}]test.buffered" in log_file.read_text()
+
+    def test_uvicorn_configuration_uses_pid_aware_formatter(self):
+        """Uvicorn uses the text formatter that includes writing process IDs."""
+        from mcp_guide.core.mcp_log import get_uvicorn_log_config
+
+        config = get_uvicorn_log_config()
+
+        assert config["formatters"]["default"]["()"] == "mcp_guide.core.mcp_log.RedactedFormatter"
+
+    def test_multiple_processes_write_their_own_process_ids(self, tmp_path):
+        """Each process identifies itself when sharing a log file."""
+        log_file = tmp_path / "shared.log"
+        script = """
+import logging
+import os
+import sys
+
+from mcp_guide.core.mcp_log import RedactedFormatter, create_file_handler
+
+handler = create_file_handler(sys.argv[1])
+handler.setFormatter(RedactedFormatter())
+logger = logging.getLogger(f"process.{os.getpid()}")
+logger.addHandler(handler)
+logger.setLevel(logging.INFO)
+logger.propagate = False
+logger.info(os.getpid())
+handler.close()
+"""
+
+        processes = [subprocess.Popen([sys.executable, "-c", script, str(log_file)]) for _ in range(2)]
+        for process in processes:
+            assert process.wait() == 0
+
+        entries = [
+            re.search(r"\[(\d+)\]process\.(\d+) - INFO - (\d+)", line) for line in log_file.read_text().splitlines()
+        ]
+
+        assert len(entries) == 2
+        assert all(entry is not None for entry in entries)
+        assert {entry.group(1) for entry in entries if entry} == {entry.group(3) for entry in entries if entry}
+        assert len({entry.group(1) for entry in entries if entry}) == 2
 
 
 class TestCreateFileHandler:

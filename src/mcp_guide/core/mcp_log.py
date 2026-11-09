@@ -131,7 +131,9 @@ class RedactedFormatter(logging.Formatter):
 
     def __init__(self) -> None:
         """Initialise the formatter with a redaction function."""
-        super().__init__(fmt="%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S")
+        super().__init__(
+            fmt="%(asctime)s [%(process)s]%(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
+        )
         self._redaction_func: Callable[[str], str] = get_redaction_function()
 
     def format(self, record: logging.LogRecord) -> str:
@@ -192,6 +194,7 @@ class StructuredJSONFormatter(logging.Formatter):
             "message": message,
             "module": record.module,
             "function": record.funcName,
+            "pid": record.process,
         }
 
         # Add extra fields from the record
