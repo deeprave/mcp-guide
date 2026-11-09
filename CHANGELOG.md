@@ -2,7 +2,7 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [2.0.0] - 2026-11-09
+## [2.0.0] - 2026-11-10
 
 ### Added
 - Git worktree support binds each repository worktree to the same Guide project
