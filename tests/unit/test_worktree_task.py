@@ -116,15 +116,15 @@ async def test_different_worktree_cwd_requires_inventory_before_preflight():
     assert "guide://_worktree/list" in result.message
 
 
-def test_worktree_inventory_expires_after_one_minute():
+def test_worktree_inventory_expires_after_handoff_lock_timeout():
     task = WorktreeTask()
     activation = Activation(SimpleNamespace(bound_root_path=Path("/client/project")))
     activation.data["worktree_inventory"] = {"/client/project"}
     activation.data["worktree_inventory_observed_at"] = 100.0
     task.activation = cast(TaskActivation, activation)
 
-    assert task.is_inventory_current(now=160.0)
-    assert not task.is_inventory_current(now=160.1)
+    assert task.is_inventory_current(now=190.0)
+    assert not task.is_inventory_current(now=190.1)
     assert task.active_worktree_paths() == set()
 
     activation.data["worktree_inventory_observed_at"] = time.time()

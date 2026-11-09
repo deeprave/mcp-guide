@@ -26,6 +26,16 @@ _NOUNS = (
     "tiger",
     "walrus",
     "wombat",
+    "antelope",
+    "beaver",
+    "cassowary",
+    "dolphin",
+    "echidna",
+    "gecko",
+    "heron",
+    "ibis",
+    "jaguar",
+    "koala",
 )
 
 

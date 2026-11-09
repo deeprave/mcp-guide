@@ -22,7 +22,12 @@ elicitation:
 
 Guide allocated the worktree name `{{kwargs.worktree_name}}`.
 
-1. Create the linked worktree at `{{project.root}}_{{kwargs.worktree_name}}`.
+1. Acquire the shared handoff-context lock and reread the context. If
+   `worktrees.{{kwargs.worktree_name}}` already exists, that allocated name is
+   in use: release the lock without creating a worktree or changing the
+   handoff, then request `guide://_worktree/new` again for a new allocation.
+   Otherwise retain the lock while completing the next step.
+2. Create the linked worktree at `{{project.root}}_{{kwargs.worktree_name}}`.
    {{#args.0.value}}Use branch `{{args.0.value}}`.{{/args.0.value}}{{^args.0.value}}Use branch `{{kwargs.branch}}`.{{/args.0.value}}
    If that branch already exists, check it out. Otherwise create it from `main`,
    never from the current branch:
@@ -30,7 +35,10 @@ Guide allocated the worktree name `{{kwargs.worktree_name}}`.
    git worktree add {{#shell_quote}}{{project.root}}_{{kwargs.worktree_name}}{{/shell_quote}} -b {{#shell_quote}}{{#args.0.value}}{{args.0.value}}{{/args.0.value}}{{^args.0.value}}{{kwargs.branch}}{{/args.0.value}}{{/shell_quote}} main
    ```
    For an existing branch, use `git worktree add {{#shell_quote}}{{project.root}}_{{kwargs.worktree_name}}{{/shell_quote}} {{#shell_quote}}{{#args.0.value}}{{args.0.value}}{{/args.0.value}}{{^args.0.value}}{{kwargs.branch}}{{/args.0.value}}{{/shell_quote}}` instead.
-2. Update the shared handoff context at {{>handoff-context-target}} using the locking protocol in `_system/_handoff-context`. Add or merge only this `worktrees` entry, preserving every other top-level key:
+3. Update the locked shared handoff context at {{>handoff-context-target}}. Add
+   only this `worktrees` entry, preserving every other top-level key, atomically
+   replace the context file, then release the lock. If worktree creation fails,
+   release the lock without changing the handoff:
    ```json
    {
      "worktrees": {
@@ -45,8 +53,12 @@ Guide allocated the worktree name `{{kwargs.worktree_name}}`.
    ```
    Add `plan`, `issue`, task metadata, and more specific instructions when they
    are known.
-3. Spawn the child with the allocated name `{{kwargs.worktree_name}}` and path
-   `{{project.root}}_{{kwargs.worktree_name}}`. Do not forward this session ID.
-   The child must report its working directory, create a fresh Guide interaction,
-   bind `path: {{project.root}}` and `worktree: {{project.root}}_{{kwargs.worktree_name}}`,
-   then read its own handoff entry before continuing.
+4. Hand the child the allocated worktree name `{{kwargs.worktree_name}}`, the
+   absolute path `{{project.root}}_{{kwargs.worktree_name}}`, and the complete
+   `worktrees.{{kwargs.worktree_name}}` handoff entry. Do not forward this
+   session ID. Before binding Guide, the child must work from that path and
+   create or update its local configured workflow file so it contains
+   `worktree: {{kwargs.worktree_name}}`, preserving its workflow state. It must
+   then create a fresh Guide interaction, bind `path: {{project.root}}` and
+   `worktree: {{project.root}}_{{kwargs.worktree_name}}`, submit that local
+   workflow file, and read its own handoff entry before continuing.

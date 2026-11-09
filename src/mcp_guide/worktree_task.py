@@ -10,7 +10,7 @@ from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_HANDOFF_CONTEXT, FLAG_WORKFLOW_FILE
 from mcp_guide.feature_flags.types import to_raw_feature_value
 from mcp_guide.feature_flags.utils import get_resolved_flag_value, resolve_documents_path, resolve_effective_write_paths
-from mcp_guide.handoff_context import resolve_handoff_context
+from mcp_guide.handoff_context import HANDOFF_CONTEXT_LOCK_STALE_SECONDS, resolve_handoff_context
 from mcp_guide.task_manager import EventType
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from mcp_guide.task_manager.manager import EventResult
 
 
-WORKTREE_INVENTORY_TTL_SECONDS = 60
+WORKTREE_INVENTORY_TTL_SECONDS = HANDOFF_CONTEXT_LOCK_STALE_SECONDS
 
 
 @task_register
@@ -59,6 +59,13 @@ class WorktreeTask:
         inventory = self.activation.get_cached_data("worktree_inventory")
         return set(inventory) if isinstance(inventory, set) else set()
 
+    def template_inventory(self) -> dict[str, Any] | None:
+        """Return fresh inventory data for template rendering, if available."""
+        if self.activation is None or not self.is_inventory_current():
+            return None
+        observed_at = self.activation.get_cached_data("worktree_inventory_observed_at")
+        return {"paths": sorted(self.active_worktree_paths()), "observed_at": observed_at}
+
     def is_inventory_current(self, *, now: float | None = None) -> bool:
         """Whether the client-reported worktree inventory is still current."""
         if self.activation is None:
@@ -78,6 +85,9 @@ class WorktreeTask:
             return
         self.activation.set_cached_data("worktree_inventory", None)
         self.activation.set_cached_data("worktree_inventory_observed_at", None)
+        template_cache = getattr(self.activation.session, "template_cache", None)
+        if template_cache is not None:
+            template_cache.invalidate()
 
     async def on_tool(self) -> None:
         pass
@@ -99,6 +109,9 @@ class WorktreeTask:
                 return EventResult(result=False, message="Invalid worktree inventory: expected JSON worktree paths")
             self.activation.set_cached_data("worktree_inventory", inventory)
             self.activation.set_cached_data("worktree_inventory_observed_at", time.time())
+            template_cache = getattr(self.activation.session, "template_cache", None)
+            if template_cache is not None:
+                template_cache.invalidate()
             return EventResult(result=True)
         return None
 

@@ -1,5 +1,6 @@
 """Template cache composition through real sessions, flags and task state."""
 
+import json
 import platform
 from dataclasses import replace
 from datetime import datetime, timezone
@@ -12,8 +13,10 @@ from mcp_guide.models import Category
 from mcp_guide.openspec.task import OpenSpecTask
 from mcp_guide.prompts.guide_prompt import handle_command
 from mcp_guide.render.cache import TemplateContextCache, get_template_contexts
+from mcp_guide.tools.tool_filesystem import SendFileContentArgs, internal_send_file_content
 from mcp_guide.workflow.schema import WorkflowState
-from tests.helpers import create_bound_test_session, create_unbound_test_session
+from mcp_guide.worktree_task import WorktreeTask
+from tests.helpers import create_bound_test_session, create_unbound_test_session, request_context_for
 
 
 @pytest.fixture
@@ -30,6 +33,10 @@ async def test_complete_context_contains_real_project_category_and_system(sessio
     assert context["project"]["name"] == "context-project"
     assert context["project"]["project_flags"] == {}
     assert context["project"]["project_flag_values"] == []
+    assert context["path"]["documents"] == f"{session.bound_root_path}/.todo/"
+    assert str(session.bound_root_path) in context["project"]["runtime_read_paths"]
+    assert context["project"]["runtime_write_paths"]
+    assert context["project"]["effective_write_paths"] == context["project"]["runtime_write_paths"]
     assert context["projects"]["projects"][0]["current"] is True
     assert context["server"]["os"] == platform.system()
     assert context["server"]["platform"] == platform.platform()
@@ -47,6 +54,27 @@ async def test_complete_context_contains_real_project_category_and_system(sessio
     missing = (await get_template_contexts(session, "missing"))["category"]
     assert missing["name"] == ""
     assert missing["patterns"] == []
+
+
+@pytest.mark.anyio
+async def test_template_context_exposes_only_fresh_worktree_inventory(session):
+    task = session.task_manager.get_task_by_type(WorktreeTask)
+    assert task is not None
+    root = str(session.bound_root_path)
+    response = await internal_send_file_content(
+        SendFileContentArgs(path=".git-worktrees.json", content=json.dumps([root])),
+        await request_context_for(session),
+    )
+    assert response.success
+
+    inventory = (await get_template_contexts(session))["worktree"]["inventory"]
+    assert inventory is not None
+    assert inventory["paths"] == [root]
+    assert isinstance(inventory["observed_at"], float)
+
+    assert task.activation is not None
+    task.activation.set_cached_data("worktree_inventory_observed_at", 0.0)
+    assert (await get_template_contexts(session))["worktree"]["inventory"] is None
 
 
 @pytest.mark.anyio

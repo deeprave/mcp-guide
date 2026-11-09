@@ -25,10 +25,25 @@ Guide SHALL allocate a readable name for a new linked-worktree handoff and recor
 - **THEN** Guide assigns a readable worktree name
 - **AND** instructs the parent to record the name and path in shared handover context
 
+#### Scenario: Allocated name is already in use
+- **GIVEN** a parent holds the shared handover lock for a new linked worktree
+- **AND** `worktrees.<allocated-name>` already exists
+- **WHEN** the parent checks the allocated name
+- **THEN** it SHALL release the lock without creating a worktree or changing handover context
+- **AND** SHALL request another `guide://_worktree/new` allocation
+
+#### Scenario: Existing worktree is resumed
+- **GIVEN** a parent requests `guide://_worktree/use/<name>`
+- **WHEN** the existing handover entry is read
+- **THEN** its recorded absolute path SHALL be present in fresh Git worktree inventory
+- **AND** it SHALL retain that name rather than allocate a replacement
+
 #### Scenario: Child receives its worktree name
 - **GIVEN** a shared handover entry contains a linked-worktree name and path
 - **WHEN** a parent spawns the assigned child
 - **THEN** the child receives the allocated name
+- **AND** receives the absolute path and complete handover entry
+- **AND** initialises its local workflow file with `worktree: <allocated-name>` before submitting workflow state
 - **AND** resolves its intended path and task from the handover entry
 
 #### Scenario: Existing linked worktree supplies its label
@@ -82,10 +97,10 @@ The client SHALL create an adjacent context lock, reread and validate the docume
 
 ### Requirement: Context locks use modification time
 
-A context lock SHALL identify the holding worktree. Its modification time SHALL be the sole activity signal. A lock older than one minute is inactive and may be replaced.
+A context lock SHALL identify the holding worktree. Its modification time SHALL be the sole activity signal. A lock older than 90 seconds is inactive and may be replaced.
 
 #### Scenario: Client replaces an inactive lock
-- **GIVEN** an adjacent context lock is older than one minute
+- **GIVEN** an adjacent context lock is older than 90 seconds
 - **WHEN** a client needs to update context
 - **THEN** it SHALL replace the inactive lock
 
@@ -170,7 +185,7 @@ normalisation rules apply.
 
 ### Requirement: Client worktree discovery
 
-Guide SHALL provide `guide://_worktree/list` to request client Git worktree discovery. The client sends `.git-worktrees.json`; Guide retains it as session-local discovery data for one minute. Worktree commands require a current report.
+Guide SHALL provide `guide://_worktree/list` to request client Git worktree discovery. The client sends `.git-worktrees.json`; Guide retains it as session-local discovery data for 90 seconds. Worktree commands require a current report.
 
 #### Scenario: Client reports linked worktrees
 - **GIVEN** Guide cannot inspect the client filesystem directly
@@ -179,9 +194,15 @@ Guide SHALL provide `guide://_worktree/list` to request client Git worktree disc
 - **AND** SHALL use the received report for subsequent worktree guidance
 
 #### Scenario: Cached inventory expires
-- **GIVEN** Guide received a client worktree inventory more than one minute ago
+- **GIVEN** Guide received a client worktree inventory more than 90 seconds ago
 - **WHEN** an agent requests a worktree command that needs inventory
 - **THEN** Guide SHALL request a new inventory before continuing
+
+#### Scenario: Template inventory is fresh only
+- **GIVEN** a session has received a current worktree inventory
+- **WHEN** Guide renders template context before that inventory expires
+- **THEN** `worktree.inventory` SHALL contain the client-reported paths and observed time
+- **AND** it SHALL be absent after expiry or replacement by a newer report
 
 ### Requirement: Scoped worktree path resolution
 
@@ -240,6 +261,13 @@ Binding a worktree SHALL NOT grant unrestricted access outside authorised projec
 - **WHEN** the project configuration is saved and loaded
 - **THEN** that path SHALL remain persisted
 - **AND** runtime-derived default paths SHALL not be serialised as user-added permissions
+
+#### Scenario: Central runtime path authority
+
+- **GIVEN** Guide evaluates a client path for a bound session
+- **WHEN** the path is checked for read or write access
+- **THEN** it SHALL use the session's runtime defaults together with persisted static permissions
+- **AND** it SHALL NOT treat the persisted project permission lists alone as the complete authority
 
 ### Requirement: Project-wide worktree visibility
 

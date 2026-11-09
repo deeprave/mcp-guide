@@ -24,7 +24,7 @@ feature-flag guidance.
 
 ### Requirement: Registered feature-flag normalisation
 
-A flag with a registered validator or normaliser SHALL use that registration instead of the default scalar path. `path-documents` SHALL be stored only when explicitly configured; when absent, its documents directory is a runtime default. Its rendered resolved value SHALL end with exactly one trailing slash.
+A flag with a registered validator or normaliser SHALL use that registration instead of the default scalar path. `path-documents` SHALL be stored only when explicitly configured; when absent, its documents directory is a runtime default. The template context's rendered `path.documents` value SHALL be an absolute path rooted at the project root and end with exactly one trailing slash.
 
 #### Scenario: Registered path flag uses its normaliser
 
@@ -47,4 +47,4 @@ A flag with a registered validator or normaliser SHALL use that registration ins
 - **GIVEN** no `path-documents` value is configured
 - **WHEN** Guide resolves and renders the documents directory
 - **THEN** it SHALL use the runtime default without persisting a project flag
-- **AND** the rendered path SHALL end with `/`
+- **AND** the template context's rendered path SHALL be rooted at the project root and end with `/`

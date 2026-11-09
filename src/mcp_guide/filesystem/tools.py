@@ -1,12 +1,10 @@
 """Filesystem MCP tools for agent-server interaction."""
 
 import time
-from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.result import Result
-from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy
 from mcp_guide.result_constants import ERROR_CACHE, ERROR_UNEXPECTED, ERROR_VALIDATION
 from mcp_guide.session import Session
 
@@ -173,36 +171,9 @@ async def send_directory_listing(
         )
 
     try:
-        project = await session.get_project()
-        from mcp_guide.feature_flags.utils import resolve_runtime_default_read_paths
+        from mcp_guide.filesystem.project_paths import resolve_project_path_policy
 
-        # Project identity comes from the request-resolved Session, never an
-        # ambient MCP context lookup.
-        project_root = session.worktree_path or session.bound_root_path
-        if project_root is None:
-            raise ValueError("Project context not available. Call set_project(path) first.")
-
-        # Create client_resolve function for security policy
-        def client_resolve_func(path: Union[str, Path]) -> Path:
-            from mcp_guide.utils.client_path import client_resolve
-
-            return client_resolve(path, project_root)
-
-        from mcp_guide.worktree_task import WorktreeTask
-
-        worktree_task = session.task_manager.get_task_by_type(WorktreeTask)
-        active_worktree_paths = worktree_task.active_worktree_paths() if worktree_task is not None else set()
-        default_read_paths = await resolve_runtime_default_read_paths(session)
-
-        # Validate path against security policy
-        policy = ReadWriteSecurityPolicy(
-            write_allowed_paths=project.allowed_write_paths,
-            additional_read_paths=[*project.additional_read_paths, *default_read_paths, *active_worktree_paths],
-            client_resolve=client_resolve_func,
-        )
-
-        # Set project root for default read access
-        policy.set_project_root(str(project_root))
+        policy = await resolve_project_path_policy(session)
 
         validated_path = policy.validate_read_path(path)
 

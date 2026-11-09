@@ -113,22 +113,19 @@ async def test_semantic_changes_use_matching_template_or_filtered_fallback(workf
 
 
 @pytest.mark.anyio
-async def test_rejects_phase_disabled_by_project_workflow_configuration(workflow_task):
-    """Submitted workflow state cannot select a phase the project has disabled."""
-    session, manager, _, _ = workflow_task
+async def test_accepts_known_phase_disabled_by_project_workflow_configuration(workflow_task):
+    """A recognised workflow phase remains valid outside the configured sequence."""
+    session, manager, _, templates = workflow_task
     await session.project_flags().set("workflow", ["discussion", "implementation"])
     task = manager.get_task_by_type(WorkflowMonitorTask)
     assert task is not None
+    (templates / "state-format.mustache").write_text("Workflow received")
 
     event = await task.handle_event(EventType.FS_FILE_CONTENT, {"path": ".guide.yaml", "content": "phase: planning\n"})
 
     assert event is not None
-    assert event.result is False
-    assert event.message == (
-        "Invalid workflow file: phase `planning` is not enabled for this project; "
-        "enabled phases are: discussion, implementation, exploration"
-    )
-    assert manager.get_cached_data("workflow_state") is None
+    assert event.result is True
+    assert manager.get_cached_data("workflow_state").phase == "planning"
 
 
 @pytest.mark.anyio

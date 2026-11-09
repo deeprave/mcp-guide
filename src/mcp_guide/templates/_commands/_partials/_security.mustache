@@ -1,12 +1,15 @@
 {{h3}}Read Permissions
-{{#read_paths}}
+{{#project.runtime_read_paths}}
+- {{.}} (runtime default)
+{{/project.runtime_read_paths}}
+{{#project.additional_read_paths}}
 - {{.}}
-{{/read_paths}}
-{{^read_paths}}
-- {{client_working_dir}}
-{{/read_paths}}
+{{/project.additional_read_paths}}
 
 {{h3}}Write Permissions
+{{#project.runtime_write_paths}}
+- {{.}} (runtime default)
+{{/project.runtime_write_paths}}
 {{#project.allowed_write_paths}}
 - {{.}}
 {{/project.allowed_write_paths}}

@@ -241,7 +241,7 @@ class ExportContentArgs(ToolArguments):
 
 
 def _validate_export_path(path: str, allowed_write_paths: list[str]) -> str:
-    """Check the client's destination lexically against configured write entries."""
+    """Apply export's file-only subset of the shared write-path authority."""
     denial = "Export destination is invalid or outside configured write paths"
     normalised = normalise_export_destination(path)
     destination = PurePosixPath(normalised)
@@ -302,10 +302,11 @@ async def export_content(
         return await tool_result(
             "export_content", await make_no_project_result(), session=session, session_id=args.session_id
         )
-    from mcp_guide.feature_flags.utils import resolve_effective_write_paths
+    from mcp_guide.filesystem.project_paths import resolve_project_path_policy
 
     try:
-        destination = _validate_export_path(args.path, await resolve_effective_write_paths(session))
+        policy = await resolve_project_path_policy(session)
+        destination = _validate_export_path(args.path, policy.write_allowed_paths)
     except SecurityError as error:
         return await tool_result(
             "export_content",

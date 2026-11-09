@@ -7,6 +7,8 @@ from mcp_guide.feature_flags.types import FeatureValueLike, to_raw_feature_value
 from mcp_guide.feature_flags.validators import coerce_boolean_like, normalise_handoff_context_target
 from mcp_guide.filesystem.read_write_security import ReadWriteSecurityPolicy, SecurityError
 
+HANDOFF_CONTEXT_LOCK_STALE_SECONDS = 90
+
 
 @dataclass(frozen=True)
 class HandoffContext:

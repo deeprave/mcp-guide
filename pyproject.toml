@@ -1,13 +1,13 @@
 [project]
 name = "mcp-guide"
-version = "2.0.0b6"
+version = "2.0.0"
 description = "MCP Server for handling guidelines, project rules and a controlled development workflow"
 readme = "README.md"
 license = {file = "LICENSE.md"}
 authors = [{name = "David Nugent", email = "davidn@uniquode.io"}]
 requires-python = ">=3.13"
 dependencies = [
-    "fastmcp>=4.0,<5.0",
+    "fastmcp[slim]>=4.0,<5.0",
     "pydantic>=2.0",
     "anyio>=4.5",
     "pyyaml>=6.0",
@@ -16,6 +16,17 @@ dependencies = [
     "uuid7>=0.1.0",
     "patch-ng>=1.19.0",
     "packaging>=24.0",
+    "authlib>=1.9.5",
+    "backrefs>=8.2",
+    "coverage>=7.17.2",
+    "markdown>=3.11.3",
+    "pydantic-core>=2.50.4",
+    "pymdown-extensions>=13.0",
+    "ruff>=0.17.4",
+    "ty>=0.0.99",
+    "watchdog>=7.1.0",
+    "uncalled-for>=0.6.0",
+    "typing-inspection>=0.4.5",
 ]
 
 classifiers = [

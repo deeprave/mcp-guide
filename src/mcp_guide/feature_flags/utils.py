@@ -65,12 +65,16 @@ async def resolve_runtime_default_read_paths(session: "Session") -> list[str]:
     return [str(worktree), *sorted(root_defaults)]
 
 
-async def resolve_effective_write_paths(session: "Session") -> list[str]:
-    """Combine runtime defaults with persisted user-added write paths."""
+async def resolve_runtime_default_write_paths(session: "Session") -> list[str]:
+    """Return unpersisted default write paths for the bound project session."""
     from mcp_guide.feature_flags.constants import DEFAULT_DOCUMENTS_PATH
     from mcp_guide.models.constants import DEFAULT_ALLOWED_WRITE_PATHS
 
-    project = await session.get_project()
     documents_path = await resolve_documents_path(session)
-    defaults = [documents_path if path == DEFAULT_DOCUMENTS_PATH else path for path in DEFAULT_ALLOWED_WRITE_PATHS]
-    return [*defaults, *project.allowed_write_paths]
+    return [documents_path if path == DEFAULT_DOCUMENTS_PATH else path for path in DEFAULT_ALLOWED_WRITE_PATHS]
+
+
+async def resolve_effective_write_paths(session: "Session") -> list[str]:
+    """Combine runtime defaults with persisted user-added write paths."""
+    project = await session.get_project()
+    return [*(await resolve_runtime_default_write_paths(session)), *project.allowed_write_paths]

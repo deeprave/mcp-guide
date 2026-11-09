@@ -12,10 +12,13 @@ category: project-permissions
 {{h2}}Current Configuration
 
 {{h3}}Read Permissions
-Project directory: `{{client_working_dir}}`
+Runtime defaults:
+{{#project.runtime_read_paths}}
+- `{{.}}`
+{{/project.runtime_read_paths}}
 
 {{#project.additional_read_paths.0}}
-Additional paths:
+Configured additional paths:
 {{#project.additional_read_paths}}
 - `{{.}}`
 {{/project.additional_read_paths}}
@@ -25,11 +28,17 @@ No additional read paths configured.
 {{/project.additional_read_paths.0}}
 
 {{h3}}Write Permissions
+Runtime defaults:
+{{#project.runtime_write_paths}}
+- `{{.}}`
+{{/project.runtime_write_paths}}
+
+Configured additional paths:
 {{#project.allowed_write_paths}}
 - `{{.}}`
 {{/project.allowed_write_paths}}
 {{^project.allowed_write_paths}}
-No write paths configured.
+No additional write paths configured.
 {{/project.allowed_write_paths}}
 
 {{h2}}Management Commands
