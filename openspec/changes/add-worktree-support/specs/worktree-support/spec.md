@@ -17,7 +17,7 @@ worktree path defaulting to the project root.
 
 ### Requirement: Allocated worktree name
 
-Guide SHALL allocate a readable worktree name for a new linked-worktree handoff. The name and worktree path SHALL be recorded in shared handover context. Clients SHALL NOT choose the name for a new worktree; a child receives the allocated label from its handoff. An existing linked worktree's local workflow file is authoritative for its label. The label SHALL NOT affect project configuration identity.
+Guide SHALL allocate a readable name for a new linked-worktree handoff and record it with the path in shared handover context. Existing worktrees use their local workflow-file label. Directory names SHALL NOT determine labels or project configuration identity.
 
 #### Scenario: Linked worktree receives a generated name
 - **GIVEN** a parent requests a new linked-worktree handoff
@@ -30,6 +30,20 @@ Guide SHALL allocate a readable worktree name for a new linked-worktree handoff.
 - **WHEN** a parent spawns the assigned child
 - **THEN** the child receives the allocated name
 - **AND** resolves its intended path and task from the handover entry
+
+#### Scenario: Existing linked worktree supplies its label
+
+- **GIVEN** a linked worktree has a local workflow file containing `worktree: existing-label`
+- **WHEN** Guide first receives that workflow file for the bound session
+- **THEN** the session SHALL adopt `existing-label`
+- **AND** SHALL not use the checkout directory name to determine the label
+
+#### Scenario: Unlabelled linked worktree receives a minted label
+
+- **GIVEN** a linked worktree has no local workflow file or its workflow file has no `worktree` value
+- **WHEN** Guide initialises workflow guidance for that session
+- **THEN** Guide SHALL mint a readable non-`root` label
+- **AND** SHALL instruct the agent to write that label to the local workflow file
 
 ### Requirement: Handoff context remains client-owned
 
@@ -156,7 +170,7 @@ normalisation rules apply.
 
 ### Requirement: Client worktree discovery
 
-Guide SHALL provide `guide://_worktree/list` to request a client Git worktree inventory. The agent SHALL send the inventory through `send_file_content` with path `.git-worktrees.json`. Guide SHALL treat the report as client-provided discovery data and SHALL NOT require a remote URL or create the report as a project file. Guide SHALL cache the report for one minute in the bound session; worktree commands SHALL require a current report and request refresh when it is absent, expired, or known stale after a worktree change.
+Guide SHALL provide `guide://_worktree/list` to request client Git worktree discovery. The client sends `.git-worktrees.json`; Guide retains it as session-local discovery data for one minute. Worktree commands require a current report.
 
 #### Scenario: Client reports linked worktrees
 - **GIVEN** Guide cannot inspect the client filesystem directly
@@ -181,7 +195,7 @@ worktree support.
 
 ### Requirement: Worktree-labelled workflow state
 
-Each linked-worktree workflow file SHALL include a `worktree` field containing the worktree name. When a linked-worktree session first receives a valid workflow file, Guide SHALL adopt that label for the session. If the existing file lacks a label, the agent SHALL add the allocated session label before submitting it. Later workflow files SHALL match the adopted label. For the primary checkout, an omitted `worktree` field SHALL default to `root`; a linked worktree SHALL initialise a new workflow file from its shared handover entry.
+Each linked-worktree workflow file SHALL include its `worktree` label. Guide adopts the label on the first valid receipt and later receipts SHALL match it. The primary checkout defaults an omitted label to `root`.
 
 #### Scenario: Agent reads its linked-worktree workflow file
 - **GIVEN** a session is bound to a linked worktree named `languid_lizard`
@@ -191,9 +205,7 @@ Each linked-worktree workflow file SHALL include a `worktree` field containing t
 
 ### Requirement: Worktree path visibility and authorisation
 
-Binding a worktree SHALL NOT grant unrestricted access outside authorised
-project/worktree paths. Absolute workflow overrides remain explicit and shared
-target conflicts diagnosable.
+Binding a worktree SHALL NOT grant unrestricted access outside authorised project or worktree paths. Default paths are runtime-derived and not persisted; user-added static paths are persisted. Linked-worktree defaults include the checkout and root-scoped shared resources. Absolute workflow overrides remain explicit.
 
 #### Scenario: Independent workflow files and shared scratch space
 
@@ -214,6 +226,20 @@ target conflicts diagnosable.
 - **GIVEN** a session is bound to a linked worktree
 - **WHEN** Guide provides repository review, build or branch/reset instructions
 - **THEN** those instructions SHALL target that worktree rather than the main checkout
+
+#### Scenario: Linked worktree receives runtime shared defaults
+
+- **GIVEN** a session is bound to a linked worktree
+- **WHEN** Guide resolves default authorised paths
+- **THEN** the bound worktree and root-scoped shared resources SHALL be available without adding them to project configuration
+- **AND** unrelated primary-root paths SHALL not become permitted solely from binding the linked worktree
+
+#### Scenario: User-added path remains static
+
+- **GIVEN** a user adds a read or write permission path to a project
+- **WHEN** the project configuration is saved and loaded
+- **THEN** that path SHALL remain persisted
+- **AND** runtime-derived default paths SHALL not be serialised as user-added permissions
 
 ### Requirement: Project-wide worktree visibility
 

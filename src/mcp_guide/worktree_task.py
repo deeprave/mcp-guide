@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from mcp_guide.decorators import task_register
 from mcp_guide.feature_flags.constants import FLAG_HANDOFF_CONTEXT, FLAG_WORKFLOW_FILE
 from mcp_guide.feature_flags.types import to_raw_feature_value
-from mcp_guide.feature_flags.utils import get_resolved_flag_value, resolve_documents_path
+from mcp_guide.feature_flags.utils import get_resolved_flag_value, resolve_documents_path, resolve_effective_write_paths
 from mcp_guide.handoff_context import resolve_handoff_context
 from mcp_guide.task_manager import EventType
 
@@ -34,11 +34,10 @@ class WorktreeTask:
         return "WorktreeTask"
 
     async def start(self, activation: "TaskActivation") -> bool:
-        project = await activation.session.get_project()
         resolved = resolve_handoff_context(
             await get_resolved_flag_value(activation.session, FLAG_HANDOFF_CONTEXT),
             documents_path=await resolve_documents_path(activation.session),
-            allowed_write_paths=project.allowed_write_paths,
+            allowed_write_paths=await resolve_effective_write_paths(activation.session),
         )
         if resolved.target is None or not resolved.eligible or resolved.format not in {"JSON", "YAML"}:
             return False
@@ -52,17 +51,6 @@ class WorktreeTask:
 
     async def stop(self) -> None:
         self.activation = None
-
-    def known_worktree_names(self) -> set[str]:
-        """Return conventional labels from previously reported worktree paths."""
-        if self.activation is None or not self.is_inventory_current():
-            return set()
-        inventory = self.activation.get_cached_data("worktree_inventory")
-        root = self.activation.session.bound_root_path
-        if not isinstance(inventory, set) or root is None:
-            return set()
-        prefix = f"{root.name}_"
-        return {Path(path).name.removeprefix(prefix) for path in inventory if Path(path).name.startswith(prefix)}
 
     def active_worktree_paths(self) -> set[str]:
         """Return the client-reported active checkout roots for read authorisation."""

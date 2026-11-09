@@ -91,7 +91,9 @@ class Project:
     categories: dict[str, Category] = field(default_factory=dict)
     collections: dict[str, Collection] = field(default_factory=dict)
     project_flags: dict[str, FeatureValue] = field(default_factory=dict)
-    allowed_write_paths: list[str] = field(default_factory=lambda: DEFAULT_ALLOWED_WRITE_PATHS.copy())
+    # Only user-added paths are persisted here. Built-in paths are derived for
+    # each bound session at runtime.
+    allowed_write_paths: list[str] = field(default_factory=list)
     additional_read_paths: list[str] = field(default_factory=list)
 
     @field_validator("name")
@@ -148,6 +150,14 @@ class Project:
                 validate_directory_path(path)
 
         return v
+
+    def __post_init__(self) -> None:
+        """Discard legacy serialised defaults while preserving user additions."""
+        object.__setattr__(
+            self,
+            "allowed_write_paths",
+            [path for path in self.allowed_write_paths if path not in DEFAULT_ALLOWED_WRITE_PATHS],
+        )
 
     @field_validator("additional_read_paths")
     @classmethod

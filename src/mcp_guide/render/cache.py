@@ -538,13 +538,17 @@ class TemplateContextCache(SessionListener):
 
         handoff_context = {"target": "", "format": "", "eligible": False}
         if session and project and project_root:
-            from mcp_guide.feature_flags.utils import get_resolved_flag_value, resolve_documents_path
+            from mcp_guide.feature_flags.utils import (
+                get_resolved_flag_value,
+                resolve_documents_path,
+                resolve_effective_write_paths,
+            )
             from mcp_guide.handoff_context import resolve_handoff_context
 
             resolved_handoff = resolve_handoff_context(
                 await get_resolved_flag_value(session, FLAG_HANDOFF_CONTEXT),
                 documents_path=await resolve_documents_path(session),
-                allowed_write_paths=project.allowed_write_paths,
+                allowed_write_paths=await resolve_effective_write_paths(session),
             )
             if resolved_handoff.target is not None:
                 handoff_context = {

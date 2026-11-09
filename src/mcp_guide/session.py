@@ -227,6 +227,8 @@ class Session:
             raise ValueError(
                 "Workflow worktree label must contain only alphanumeric characters, underscores, and hyphens"
             )
+        if name == "root":
+            raise ValueError("Only the primary checkout may use the `root` worktree label")
         self.__worktree_name = name
         if self._template_cache is not None:
             self._template_cache.invalidate()
@@ -331,11 +333,7 @@ class Session:
         else:
             from mcp_guide.worktree_names import allocate_worktree_name
 
-            prefix = f"{root_path.name}_"
-            derived_name = self.__worktree_path.name.removeprefix(prefix)
-            self.__worktree_name = (
-                derived_name if self.__worktree_path.name.startswith(prefix) else allocate_worktree_name()
-            )
+            self.__worktree_name = allocate_worktree_name()
         self.__delegate.bind(project)
         self._project_dirty = False
 

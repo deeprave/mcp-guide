@@ -43,4 +43,34 @@ async def resolve_documents_path(session: "Session") -> str:
     if value is None:
         return DEFAULT_DOCUMENTS_PATH
     raw = to_raw_feature_value(value)
-    return raw if isinstance(raw, str) and validate_path_flag(raw, True) else DEFAULT_DOCUMENTS_PATH
+    path = raw if isinstance(raw, str) and validate_path_flag(raw, True) else DEFAULT_DOCUMENTS_PATH
+    return f"{path.rstrip('/')}/"
+
+
+async def resolve_runtime_default_read_paths(session: "Session") -> list[str]:
+    """Return session-derived read roots without persisting them on Project."""
+    from mcp_guide.feature_flags.constants import DEFAULT_DOCUMENTS_PATH
+    from mcp_guide.models.constants import DEFAULT_ALLOWED_WRITE_PATHS
+
+    root = session.bound_root_path
+    worktree = session.worktree_path
+    if root is None or worktree is None:
+        return []
+
+    documents_path = await resolve_documents_path(session)
+    root_defaults = {
+        str(root / documents_path),
+        *(str(root / path) for path in DEFAULT_ALLOWED_WRITE_PATHS if path != DEFAULT_DOCUMENTS_PATH),
+    }
+    return [str(worktree), *sorted(root_defaults)]
+
+
+async def resolve_effective_write_paths(session: "Session") -> list[str]:
+    """Combine runtime defaults with persisted user-added write paths."""
+    from mcp_guide.feature_flags.constants import DEFAULT_DOCUMENTS_PATH
+    from mcp_guide.models.constants import DEFAULT_ALLOWED_WRITE_PATHS
+
+    project = await session.get_project()
+    documents_path = await resolve_documents_path(session)
+    defaults = [documents_path if path == DEFAULT_DOCUMENTS_PATH else path for path in DEFAULT_ALLOWED_WRITE_PATHS]
+    return [*defaults, *project.allowed_write_paths]

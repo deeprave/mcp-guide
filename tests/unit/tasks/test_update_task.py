@@ -144,7 +144,7 @@ async def test_startup_handoff_guidance_uses_configured_shared_paths(runtime, tm
     delivered = await session.task_manager.process_result(Result.ok())
     assert delivered.additional_agent_instructions == (
         f"target={session.bound_root_path / '.work' / 'handover.yaml'};"
-        f"documents={session.bound_root_path / '.work'};format=YAML"
+        f"documents={session.bound_root_path / '.work'}/;format=YAML"
     )
 
 

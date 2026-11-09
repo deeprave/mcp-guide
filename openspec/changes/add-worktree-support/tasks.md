@@ -14,3 +14,9 @@
 - [x] 3.1 Implement and render the client-side shared-context update: worktree-labelled lock, lock modification-time inactivity after one minute, reread/validation, merge-own-entry, atomic replacement, and lock removal.
 - [x] 3.2 Make workflow bootstrap, parsing, monitoring, caches, events, review artefacts, status, and Git guidance worktree-aware; require matching `worktree` state in linked-worktree workflow files and default an omitted primary value to `root`.
 - [x] 3.3 Keep handoff client-owned: never request or consume it in Guide. Make active inventory paths readable for the project and derive any verbose worktree state from worktree-local workflow files.
+
+## 4. Review corrections
+
+- [x] 4.1 Resolve linked-worktree labels solely from the local workflow file, minting a label only when that file is absent or unlabelled; never infer identity from the checkout directory name.
+- [x] 4.2 Separate runtime-derived default paths from persisted user-added permissions, derive linked-worktree access to the checkout and root-scoped shared resources centrally, and normalise rendered `documents-path` with one trailing slash.
+- [x] 4.3 Remove obsolete completed-item directory guidance from templates and add regression coverage for the corrected worktree and path behaviour.

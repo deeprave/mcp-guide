@@ -120,10 +120,8 @@ async def test_set_project_accepts_an_explicit_worktree(runtime):
     assert result.success
     assert session.bound_root_path is not None
     assert str(session.worktree_path) == "/client/project_languid-lizard"
-    assert result.value["worktree"] == {
-        "path": "/client/project_languid-lizard",
-        "name": "languid-lizard",
-    }
+    assert result.value["worktree"]["path"] == "/client/project_languid-lizard"
+    assert result.value["worktree"]["name"] != "root"
 
 
 @pytest.mark.anyio
@@ -141,6 +139,20 @@ async def test_set_project_allocates_a_label_for_an_existing_worktree(runtime, m
         "path": "/client/existing-checkout",
         "name": "calm-otter",
     }
+    assert session.worktree_name == "calm-otter"
+
+
+@pytest.mark.anyio
+async def test_set_project_never_derives_a_worktree_label_from_its_directory(runtime, monkeypatch):
+    monkeypatch.setattr("mcp_guide.worktree_names.secrets.choice", lambda names: "calm-otter")
+    session = create_unbound_test_session(runtime)
+    context = await request_context_for(session)
+
+    result = await internal_set_project(
+        SetCurrentProjectArgs(path="/client/project", worktree="/client/project_root"), context
+    )
+
+    assert result.success
     assert session.worktree_name == "calm-otter"
 
 

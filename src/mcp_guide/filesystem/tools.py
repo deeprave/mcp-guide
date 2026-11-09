@@ -174,6 +174,7 @@ async def send_directory_listing(
 
     try:
         project = await session.get_project()
+        from mcp_guide.feature_flags.utils import resolve_runtime_default_read_paths
 
         # Project identity comes from the request-resolved Session, never an
         # ambient MCP context lookup.
@@ -191,11 +192,12 @@ async def send_directory_listing(
 
         worktree_task = session.task_manager.get_task_by_type(WorktreeTask)
         active_worktree_paths = worktree_task.active_worktree_paths() if worktree_task is not None else set()
+        default_read_paths = await resolve_runtime_default_read_paths(session)
 
         # Validate path against security policy
         policy = ReadWriteSecurityPolicy(
             write_allowed_paths=project.allowed_write_paths,
-            additional_read_paths=[*project.additional_read_paths, *active_worktree_paths],
+            additional_read_paths=[*project.additional_read_paths, *default_read_paths, *active_worktree_paths],
             client_resolve=client_resolve_func,
         )
 

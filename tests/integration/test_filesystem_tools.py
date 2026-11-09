@@ -167,6 +167,27 @@ async def test_client_worktree_inventory_authorises_reads_from_active_linked_wor
 
 
 @pytest.mark.anyio
+async def test_linked_worktree_authorises_root_shared_default_paths(runtime):
+    runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
+    from mcp_guide.session import bind_session_project
+    from tests.helpers import create_unbound_test_session
+
+    root = runtime.configuration_service().config_file.parent / "client-roots" / "filesystem-root"
+    linked_worktree = root.parent / "unrelated-directory-name"
+    root.mkdir(parents=True)
+    linked_worktree.mkdir()
+    session = create_unbound_test_session(runtime)
+    await bind_session_project(session, root, worktree=linked_worktree)
+
+    result = await internal_send_directory_listing(
+        SendDirectoryListingArgs(path=str(root / ".todo"), entries=[]), await request_context_for(session)
+    )
+
+    assert result.success
+    assert result.value["path"] == str(root / ".todo")
+
+
+@pytest.mark.anyio
 async def test_working_directory_propagates_worktree_preflight_rejection(runtime):
     runtime.configuration_service().config_file.write_text("projects: {}\nfeature_flags: {}\n")
     session = await create_bound_test_session(runtime, "filesystem-preflight")

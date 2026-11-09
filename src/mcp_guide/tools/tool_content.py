@@ -302,8 +302,10 @@ async def export_content(
         return await tool_result(
             "export_content", await make_no_project_result(), session=session, session_id=args.session_id
         )
+    from mcp_guide.feature_flags.utils import resolve_effective_write_paths
+
     try:
-        destination = _validate_export_path(args.path, project.allowed_write_paths)
+        destination = _validate_export_path(args.path, await resolve_effective_write_paths(session))
     except SecurityError as error:
         return await tool_result(
             "export_content",

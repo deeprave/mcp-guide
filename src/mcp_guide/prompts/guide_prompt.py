@@ -541,8 +541,7 @@ async def _execute_command(
                 error_type=ERROR_VALIDATION,
             )
         if command_path == "worktree/new":
-            known_names = worktree_task.known_worktree_names() if worktree_task is not None else set()
-            kwargs = {**kwargs, "worktree_name": allocate_worktree_name(known_names)}
+            kwargs = {**kwargs, "worktree_name": allocate_worktree_name()}
             if worktree_task is not None:
                 worktree_task.invalidate_inventory()
 

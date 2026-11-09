@@ -130,7 +130,8 @@ class TemplateFunctions:
     @chevron.func
     def documents_path(self) -> str:
         """Render the configured shared working-documents directory."""
-        return self._resolve_project_path(self._resolve_required_path("path.documents"))
+        path = self._resolve_project_path(self._resolve_required_path("path.documents"))
+        return f"{path.rstrip('/')}/"
 
     @chevron.func
     def handoff_context_path(self) -> str:

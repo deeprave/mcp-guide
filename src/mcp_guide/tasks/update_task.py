@@ -149,7 +149,11 @@ class StartupTask:
 
     async def _prompt_handoff_context(self, session: "Session") -> None:
         """Queue rendered handoff guidance for the active project."""
-        from mcp_guide.feature_flags.utils import get_resolved_flag_value, resolve_documents_path
+        from mcp_guide.feature_flags.utils import (
+            get_resolved_flag_value,
+            resolve_documents_path,
+            resolve_effective_write_paths,
+        )
         from mcp_guide.handoff_context import resolve_handoff_context
         from mcp_guide.render.context import TemplateContext
         from mcp_guide.render.rendering import render_content
@@ -162,7 +166,7 @@ class StartupTask:
         resolved = resolve_handoff_context(
             value,
             documents_path=documents_path,
-            allowed_write_paths=project.allowed_write_paths,
+            allowed_write_paths=await resolve_effective_write_paths(session),
         )
         if resolved.target is not None and not resolved.eligible:
             return
