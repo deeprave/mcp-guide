@@ -51,7 +51,7 @@ queue:
 {{#workflow.discussion}}
 {{h3}}Discussion Phase
 - Default when no `{{workflow.file}}` exists - discussion mode
-- Can modify: `{{workflow.file}}`, `openspec/`, `.todo/`
+- Can modify: `{{workflow.file}}`, `openspec/`, `{{documents-path}}`
 - Cannot modify: production code, tests
 {{#workflow.consent.discussion.exit}}
 - {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before transition from discussion phase.
@@ -61,7 +61,7 @@ queue:
 {{#workflow.exploration}}
 {{h3}}Exploration Phase
 - Research-oriented, non-ordered workflow mode
-- Can modify: `{{workflow.file}}`, `openspec/`, `.todo/`
+- Can modify: `{{workflow.file}}`, `openspec/`, `{{documents-path}}`
 - Cannot modify: production code, tests
 - Explore the codebase, documentation, and external references as needed
 - OpenSpec artifacts are allowed; implementation is not
@@ -76,7 +76,7 @@ queue:
 - {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before entering planning phase.
 {{/workflow.consent.planning.entry}}
 - Auto-transition when plan drafted
-- Can modify: `{{workflow.file}}`, `openspec/`, `.todo/`
+- Can modify: `{{workflow.file}}`, `openspec/`, `{{documents-path}}`
 - Cannot modify: production code, tests
 {{#workflow.consent.planning.exit}}
 - {{b}}EXPLICIT CONSENT OR REQUEST REQUIRED{{b}} before transition from planning phase.

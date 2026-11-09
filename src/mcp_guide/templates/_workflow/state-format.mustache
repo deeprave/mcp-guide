@@ -17,6 +17,8 @@ issue: <optional-dash-delimited-current-work-phrase>
 plan: <optional-plan-document-path>
 tracking: <optional-external-tracker-reference>
 description: <optional-description>
+{{#worktree.linked}}worktree: {{worktree.name}}
+{{/worktree.linked}}
 queue:
   - <optional-queued-issue-id>
 ```

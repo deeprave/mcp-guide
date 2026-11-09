@@ -1,0 +1,27 @@
+---
+type: agent/instruction
+description: Report the current client Git worktree inventory
+usage: "guide://_worktree/list"
+requires-handoff-context: true
+requires-worktree-support: true
+---
+Run `git worktree list --porcelain` in the current worktree. Convert its `worktree`
+records into a JSON array of absolute path strings, then send the result through
+`{{tool_prefix}}send_file_content` with the exact opaque path
+`.git-worktrees.json`. Do not create that file in the project.
+
+For example:
+
+```json
+["{{project.root}}", "{{project.root}}_languid-lizard"]
+```
+
+The report is client discovery data. After sending it, request the worktree
+command you intend to use. Guide caches this inventory for one minute; refresh
+it after creating or removing a worktree, or when Guide asks for a fresh report.
+
+{{#kwargs.verbose}}
+For every listed worktree, read its configured workflow file and report the
+observed `worktree`, `phase`, and `issue` values. Treat an unavailable workflow
+file as unavailable state; do not use handoff context as a workflow-state source.
+{{/kwargs.verbose}}

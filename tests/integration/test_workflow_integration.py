@@ -73,3 +73,36 @@ async def test_workflow_file_reply_rejects_invalid_content_without_replacing_cac
     assert response.error == error
     cached = session.task_manager.get_cached_data("workflow_state")
     assert (cached.phase, cached.issue) == ("implementation", "sample")
+
+
+@pytest.mark.anyio
+async def test_linked_worktree_adopts_its_existing_workflow_label_then_rejects_a_change(runtime, tmp_path):
+    templates = tmp_path / "docs" / "_workflow"
+    templates.mkdir(parents=True)
+    (templates / "state-format.mustache").write_text("Workflow received")
+    runtime.configuration_service().config_file.write_text(
+        yaml.safe_dump({"docroot": str(templates.parent), "projects": {}, "feature_flags": {"workflow": True}})
+    )
+    from mcp_guide.session import bind_session_project
+    from tests.helpers import create_unbound_test_session
+
+    session = create_unbound_test_session(runtime)
+    await bind_session_project(session, "/client/project", worktree="/client/project_languid-lizard")
+    response = await internal_send_file_content(
+        SendFileContentArgs(
+            path=".guide.yaml",
+            content="phase: implementation\nworktree: another-worktree\n",
+        ),
+        await request_context_for(session),
+    )
+
+    assert response.success, response.error
+    assert session.worktree_name == "another-worktree"
+
+    changed = await internal_send_file_content(
+        SendFileContentArgs(path=".guide.yaml", content="phase: implementation\nworktree: changed-worktree\n"),
+        await request_context_for(session),
+    )
+
+    assert not changed.success
+    assert changed.error == "Invalid workflow file: worktree must be `another-worktree` for this session"

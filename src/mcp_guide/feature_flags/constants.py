@@ -21,6 +21,7 @@ FLAG_HANDOFF_CONTEXT = "handoff-context"
 
 # Path flags
 FLAG_PATH_DOCUMENTS = "path-documents"
+DEFAULT_DOCUMENTS_PATH = ".todo/"
 # Update flags
 FLAG_AUTOUPDATE = "autoupdate"
 

@@ -15,7 +15,7 @@ Requested Guide URI: `guide://_plan`.
 - Read `{{workflow-file}}` first to understand the current issue and tracking state.
 - Update `{{workflow-file}}` to `phase: planning` when changing phase, then send the complete file using `send_file_content`.
 {{/workflow}}
-- Create or update planning artefacts under `.todo/`.
+- Create or update planning artefacts under `{{documents-path}}`.
 {{#openspec}}
 - Use OpenSpec artefacts instead when the user asks for them.
 {{/openspec}}
@@ -29,5 +29,5 @@ Requested Guide URI: `guide://_plan`.
 {{#openspec}}
 ## OpenSpec Association
 
-Planning should align with the relevant OpenSpec change. Use `openspec-continue-change` to create the next required artefact after a proposal, design, specs, or tasks become ready. Use `openspec-propose` when a complete proposal/design/spec/task bundle is requested. Use `.todo/` for implementation plans derived from approved OpenSpec artefacts.
+Planning should align with the relevant OpenSpec change. Use `openspec-continue-change` to create the next required artefact after a proposal, design, specs, or tasks become ready. Use `openspec-propose` when a complete proposal/design/spec/task bundle is requested. Use `{{documents-path}}` for implementation plans derived from approved OpenSpec artefacts.
 {{/openspec}}

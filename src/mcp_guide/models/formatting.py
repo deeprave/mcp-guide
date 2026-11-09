@@ -77,6 +77,7 @@ async def resolve_all_flags(session: "Session | None") -> dict[str, Any]:
     Returns:
         Resolved flags dictionary, or empty dict if resolution fails
     """
+    from mcp_guide.feature_flags.constants import FLAG_HANDOFF_CONTEXT
     from mcp_guide.feature_flags.resolution import resolve_flag
 
     try:
@@ -96,6 +97,11 @@ async def resolve_all_flags(session: "Session | None") -> dict[str, Any]:
             value = resolve_flag(name, project_flags, global_flags)
             if value is not None:
                 resolved[name] = value
+
+        # Handoff context is intentionally enabled unless explicitly false.
+        # Surface that default to ordinary template conditionals as well as
+        # frontmatter requirement evaluation.
+        resolved.setdefault(FLAG_HANDOFF_CONTEXT, True)
 
         return resolved
     except Exception as e:

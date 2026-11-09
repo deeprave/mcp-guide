@@ -4,6 +4,28 @@ All notable changes to mcp-guide will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- Git worktree support binds each repository worktree to the same Guide project
+  configuration. Each worktree keeps its workflow state in its own checkout,
+  while its handoff context is updated independently under its own worktree
+  entry in the shared context document.
+- Template-language guidance profiles for common Mustache-family, Python, JVM,
+  Go, Rust, JavaScript, PHP, Ruby, and Swift template engines.
+
+### Changed
+- Built-in development guidance now separates reusable best practices from
+  configurable delivery and language policies.
+
+### Fixed
+- Frontmatter preflight rendering preserves the caller context and keeps
+  preflight state isolated between requests.
+- Unbound `read_resource` calls can establish an eligible inherited-PWD
+  project binding without weakening ordinary session requirements.
+- OpenSpec probing and initialisation provide actionable guidance when an
+  enabled project has not yet been initialised.
+- Cross-agent elicitation forms and unavailable category directories are
+  handled reliably.
+
 ## [2.0.0b6] - 2026-11-03
 
 ### Added

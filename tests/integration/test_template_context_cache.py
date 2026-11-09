@@ -50,6 +50,20 @@ async def test_complete_context_contains_real_project_category_and_system(sessio
 
 
 @pytest.mark.anyio
+async def test_worktree_support_requires_a_basename_workflow_file_and_structured_handoff(session):
+    await session.project_flags().set("workflow-file", "/outside/.guide.yaml")
+
+    context = await get_template_contexts(session)
+
+    assert context["worktree-support"] is False
+
+    await session.project_flags().set("workflow-file", ".guide.yaml")
+    context = await get_template_contexts(session)
+
+    assert context["worktree-support"] is True
+
+
+@pytest.mark.anyio
 @pytest.mark.slow
 async def test_unbound_context_does_not_create_or_borrow_a_project(runtime):
     unbound = create_unbound_test_session(runtime)
@@ -281,7 +295,7 @@ async def test_workflow_file_template_value_defaults_without_workflow_enabled(se
     """Workflow-file templates must retain the default path when workflow is disabled."""
     context = await get_template_contexts(session)
 
-    assert context["workflow-file"] == ".guide.yaml"
+    assert context["workflow-file"] == str(session.worktree_path / ".guide.yaml")
 
 
 @pytest.mark.anyio
@@ -292,5 +306,5 @@ async def test_workflow_file_template_value_uses_the_enabled_workflow_override(s
 
     context = await get_template_contexts(session)
 
-    assert context["workflow-file"] == ".workflow.yml"
-    assert context["workflow"]["file"] == ".workflow.yml"
+    assert context["workflow-file"] == str(session.worktree_path / ".workflow.yml")
+    assert context["workflow"]["file"] == str(session.worktree_path / ".workflow.yml")

@@ -236,27 +236,21 @@ Maps to `style/<lang>/*` and `toolchain/<lang>/*` policy patterns.
 **13. MCP client/server state** *(only for positively identified MCP-development projects)*
 When repository inspection positively identifies MCP development, offer the client/server state policy. Explain that it preserves client filesystem authority and explicit session identification in stateless MCP interactions. Apply the `mcp` profile and add `protocol/mcp/client-server-state` to policies when selected. Otherwise skip this dimension silently and do not ask about it.
 
-**14. Handoff context** *(optional)*
-Ask whether the user wants Guide to request that agents keep a current handoff
-context at milestones. Present these options and map them exactly to the
-`handoff-context` project flag:
+**14. Handoff context**
+Handoff context is enabled by default and maintains `context.json` beneath the
+resolved `path-documents` directory. Do not set a flag for that default.
 
-- `disabled` — do not request handoff-context updates for this project. Maps
-  to `handoff-context: false`.
-- `default` — maintain `context.json` beneath the resolved `path-documents`
-  directory. Maps to `handoff-context: true`.
-- `custom` — maintain a named target. A filename is placed beneath
+Only ask if the user wants to change the default:
+
+- `disabled` — set `handoff-context: false` to suppress handoff-context
+  guidance for this project.
+- `custom` — set `handoff-context: <target>`. A filename is placed beneath
   `path-documents`; a path with directories MUST be project-relative. Never
-  accept an absolute or home-relative path. Maps to
-  `handoff-context: <target>`.
+  accept an absolute or home-relative path.
 
-Explain that a project setting overrides a global default. If the user selects
-`disabled`, set the explicit project value so a global enabled value cannot
-re-enable guidance for this project.
-
-For `default` or `custom`, recommend that the selected target is covered by
-`.gitignore`, either explicitly or through a matching pattern, to avoid routine
-handoff updates becoming Git noise.
+Explain that a project setting overrides a global value. For a custom target,
+recommend a matching `.gitignore` pattern to avoid routine handoff updates
+becoming Git noise.
 
 **15. OpenSpec**
 Ask whether the user wants to enable OpenSpec support for spec-driven development.
@@ -277,7 +271,7 @@ Example format:
 > - Methodology: TDD + YAGNI → add `methodology/tdd`, `methodology/yagni` to policies
 > - Testing: Pragmatic → set `testing/pragmatic` in policies
 > - Git operations: Conservative → set `git/ops/conservative` in policies
-> - Handoff context: Default → set `handoff-context: true`
+> - Handoff context: Enabled by default → no flag required
 > - ...
 >
 > Apply these changes? (yes / no / adjust)

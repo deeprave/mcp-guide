@@ -177,7 +177,7 @@ async def send_directory_listing(
 
         # Project identity comes from the request-resolved Session, never an
         # ambient MCP context lookup.
-        project_root = session.bound_root_path
+        project_root = session.worktree_path or session.bound_root_path
         if project_root is None:
             raise ValueError("Project context not available. Call set_project(path) first.")
 
@@ -187,10 +187,15 @@ async def send_directory_listing(
 
             return client_resolve(path, project_root)
 
+        from mcp_guide.worktree_task import WorktreeTask
+
+        worktree_task = session.task_manager.get_task_by_type(WorktreeTask)
+        active_worktree_paths = worktree_task.active_worktree_paths() if worktree_task is not None else set()
+
         # Validate path against security policy
         policy = ReadWriteSecurityPolicy(
             write_allowed_paths=project.allowed_write_paths,
-            additional_read_paths=project.additional_read_paths,
+            additional_read_paths=[*project.additional_read_paths, *active_worktree_paths],
             client_resolve=client_resolve_func,
         )
 
@@ -281,6 +286,8 @@ async def send_command_location(
 
         # Aggregate results
         result = aggregate_event_results(event_results)
+        if not result.success:
+            return result
         if result.value:
             return result
 
@@ -335,6 +342,8 @@ async def send_working_directory(session: Session, working_directory: str) -> "R
 
         # Aggregate results
         result = aggregate_event_results(event_results)
+        if not result.success:
+            return result
         if result.value:
             return result
 

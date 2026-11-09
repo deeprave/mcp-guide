@@ -32,7 +32,6 @@ from mcp_guide.core.prompt_decorator import get_prompt_name, promptfunc
 from mcp_guide.discovery.commands import CommandAliasMetadata, discover_commands, normalise_alias_metadata
 from mcp_guide.discovery.files import FileInfo, discover_document_files
 from mcp_guide.elicitation import resolve_elicitations
-from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.filesystem.read_write_security import SecurityError, normalise_export_destination
 from mcp_guide.input_sources import prepare_form_sources
 from mcp_guide.models import resolve_all_flags
@@ -459,14 +458,18 @@ async def _execute_command(
 
     kwargs = _merge_alias_kwargs(default_kwargs=alias_implied_kwargs, override_kwargs=kwargs)
 
+    if command_path == "worktree/new" and args and "branch" not in kwargs:
+        kwargs = {**kwargs, "branch": args[0]}
+
     if file_info.path.with_suffix("") == commands_dir / "export/add" and len(args) > 1:
         try:
             args = [args[0], normalise_export_destination(args[1]), *args[2:]]
         except SecurityError as error:
             return Result.failure(str(error), error_type=ERROR_SECURITY, disposition=AGENT_ERROR)
 
-    requirements_context: dict[str, FeatureValue] = await resolve_all_flags(session)
+    requirements_context: dict[str, Any] = await resolve_all_flags(session)
     base_context = await get_template_contexts(session)
+    requirements_context = {**dict(base_context), **requirements_context}
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
 
     # Help describes a command without executing it, so it must not request its
@@ -527,6 +530,22 @@ async def _execute_command(
         if openspec_task is not None and (force_refresh or not openspec_task.is_cache_valid()):
             openspec_task.prepare_changes_refresh(force=force_refresh)
 
+    if command_path in {"worktree/new", "worktree/use"}:
+        from mcp_guide.worktree_names import allocate_worktree_name
+        from mcp_guide.worktree_task import WorktreeTask
+
+        worktree_task = session.task_manager.get_task_by_type(WorktreeTask)
+        if worktree_task is not None and not worktree_task.is_inventory_current():
+            return Result.failure(
+                "Run guide://_worktree/list to report a fresh Git worktree inventory before this worktree command.",
+                error_type=ERROR_VALIDATION,
+            )
+        if command_path == "worktree/new":
+            known_names = worktree_task.known_worktree_names() if worktree_task is not None else set()
+            kwargs = {**kwargs, "worktree_name": allocate_worktree_name(known_names)}
+            if worktree_task is not None:
+                worktree_task.invalidate_inventory()
+
     # Refresh the base context after command-specific state changes, then add
     # resolved elicitation keywords for rendering.
     base_context = await get_template_contexts(session)
@@ -575,7 +594,24 @@ async def _execute_command(
         )
 
     if rendered is None:
-        # File filtered by requires-* - treat as not found
+        if command_path.startswith("worktree/"):
+            handoff_context = base_context.get("handoff_context", {})
+            if not isinstance(handoff_context, dict) or not handoff_context.get("eligible"):
+                message = (
+                    "Worktree support requires an enabled handoff-context with a target inside the project's "
+                    "allowed write paths. Set handoff-context to true or configure an eligible JSON/YAML target."
+                )
+            elif handoff_context.get("format") not in {"JSON", "YAML"}:
+                message = (
+                    "Worktree support requires a JSON or YAML handoff context. Change handoff-context to an "
+                    "eligible .json, .yaml, or .yml target, then migrate the shared handoff data to the "
+                    "worktrees.<name> structure."
+                )
+            else:
+                message = "Worktree support requires workflow-file to be a basename, not an absolute or directory path."
+            return Result.failure(message, error_type=ERROR_VALIDATION, disposition=AGENT_ERROR)
+
+        # File filtered by requires-* - treat as not found.
         return Result.failure(
             f"Command '{command_path}' not found",
             error_type=ERROR_NOT_FOUND,

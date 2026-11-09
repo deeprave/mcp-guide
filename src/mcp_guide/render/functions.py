@@ -2,6 +2,8 @@
 
 from collections import ChainMap
 from datetime import datetime, timezone
+from pathlib import Path
+from shlex import quote as shell_quote
 from typing import Any, Awaitable, Callable, cast
 from urllib.parse import quote
 
@@ -117,6 +119,24 @@ class TemplateFunctions:
             raise KeyError(f"Variable not found in context: {var_name}")
         return value
 
+    def _resolve_project_path(self, value: Any) -> str:
+        """Resolve a configured client path against the shared project root."""
+        candidate = Path(str(value))
+        if candidate.is_absolute():
+            return str(candidate)
+        root = self._resolve_required_path("project.root")
+        return str(Path(str(root)) / candidate)
+
+    @chevron.func
+    def documents_path(self) -> str:
+        """Render the configured shared working-documents directory."""
+        return self._resolve_project_path(self._resolve_required_path("path.documents"))
+
+    @chevron.func
+    def handoff_context_path(self) -> str:
+        """Render the configured shared handoff-context file path."""
+        return self._resolve_project_path(self._resolve_required_path("handoff_context.target"))
+
     def _parse_section_leading_var(self, text: str) -> tuple[str, str]:
         """Parse a section body that starts with a variable reference.
 
@@ -169,6 +189,11 @@ class TemplateFunctions:
 
         value = str(self._resolve_required_path(var_name))
         return value[:max_len] + "..." if len(value) > max_len else value
+
+    @chevron.compat
+    async def shell_quote(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:
+        """Shell-quote rendered command arguments."""
+        return shell_quote(await render(text) if render else text)
 
     @chevron.compat
     def highlight_code(self, text: str, render: Callable[[str], Awaitable[str]] | None = None) -> str:

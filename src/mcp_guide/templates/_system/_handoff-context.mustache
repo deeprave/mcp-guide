@@ -1,9 +1,54 @@
 ---
 type: agent/instruction
+includes:
+  - ../_commands/_partials/handoff-context-target
 ---
 {{#handoff_context.target}}
-Keep the current handoff context updated at milestones in `{{handoff_context.target}}` as {{handoff_context.format}}.
+Keep the current handoff context updated at milestones in {{>handoff-context-target}}.
+
+{{#equals}}JSON{{handoff_context.format}}
+The context is a shared JSON object. Keep global top-level sections intact and update only `worktrees.{{worktree.name}}` for this worktree. Root uses `worktrees.root`. A worktree entry may hold its path, issue, phase, plan, task metadata, next steps, milestone, and handoff instructions.
+{{/equals}}
+
+{{#equals}}YAML{{handoff_context.format}}
+The context is a shared YAML mapping. Keep global top-level sections intact and update only `worktrees.{{worktree.name}}` for this worktree. Root uses `worktrees.root`. A worktree entry may hold its path, issue, phase, plan, task metadata, next steps, milestone, and handoff instructions.
+{{/equals}}
+
+{{#equals}}JSON{{handoff_context.format}}
+Because this is a client-side shared file, protect every update with the adjacent lock `{{handoff-context-path}}.lock`:
+
+1. Acquire the lock exclusively. If it already exists and its modification time is less than one minute old, wait and retry; if it is at least one minute old, treat it as inactive and replace it.
+2. Write only `{{worktree.name}}` to the lock after acquiring it.
+3. Reread and validate the current JSON object. Merge only `worktrees.{{worktree.name}}`, retaining every other top-level entry and every other worktree entry.
+4. Atomically replace the context file with the merged JSON, then remove only the lock you acquired.
+{{/equals}}
+
+{{#equals}}YAML{{handoff_context.format}}
+Because this is a client-side shared file, protect every update with the adjacent lock `{{handoff-context-path}}.lock`:
+
+1. Acquire the lock exclusively. If it already exists and its modification time is less than one minute old, wait and retry; if it is at least one minute old, treat it as inactive and replace it.
+2. Write only `{{worktree.name}}` to the lock after acquiring it.
+3. Reread and validate the current YAML mapping. Merge only `worktrees.{{worktree.name}}`, retaining every other top-level entry and every other worktree entry.
+4. Atomically replace the context file with the merged YAML, then remove only the lock you acquired.
+{{/equals}}
+
+{{#notequals}}JSON{{handoff_context.format}}
+{{#notequals}}YAML{{handoff_context.format}}
+This handoff target is not a structured JSON or YAML document, so it cannot carry worktree-specific handoff state.
+{{/notequals}}
+{{/notequals}}
+
+Do not assume Guide can lock or update this client filesystem path itself.
+
+{{#equals}}JSON{{handoff_context.format}}
+Available worktree guidance: {{#resource}}worktree/list{{/resource}},
+{{#resource}}worktree/new{{/resource}}, and {{#resource}}worktree/use{{/resource}}.
+{{/equals}}
+{{#equals}}YAML{{handoff_context.format}}
+Available worktree guidance: {{#resource}}worktree/list{{/resource}},
+{{#resource}}worktree/new{{/resource}}, and {{#resource}}worktree/use{{/resource}}.
+{{/equals}}
 {{/handoff_context.target}}
 {{^handoff_context.target}}
-No handoff context is configured for the current project.
+Handoff context is explicitly disabled for the current project.
 {{/handoff_context.target}}

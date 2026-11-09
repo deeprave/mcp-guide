@@ -36,7 +36,7 @@ Issue: <issue-id or path>
 
 **Allowed in any phase:**
 - Update OpenSpec documentation
-- Update `.todo/` documentation
+- Update configured working-document files
 - Read any files
 
 **Restricted to implementation/check/review phases only:**

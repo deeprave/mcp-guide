@@ -125,9 +125,12 @@ class WorkflowMonitorTask(InitialisableMixin):
                 await self._handle_monitoring_reminder()
                 return EventResult(result=True)
 
-        # Check if the file content is for our workflow file (compare basenames)
+        # Match the configured workflow filename regardless of whether the
+        # client reports its full path or only its basename.  The receiving
+        # Session owns the worktree association.
         path = data.get("path")
-        if isinstance(path, str) and Path(path).name == Path(self.workflow_file_path).name:
+        workflow_basename = Path(self.workflow_file_path).name
+        if isinstance(path, str) and Path(path).name == workflow_basename:
             try:
                 rendered_content = await self._process_workflow_content(data.get("content", ""))
             except WorkflowStateValidationError as error:
@@ -160,6 +163,28 @@ class WorkflowMonitorTask(InitialisableMixin):
             if not new_state:
                 logger.warning("Failed to parse workflow state - not processing changes")
                 return None
+
+            expected_worktree = self._session.worktree_name if self._session is not None else None
+            if expected_worktree is None:
+                raise WorkflowStateValidationError("Invalid workflow file: worktree binding is unavailable")
+            if expected_worktree == "root":
+                if new_state.worktree not in (None, "root"):
+                    raise WorkflowStateValidationError(
+                        f"Invalid workflow file: worktree `{new_state.worktree}` does not match `root`"
+                    )
+            elif new_state.worktree is None:
+                raise WorkflowStateValidationError(
+                    f"Invalid workflow file: worktree must be `{expected_worktree}` for this session"
+                )
+            elif new_state.worktree != expected_worktree:
+                if self.activation is None or self.activation.get_cached_data("workflow_state") is not None:
+                    raise WorkflowStateValidationError(
+                        f"Invalid workflow file: worktree must be `{expected_worktree}` for this session"
+                    )
+                try:
+                    self._session.adopt_worktree_name(new_state.worktree)
+                except ValueError as error:
+                    raise WorkflowStateValidationError(str(error)) from error
 
             configured_phases = await self._configured_phases()
             if new_state.phase not in configured_phases:

@@ -1,6 +1,7 @@
 """Template context cache with session listener for decoupled context management."""
 
 import platform
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
 from packaging.version import InvalidVersion, Version
@@ -12,7 +13,13 @@ if TYPE_CHECKING:
 from mcp_guide import __version__
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo
-from mcp_guide.feature_flags.constants import FLAG_WORKFLOW, FLAG_WORKFLOW_CONSENT, FLAG_WORKFLOW_FILE
+from mcp_guide.feature_flags.constants import (
+    DEFAULT_DOCUMENTS_PATH,
+    FLAG_HANDOFF_CONTEXT,
+    FLAG_WORKFLOW,
+    FLAG_WORKFLOW_CONSENT,
+    FLAG_WORKFLOW_FILE,
+)
 from mcp_guide.feature_flags.types import FeatureValue, to_raw_feature_value
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.result_constants import INSTRUCTION_NO_DISPLAY
@@ -357,19 +364,22 @@ class TemplateContextCache(SessionListener):
         except Exception as e:
             logger.debug(f"Failed to get projects list: {e}")
 
-        # Get client working directory for template context
+        # Code-facing instructions operate in the selected checkout, while the
+        # project root remains available separately for shared identity work.
         client_working_dir = ""
+        project_root = ""
         try:
             from mcp_guide.mcp_context import resolve_project_path
 
             if session is not None:
-                client_working_dir = str(await resolve_project_path(session))
+                project_root = str(await resolve_project_path(session))
+                client_working_dir = str(session.worktree_path or project_root)
         except Exception as e:
             logger.debug(f"Failed to get client working directory: {e}")
 
         # Resolve path flags for template context with validation
         path_config = {
-            "documents": ".todo/",  # Default
+            "documents": DEFAULT_DOCUMENTS_PATH,
         }
         try:
             if session:
@@ -509,6 +519,46 @@ class TemplateContextCache(SessionListener):
         except Exception as e:
             logger.debug(f"Failed to resolve workflow flags: {e}")
 
+        configured_workflow_file = workflow_file
+        configured_workflow_file_flag = resolved_flags_dict.get(FLAG_WORKFLOW_FILE)
+        configured_workflow_file_value = (
+            to_raw_feature_value(configured_workflow_file_flag) if configured_workflow_file_flag is not None else None
+        )
+        if isinstance(configured_workflow_file_value, str) and configured_workflow_file_value:
+            configured_workflow_file = substitute_variables(
+                configured_workflow_file_value,
+                project_name=project.name if project else "",
+                project_key=project.key if project else "",
+                project_hash=project.hash if project else "",
+            )
+        if session and session.worktree_path is not None and not Path(workflow_file).is_absolute():
+            workflow_file = str(session.worktree_path / workflow_file)
+            if workflow_config is not None:
+                workflow_config["file"] = workflow_file
+
+        handoff_context = {"target": "", "format": "", "eligible": False}
+        if session and project and project_root:
+            from mcp_guide.feature_flags.utils import get_resolved_flag_value, resolve_documents_path
+            from mcp_guide.handoff_context import resolve_handoff_context
+
+            resolved_handoff = resolve_handoff_context(
+                await get_resolved_flag_value(session, FLAG_HANDOFF_CONTEXT),
+                documents_path=await resolve_documents_path(session),
+                allowed_write_paths=project.allowed_write_paths,
+            )
+            if resolved_handoff.target is not None:
+                handoff_context = {
+                    "target": str(Path(project_root) / resolved_handoff.target),
+                    "format": resolved_handoff.format or "",
+                    "eligible": resolved_handoff.eligible,
+                }
+
+        worktree_support = bool(
+            handoff_context["eligible"]
+            and handoff_context["format"] in {"JSON", "YAML"}
+            and Path(configured_workflow_file).name == configured_workflow_file
+        )
+
         project_vars = {
             "project": {
                 "name": "",  # Default empty name
@@ -516,11 +566,20 @@ class TemplateContextCache(SessionListener):
                 "collections": [],  # Default empty collections
                 "project_flag_values": [],  # Default empty flags
                 **(project.__dict__ if project else {}),  # Override with actual project data if available
+                "root": project_root,
                 "categories": categories_list,  # Always use our formatted lists
                 "collections": collections_list,
                 "project_flag_values": project_flag_values,
             },
             "client_working_dir": client_working_dir,
+            "worktree": {
+                "path": str(session.worktree_path) if session and session.worktree_path is not None else "",
+                "name": session.worktree_name if session and session.worktree_name is not None else "",
+                "root": bool(session and session.worktree_name == "root"),
+                "linked": bool(session and session.worktree_name not in (None, "root")),
+            },
+            "handoff_context": handoff_context,
+            "worktree-support": worktree_support,
             "path": path_config,  # Document path flags
             "flags": resolved_flags_dict,  # Resolved flags (project + global with overrides)
             "flag_values": resolved_flags_list,  # List format for iteration

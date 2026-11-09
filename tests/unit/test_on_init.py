@@ -29,7 +29,7 @@ async def test_flag_cache_follows_configuration_changes_and_explicit_project(run
     manager = TaskManager(first)
     try:
         initial = await manager.resolved_flags()
-        assert initial == {"example": True}
+        assert initial == {"example": True, "handoff-context": True}
         assert await manager.resolved_flags() is initial
         assert await manager.requires_flag("example")
         assert not await manager.requires_flag("missing")
@@ -38,7 +38,7 @@ async def test_flag_cache_follows_configuration_changes_and_explicit_project(run
         await first.project_flags().set("example", True)
         assert await manager.requires_flag("example")
         await manager.on_project_changed(second, "first", "second")
-        assert await manager.resolved_flags(second) == {"example": False}
+        assert await manager.resolved_flags(second) == {"example": False, "handoff-context": True}
         assert not await manager.requires_flag("example", second)
     finally:
         await manager.cleanup()

@@ -6,7 +6,8 @@ import pytest
 import yaml
 
 from mcp_guide.models import Category
-from mcp_guide.prompts.guide_prompt import guide
+from mcp_guide.prompts.guide_prompt import guide, handle_command
+from mcp_guide.tools.tool_filesystem import SendFileContentArgs, internal_send_file_content
 from tests.helpers import create_bound_test_session, request_context_for
 
 
@@ -100,6 +101,43 @@ async def test_help_reports_rendering_diagnostics(command_project):
     assert result["success"] is False
     assert result["error_type"] == "validation_error"
     assert result["error_data"] == {"errors": ["Frontmatter field 'description': Help configuration is invalid"]}
+
+
+@pytest.mark.anyio
+async def test_worktree_command_reports_incompatible_workflow_file(command_project, runtime):
+    commands, _ = command_project
+    worktree = commands / "worktree"
+    partials = commands / "_partials"
+    worktree.mkdir()
+    partials.mkdir()
+    (partials / "_handoff-target.mustache").write_text("{{handoff_context.target}} ({{handoff_context.format}})")
+    (worktree / "new.mustache").write_text(
+        "---\nrequires-worktree-support: true\nincludes:\n  - ../_partials/handoff-target\n---\nCreate worktree: {{>handoff-target}}"
+    )
+    session = await create_bound_test_session(runtime, "worktree-command")
+    inventory = await internal_send_file_content(
+        SendFileContentArgs(path=".git-worktrees.json", content=json.dumps([str(session.bound_root_path)])),
+        await request_context_for(session),
+    )
+    assert inventory.success
+
+    result = await handle_command("worktree/new", request_context=await request_context_for(session), middleware=[])
+    assert result.success
+    assert f"{session.bound_root_path}/.todo/context.json (JSON)" in result.value
+
+    await session.project_flags().set("workflow-file", "/shared/.guide.yaml")
+    inventory = await internal_send_file_content(
+        SendFileContentArgs(path=".git-worktrees.json", content=json.dumps([str(session.bound_root_path)])),
+        await request_context_for(session),
+    )
+    assert inventory.success
+
+    unavailable = await handle_command(
+        "worktree/new", request_context=await request_context_for(session), middleware=[]
+    )
+    assert not unavailable.success
+    assert unavailable.error_type == "validation_error"
+    assert "workflow-file to be a basename" in unavailable.error
 
 
 @pytest.mark.anyio
