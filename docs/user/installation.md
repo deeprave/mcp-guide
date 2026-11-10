@@ -475,6 +475,9 @@ export MG_LOG_FILE=/var/log/mcp-guide.log
 export MG_LOG_JSON=1
 ```
 
+Every log entry includes the process ID of the Guide server that wrote it. Text entries show it in
+square brackets before the logger name, and JSON entries include it as the integer `pid` field.
+
 ### Server capacity limits
 
 The following optional settings belong at the top level of the server's

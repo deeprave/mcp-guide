@@ -1,14 +1,14 @@
 ---
 type: agent/instruction
 ---
-No project bound. Call `{{tool_prefix}}set_project` with the repository root first.
+No project bound. To bind Guide to this project, call `{{tool_prefix}}set_project` with the repository root.
 
 Find the root:
 - Run `git rev-parse --git-common-dir`.
 - Result is `.git` → root is your current working directory.
-- Result is a path to a `.git` directory (including from a linked worktree) → root is its parent, not the worktree you're in.
+- Result is a path to a `.git` directory → root is its parent.
 - Not a git repository → root is your current working directory.
 
 Then:
 - Pass an absolute path, never the `.git` directory itself.
-- All relative paths the server gives you afterward are relative to this root.
+- If the current Git checkout is a linked worktree, Guide also requires the full path to the worktree root.

@@ -93,6 +93,10 @@ After each invocation, show:
 
 **Artifact Creation Guidelines**
 
+**OpenSpec task scope (mandatory)**
+
+When creating or updating a tasks artifact, every task must describe a change-specific implementation step. Never add standard-practice tasks—such as running tests, linters, type checks, verification, review, or CI—to an OpenSpec change. These activities are normal development hygiene and belong to the project's standard workflow, not to the change checklist. This rule has no exceptions.
+
 The artifact types and their purpose depend on the schema. Use the `instruction` field from the instructions output to understand what to create.
 
 Common artifact patterns:

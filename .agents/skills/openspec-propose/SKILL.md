@@ -94,6 +94,10 @@ After completing all artifacts, summarize:
 
 **Artifact Creation Guidelines**
 
+**OpenSpec task scope (mandatory)**
+
+Every OpenSpec task must describe a change-specific implementation step. Never add standard-practice tasks—such as running tests, linters, type checks, verification, review, or CI—to an OpenSpec change. These activities are normal development hygiene and belong to the project's standard workflow, not to the change checklist. This rule has no exceptions.
+
 - Follow the `instruction` field from `openspec instructions` for each artifact type
 - The schema defines what each artifact should contain - follow it
 - Read dependency artifacts for context before creating new ones
