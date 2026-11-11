@@ -86,6 +86,7 @@ _.discover_document_stored
 _.DocumentTask
 
 # Public compatibility and test-support API
+_.resolve_elicitations  # Direct unit-test seam for elicitation validation and continuation behaviour
 _.to_json_str
 _.clear_registered_tool_servers
 _.task_init

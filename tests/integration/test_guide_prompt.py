@@ -215,7 +215,7 @@ async def test_prompt_command_routes_return_and_resume_declared_input(resource_p
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "Project {{kwargs.mode}}"
+        "{{#elicit.target}}Project {{kwargs.mode}}{{/elicit.target}}"
     )
     context = SimpleNamespace(
         session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),

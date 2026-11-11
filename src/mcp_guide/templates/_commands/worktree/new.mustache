@@ -17,6 +17,7 @@ elicitation:
           type: string
       required: [branch]
 ---
+{{#elicit.branch-name}}
 {{h1}}Create linked worktree
 
 Guide allocated the worktree name `{{kwargs.worktree_name}}`.
@@ -61,3 +62,4 @@ Guide allocated the worktree name `{{kwargs.worktree_name}}`.
    then create a fresh Guide interaction, bind `path: {{project.root}}` and
    `worktree: {{project.root}}_{{kwargs.worktree_name}}`, submit that local
    workflow file, and read its own handoff entry before continuing.
+{{/elicit.branch-name}}

@@ -13,6 +13,7 @@ Use the {{tool_prefix}}category_list_files tool with:
 category: '{{args.0.value}}'
 {{/args.0.value}}
 {{^args.0.value}}
+{{>choose-category}}
 {{#kwargs.name}}
 Use the {{tool_prefix}}category_list_files tool with:
 category: '{{kwargs.name}}'

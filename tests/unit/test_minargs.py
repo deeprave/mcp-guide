@@ -86,7 +86,7 @@ async def test_execute_command_specialises_workflow_phase_choices(cmd_docroot, r
         "          source: workflow-phases\n"
         "      required: [phase]\n"
         "---\n"
-        "Phase={{kwargs.phase}}\n"
+        "{{#elicit.workflow-phase}}Phase={{kwargs.phase}}{{/elicit.workflow-phase}}\n"
     )
     context = SimpleNamespace(
         session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),

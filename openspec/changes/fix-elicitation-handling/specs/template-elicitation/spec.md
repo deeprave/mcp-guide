@@ -54,7 +54,7 @@ The system SHALL support an `elicitation` frontmatter mapping on a selected Guid
 - **WHEN** a command renders an `elicit` section for a declared form whose required properties are unresolved
 - **THEN** Guide SHALL issue the same capability-negotiated MCP input request used for a skill entrypoint
 - **AND** SHALL render the invoked section after values are available
-- **AND** SHALL make accepted values available through `kwargs` and `raw_kwargs` inside the invoked section
+- **AND** SHALL make accepted values available through `kwargs` inside the invoked section
 
 #### Scenario: Uninvoked declaration does not request input
 
@@ -124,6 +124,12 @@ The system SHALL update a request-local form declaration registry as the templat
 - **WHEN** a later rendered partial declares a form identifier already in the request-local registry
 - **THEN** Guide SHALL replace the earlier declaration with the later declaration
 - **AND** a later invocation of that identifier SHALL use the replacement
+
+#### Scenario: Omitted replacement removes prior form state
+
+- **WHEN** a later rendered declaration with an existing form identifier is omitted because its source is unavailable or its value is already supplied
+- **THEN** Guide SHALL remove the earlier declaration and its non-URI form state
+- **AND** an invocation of that identifier SHALL render without eliciting the earlier form
 
 ## REMOVED Requirements
 

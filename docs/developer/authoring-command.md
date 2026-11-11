@@ -103,7 +103,6 @@ Commands have access to these template variables:
 ### Arguments
 - `{{args}}` - Ordered list of positional-argument mappings, each exposing a `value` field; use `{{#args}}{{value}}{{/args}}` to iterate or `{{args.0.value}}` to access an indexed argument
 - `{{kwargs}}` - Clean keyword arguments (without underscore prefix)
-- `{{raw_kwargs}}` - Original kwargs with underscore prefixes
 
 ### Commands List
 - `{{commands}}` - All discovered commands

@@ -125,11 +125,10 @@ Content here...
 - Paths are relative to the origin document
 - Partials must be within the document root (cannot point outside `docroot`)
 
-For an interactive command or selected skill entrypoint, eligible partials named in `includes` also
-contribute composable `elicitation` frontmatter before the entrypoint body renders. A partial can
-therefore provide a form without adding body text; body content still appears only through `{{> name}}`.
-Duplicate form identifiers or input property names across the entrypoint and its contributing partials
-are rejected with an authoring diagnostic that identifies both sources.
+For an interactive command or selected skill entrypoint, an eligible partial named in `includes` can
+declare an `elicitation` form. It becomes available only when the entrypoint renders that partial and
+its body invokes `{{#elicit.<form-name>}}...{{/elicit.<form-name>}}`. A later rendered declaration
+of the same identifier replaces the earlier one for the rest of the request.
 
 ### Template Examples
 

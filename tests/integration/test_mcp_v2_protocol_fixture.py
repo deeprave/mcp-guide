@@ -237,7 +237,7 @@ async def test_command_offers_project_categories_unless_the_value_is_already_sup
         "      required: [name]\n"
         "---\n"
         "{{#args.0.value}}arg:{{args.0.value}}{{/args.0.value}}"
-        "{{^args.0.value}}name:{{kwargs.name}}{{/args.0.value}}",
+        "{{^args.0.value}}{{#elicit.choose}}name:{{kwargs.name}}{{/elicit.choose}}{{/args.0.value}}",
         encoding="utf-8",
     )
     application = create_application(ServerConfig(configdir=str(config_dir), docroot=str(docroot)))
@@ -307,7 +307,7 @@ async def test_registered_mcp_prompt_drives_modern_command_elicitation(tmp_path,
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "Review {{kwargs.mode}}",
+        "{{#elicit.target}}Review {{kwargs.mode}}{{/elicit.target}}",
         encoding="utf-8",
     )
     application = create_application(ServerConfig(configdir=str(config_dir), docroot=str(docroot)))
@@ -364,7 +364,7 @@ async def test_read_resource_drives_frontmatter_declared_skill_elicitation(tmp_p
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "Review {{kwargs.mode}} {{kwargs.reference}}\n",
+        "{{#elicit.review-target}}Review {{kwargs.mode}} {{kwargs.reference}}{{/elicit.review-target}}\n",
         encoding="utf-8",
     )
     application = create_application(ServerConfig(configdir=str(config_dir), docroot=str(docroot)))
@@ -426,7 +426,7 @@ def _create_fallback_skill_application(tmp_path, monkeypatch):
         "          type: boolean\n"
         "      required: [mode]\n"
         "---\n"
-        "{{#kwargs.mode}}Review {{kwargs.mode}}{{/kwargs.mode}}{{^kwargs.mode}}Ask the user for a target{{/kwargs.mode}}\n",
+        "{{#elicit.review-target}}{{#kwargs.mode}}Review {{kwargs.mode}}{{/kwargs.mode}}{{^kwargs.mode}}Ask the user for a target{{/kwargs.mode}}{{/elicit.review-target}}\n",
         encoding="utf-8",
     )
     return create_application(ServerConfig(configdir=str(config_dir), docroot=str(docroot)))

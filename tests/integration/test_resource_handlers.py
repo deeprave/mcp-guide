@@ -59,7 +59,7 @@ async def test_command_resource_returns_and_resumes_declared_mcp_input(resource_
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "Project {{kwargs.mode}}"
+        "{{#elicit.target}}Project {{kwargs.mode}}{{/elicit.target}}"
     )
     context = SimpleNamespace(
         session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
@@ -90,11 +90,86 @@ async def test_command_resource_returns_and_resumes_declared_mcp_input(resource_
 
 
 @pytest.mark.anyio
+async def test_command_requests_only_forms_reached_by_the_rendered_branch(resource_project):
+    """A resumed section may request its next form without preflighting another branch."""
+    resource_project.resolve_document_path("_commands/project/project.mustache").write_text(
+        "---\n"
+        "aliases: ['project']\n"
+        "elicitation:\n"
+        "  mode:\n"
+        "    message: Choose mode.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties: {mode: {type: string}}\n"
+        "      required: [mode]\n"
+        "  branch:\n"
+        "    message: Choose branch.\n"
+        "    when: {mode: branch}\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties: {branch: {type: string}}\n"
+        "      required: [branch]\n"
+        "---\n"
+        "{{#elicit.mode}}{{#equals}}branch{{kwargs.mode}}{{#elicit.branch}}"
+        "Branch {{kwargs.branch}}{{/elicit.branch}}{{/equals}}{{/elicit.mode}}"
+    )
+    session = SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={})))
+    request_context = SimpleNamespace(protocol_version="2026-07-28")
+
+    initial = await guide_command_resource.__wrapped__(
+        "project",
+        request_context=resource_project,
+        request_uri="guide://_project",
+        mcp_context=SimpleNamespace(session=session, request_context=request_context, input_responses=None),
+    )
+    assert isinstance(initial, InputRequiredResult)
+    assert set(initial.input_requests) == {"mode"}
+
+    branch = await guide_command_resource.__wrapped__(
+        "project",
+        request_context=resource_project,
+        request_uri="guide://_project",
+        mcp_context=SimpleNamespace(
+            session=session,
+            request_context=request_context,
+            request_state=initial.request_state,
+            input_responses={"mode": SimpleNamespace(action="accept", content={"mode": "branch"})},
+        ),
+    )
+    assert isinstance(branch, InputRequiredResult)
+    assert set(branch.input_requests) == {"branch"}
+
+    complete = await guide_command_resource.__wrapped__(
+        "project",
+        request_context=resource_project,
+        request_uri="guide://_project",
+        mcp_context=SimpleNamespace(
+            session=session,
+            request_context=request_context,
+            request_state=branch.request_state,
+            input_responses={"branch": SimpleNamespace(action="accept", content={"branch": "feature/example"})},
+        ),
+    )
+    payload = json.loads(complete.contents[0].content)
+    assert payload["success"] is True
+    assert payload["value"] == "Branch feature/example"
+
+    direct = await guide_command_resource.__wrapped__(
+        "project",
+        request_context=resource_project,
+        request_uri="guide://_project?mode=uncommitted",
+        mcp_context=SimpleNamespace(session=session, request_context=request_context, input_responses=None),
+    )
+    payload = json.loads(direct.contents[0].content)
+    assert payload["success"] is True
+
+
+@pytest.mark.anyio
 async def test_command_collects_a_listed_property_only_partial_before_rendering(resource_project):
     """A listed partial can contribute a form without contributing body content."""
     command_dir = resource_project.resolve_document_path("_commands/project")
     (command_dir / "project.mustache").write_text(
-        "---\naliases: ['project']\nincludes: ['input']\n---\nProject {{kwargs.mode}}"
+        "---\naliases: ['project']\nincludes: ['input']\n---\nProject {{>input}}"
     )
     (command_dir / "_input.mustache").write_text(
         "---\n"
@@ -109,7 +184,7 @@ async def test_command_collects_a_listed_property_only_partial_before_rendering(
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "This partial body must stay out of the rendered command."
+        "{{#elicit.target}}{{kwargs.mode}}{{/elicit.target}}"
     )
     context = SimpleNamespace(
         session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
@@ -137,7 +212,7 @@ async def test_command_collects_a_listed_property_only_partial_before_rendering(
 
     assert payload["success"] is True
     assert payload["value"] == "Project branch"
-    assert payload["disposition"] == "agent/instruction"
+    assert payload["disposition"] == "user/information"
 
 
 @pytest.mark.anyio
@@ -145,7 +220,7 @@ async def test_command_partial_elicitation_uses_parent_frontmatter_context(resou
     """A listed partial resolves its form declaration with the parent render context."""
     command_dir = resource_project.resolve_document_path("_commands/project")
     (command_dir / "project.mustache").write_text(
-        "---\naliases: ['project']\ninput-message: Choose a project target.\nincludes: ['input']\n---\nProject"
+        "---\naliases: ['project']\ninput-message: Choose a project target.\nincludes: ['input']\n---\nProject {{>input}}"
     )
     (command_dir / "_input.mustache").write_text(
         "---\n"
@@ -159,6 +234,7 @@ async def test_command_partial_elicitation_uses_parent_frontmatter_context(resou
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
+        "{{#elicit.target}}{{/elicit.target}}"
     )
     context = SimpleNamespace(
         session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
@@ -179,7 +255,7 @@ async def test_command_partial_requirement_uses_the_preflight_context(resource_p
     """A listed partial evaluates requirements with the same context used to load it."""
     command_dir = resource_project.resolve_document_path("_commands/project")
     (command_dir / "project.mustache").write_text(
-        "---\naliases: ['project']\nenable-input: true\nincludes: ['input']\n---\nProject"
+        "---\naliases: ['project']\nenable-input: true\nincludes: ['input']\n---\nProject {{>input}}"
     )
     (command_dir / "_input.mustache").write_text(
         "---\n"
@@ -194,6 +270,7 @@ async def test_command_partial_requirement_uses_the_preflight_context(resource_p
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
+        "{{#elicit.target}}{{/elicit.target}}"
     )
     context = SimpleNamespace(
         session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
@@ -223,7 +300,7 @@ async def test_command_logs_a_missing_listed_partial_without_parent_elicitation(
     payload = json.loads(result.contents[0].content)
 
     assert payload["success"] is True
-    assert any("Partial template not found for interactive properties" in record.message for record in caplog.records)
+    assert any("Partial template not found" in record.message for record in caplog.records)
 
 
 @pytest.mark.anyio
@@ -275,7 +352,7 @@ async def test_listed_rendered_partial_receives_accepted_values(resource_project
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "{{kwargs.mode}}"
+        "{{#elicit.target}}{{kwargs.mode}}{{/elicit.target}}"
     )
 
     pending = await guide_command_resource.__wrapped__(
@@ -319,7 +396,7 @@ async def test_command_template_can_distinguish_a_defaulted_form(resource_projec
         "          default: uncommitted\n"
         "      required: [mode]\n"
         "---\n"
-        "{{#elicitation.defaulted_forms.target}}defaulted {{/elicitation.defaulted_forms.target}}{{kwargs.mode}}"
+        "{{#elicit.target}}{{#elicitation.defaulted_forms.target}}defaulted {{/elicitation.defaulted_forms.target}}{{kwargs.mode}}{{/elicit.target}}"
     )
 
     result = await guide_command_resource.__wrapped__(
@@ -369,15 +446,15 @@ async def test_command_skips_a_listed_partial_excluded_by_requirements(resource_
 
 
 @pytest.mark.anyio
-async def test_command_rejects_colliding_listed_partial_forms_before_requesting_input(resource_project):
-    """Ambiguous properties fail with the source-aware frontmatter diagnostic."""
+async def test_command_uses_the_later_rendered_partial_form_declaration(resource_project, modern_elicitation_context):
+    """A rendered partial replaces an earlier declaration of the same form."""
     command_dir = resource_project.resolve_document_path("_commands/project")
     (command_dir / "project.mustache").write_text(
         "---\n"
         "aliases: ['project']\n"
         "includes: ['input']\n"
         "elicitation:\n"
-        "  parent:\n"
+        "  target:\n"
         "    message: Choose parent value.\n"
         "    schema:\n"
         "      type: object\n"
@@ -386,12 +463,12 @@ async def test_command_rejects_colliding_listed_partial_forms_before_requesting_
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "Project"
+        "Project {{>input}}"
     )
     (command_dir / "_input.mustache").write_text(
         "---\n"
         "elicitation:\n"
-        "  partial:\n"
+        "  target:\n"
         "    message: Choose partial value.\n"
         "    schema:\n"
         "      type: object\n"
@@ -400,22 +477,62 @@ async def test_command_rejects_colliding_listed_partial_forms_before_requesting_
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
+        "{{#elicit.target}}{{kwargs.mode}}{{/elicit.target}}"
     )
-    context = SimpleNamespace(
-        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
-        input_responses=None,
-        request_context=SimpleNamespace(protocol_version="2026-07-28"),
+    pending = await guide_command_resource.__wrapped__(
+        "project",
+        request_context=resource_project,
+        request_uri="guide://_project",
+        mcp_context=modern_elicitation_context(),
+    )
+
+    assert isinstance(pending, InputRequiredResult)
+    assert pending.input_requests["target"].params.message == "Choose partial value."
+
+
+@pytest.mark.anyio
+async def test_command_omits_an_earlier_form_replaced_by_a_supplied_source(
+    resource_project, modern_elicitation_context
+):
+    """An omitted later declaration removes the earlier form with its name."""
+    command_dir = resource_project.resolve_document_path("_commands/project")
+    (command_dir / "project.mustache").write_text(
+        "---\n"
+        "aliases: ['project']\n"
+        "includes: ['input']\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Choose parent value.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties: {branch: {type: string}}\n"
+        "      required: [branch]\n"
+        "---\n"
+        "Project {{>input}}"
+    )
+    (command_dir / "_input.mustache").write_text(
+        "---\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Choose category.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties: {category: {type: string, source: project-categories}}\n"
+        "      required: [category]\n"
+        "---\n"
+        "{{#elicit.target}}Category {{kwargs.category}}{{/elicit.target}}"
     )
 
     result = await guide_command_resource.__wrapped__(
-        "project", request_context=resource_project, request_uri="guide://_project", mcp_context=context
+        "project",
+        request_context=resource_project,
+        request_uri="guide://_project?category=docs",
+        mcp_context=modern_elicitation_context(),
     )
     payload = json.loads(result.contents[0].content)
 
-    assert payload["success"] is False
-    assert "mode" in payload["error"]
-    assert "project.mustache" in payload["error"]
-    assert "_input" in payload["error"]
+    assert payload["success"] is True
+    assert payload["value"] == "Project Category docs"
 
 
 @pytest.mark.anyio
@@ -552,8 +669,8 @@ async def test_skill_frontmatter_requests_a_standard_mcp_selection(resource_proj
 
 
 @pytest.mark.anyio
-async def test_skill_collects_a_listed_property_only_partial_before_rendering(resource_project):
-    """A skill uses the same property-only partial preflight as commands."""
+async def test_skill_resolves_a_form_invoked_by_a_rendered_partial(resource_project):
+    """A skill resolves a partial form only when that partial renders."""
     skill_dir = resource_project.resolve_document_path("_skills/workflow-status")
     (skill_dir / "SKILL.md.mustache").write_text(
         "---\n"
@@ -562,7 +679,7 @@ async def test_skill_collects_a_listed_property_only_partial_before_rendering(re
         "usage: Use when the user asks for the current Guide workflow or OpenSpec status.\n"
         "includes: ['input']\n"
         "---\n"
-        "Mode={{kwargs.mode}}"
+        "{{>input}}"
     )
     (skill_dir / "_input.mustache").write_text(
         "---\n"
@@ -576,7 +693,7 @@ async def test_skill_collects_a_listed_property_only_partial_before_rendering(re
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "This partial body must stay out of the rendered skill."
+        "{{#elicit.mode}}Mode={{kwargs.mode}}{{/elicit.mode}}"
     )
     context = SimpleNamespace(
         session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),

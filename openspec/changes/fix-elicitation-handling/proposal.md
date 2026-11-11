@@ -22,6 +22,7 @@ None.
 
 - `template-elicitation`: Select and resolve declared forms only when a rendered template invokes them.
 - `template-rendering`: Preserve render-path ordering while allowing a section extension to suspend for elicitation and resume with values.
+- `guide-url-skills`: Expose parsed URI keywords through the single public `kwargs` template mapping.
 
 ## Impact
 

@@ -39,6 +39,7 @@ the complete updated file using {{tool_prefix}}send_file_content with path
 {{/workflow.notcontains}}
 {{/args.0.value}}
 {{^args.0.value}}
+{{#elicit.workflow-phase}}
 {{#kwargs.phase}}
 {{#equals}}{{workflow.phase}}{{kwargs.phase}}
 `{{kwargs.phase}}` is already the active phase. Leave `{{workflow.file}}` unchanged.
@@ -67,5 +68,6 @@ Ask the user to select one enabled phase other than the current phase, then reru
 {{/notequals}}
 {{/workflow.phase_list}}
 {{/kwargs.phase}}
+{{/elicit.workflow-phase}}
 {{/args.0.value}}
 {{>phase-transitions}}

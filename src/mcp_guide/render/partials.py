@@ -3,16 +3,14 @@
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from anyio import Path as AsyncPath
 
 from mcp_guide.content_limits import DEFAULT_MAX_CONTENT_LIMIT, ensure_within_limit
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.lazy_path import LazyPath
-
-if TYPE_CHECKING:
-    from mcp_guide.render.frontmatter import Frontmatter
+from mcp_guide.render.frontmatter_types import Frontmatter
 
 logger = get_logger(__name__)
 
@@ -121,12 +119,9 @@ async def load_partial_content(
             )
 
         if processed is None:
-            # Requirements not met - return empty content with empty frontmatter
+            # Requirements not met - make the partial invisible to every consumer.
             logger.debug(f"Partial {partial_path} skipped due to unmet frontmatter requirements")
-            from mcp_guide.render.frontmatter import parse_content_with_frontmatter
-
-            parsed = parse_content_with_frontmatter(content)
-            return ("", parsed.frontmatter, [])
+            return ("", Frontmatter(), [])
 
         logger.trace(f"Successfully loaded partial content ({len(processed.content)} chars): {final_path}")
         # Return content and frontmatter

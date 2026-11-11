@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import FileInfo, discover_document_files
+from mcp_guide.elicitation import ElicitationInterrupted
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
@@ -13,6 +14,7 @@ from mcp_guide.render.document_properties import DocumentContribution
 from mcp_guide.render.template import render_template
 
 if TYPE_CHECKING:
+    from mcp_guide.elicitation import ElicitationRuntime
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
@@ -68,6 +70,7 @@ async def render_content(
     ] = None,
     *,
     resolver: Callable[[str | Path], Path] | None = None,
+    elicitation_runtime: "ElicitationRuntime | None" = None,
 ) -> RenderedContent | None:
     """Render template from the category directory matching pattern.
 
@@ -124,12 +127,16 @@ async def render_content(
             pre_partials=pre_partials or None,
             pre_partial_contributions=pre_partial_contributions or None,
             resolver=resolver,
+            elicitation_runtime=elicitation_runtime,
         )
     except (FileNotFoundError, PermissionError, UnicodeDecodeError) as e:
         logger.error(f"Failed to read {display_name} template {pattern}: {e}")
         return None
     except RuntimeError:
         # A template error is an invalid authored document, not an unavailable one.
+        raise
+    except ElicitationInterrupted:
+        # Interactive entrypoints return the protocol result that paused rendering.
         raise
     except Exception:
         # Broad catch is intentional - gracefully handle any rendering errors

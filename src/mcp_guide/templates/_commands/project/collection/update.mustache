@@ -23,6 +23,7 @@ remove_categories: {{kwargs.remove_categories}}
 {{/kwargs.remove_categories}}
 {{/args.0.value}}
 {{^args.0.value}}
+{{>choose-collection}}
 {{#kwargs.name}}
 Use the {{tool_prefix}}category_collection_update tool with:
 type: 'collection'

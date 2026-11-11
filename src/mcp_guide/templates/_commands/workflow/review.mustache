@@ -45,6 +45,7 @@ elicitation:
           minimum: 1
       required: [pull_request_number]
 ---
+{{#elicit.review-target}}
 {{h1}}Code Review
 
 {{h2}}Review target
@@ -61,7 +62,14 @@ Review the current branch against the repository default branch.
 Review branch `{{kwargs.branch}}` against the repository default branch.
 {{/kwargs.branch}}
 {{^kwargs.branch}}
-Ask for the branch name, then review that branch against the repository default branch. Do not start the review until the branch is named.
+{{#elicit.branch-name}}
+{{#kwargs.branch}}
+Review branch `{{kwargs.branch}}` against the repository default branch.
+{{/kwargs.branch}}
+{{^kwargs.branch}}
+Ask the user for the branch to review. Do not begin the review until it is provided.
+{{/kwargs.branch}}
+{{/elicit.branch-name}}
 {{/kwargs.branch}}
 {{/equals}}
 {{#equals}}pull-request{{kwargs.mode}}
@@ -69,7 +77,14 @@ Ask for the branch name, then review that branch against the repository default 
 Review pull request `#{{kwargs.pull_request_number}}` in this repository.
 {{/kwargs.pull_request_number}}
 {{^kwargs.pull_request_number}}
-Ask for the pull-request number in this repository. Do not start the review until the number is given.
+{{#elicit.pull-request-number}}
+{{#kwargs.pull_request_number}}
+Review pull request `#{{kwargs.pull_request_number}}` in this repository.
+{{/kwargs.pull_request_number}}
+{{^kwargs.pull_request_number}}
+Ask the user for the pull-request number to review. Do not begin the review until it is provided.
+{{/kwargs.pull_request_number}}
+{{/elicit.pull-request-number}}
 {{/kwargs.pull_request_number}}
 {{/equals}}
 {{#notequals}}uncommitted{{kwargs.mode}}
@@ -125,3 +140,4 @@ You MUST transition to REVIEW phase and read `{{workflow.file}}` to understand t
 {{>client-info}}
 {{/agent.class}}
 {{/workflow}}
+{{/elicit.review-target}}

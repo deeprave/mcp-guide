@@ -79,16 +79,6 @@ class WorktreeTask:
         age = (time.time() if now is None else now) - observed_at
         return 0 <= age <= WORKTREE_INVENTORY_TTL_SECONDS
 
-    def invalidate_inventory(self) -> None:
-        """Discard a snapshot after issuing worktree-changing guidance."""
-        if self.activation is None:
-            return
-        self.activation.set_cached_data("worktree_inventory", None)
-        self.activation.set_cached_data("worktree_inventory_observed_at", None)
-        template_cache = getattr(self.activation.session, "template_cache", None)
-        if template_cache is not None:
-            template_cache.invalidate()
-
     async def on_tool(self) -> None:
         pass
 
