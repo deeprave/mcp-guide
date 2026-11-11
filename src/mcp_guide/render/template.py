@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional
 
@@ -17,122 +16,17 @@ from mcp_guide.models import CategoryNotFoundError, ExpressionParseError
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.content import FM_INCLUDES, FM_REQUIRES_PREFIX, RenderedContent
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.render.document_properties import DocumentContribution, DocumentElicitation, DocumentProperties
-from mcp_guide.render.frontmatter import (
-    check_frontmatter_requirements,
-    get_frontmatter_includes,
-    process_frontmatter,
-)
-from mcp_guide.render.partials import (
-    PartialNotFoundError,
-    UnsafePartialPathError,
-    declared_partial_path,
-    load_partial_content,
-)
+from mcp_guide.render.document_properties import DocumentContribution
 from mcp_guide.render.recommendations import Recommendation
 from mcp_guide.render.renderer import is_template_file, render_template_content
+
+if TYPE_CHECKING:
+    from mcp_guide.elicitation import ElicitationRuntime
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
 
 logger = get_logger(__name__)
-
-
-@dataclass(frozen=True)
-class InteractiveDocumentProperties:
-    """Pre-render forms collected from the entrypoint and eligible declared partials."""
-
-    elicitation: DocumentElicitation
-    errors: list[str] = field(default_factory=list)
-
-
-def _document_source_path(path: Path, resolver: Callable[[str | Path], Path]) -> str:
-    """Return a document-root-relative source label safe for client diagnostics."""
-    try:
-        return path.relative_to(resolver(".")).as_posix()
-    except ValueError as error:
-        raise ValueError(f"Interactive document source is outside the document root: {path}") from error
-
-
-async def collect_interactive_document_properties(
-    file_info: FileInfo,
-    *,
-    project_flags: dict[str, Any],
-    context: TemplateContext | None,
-    resolver: Callable[[str | Path], Path],
-    max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
-) -> InteractiveDocumentProperties | None:
-    """Collect an entrypoint's eligible elicitation declarations before rendering.
-
-    This intentionally follows only the parent frontmatter's declared includes.
-    It does not affect ordinary partial interpolation or output properties.
-    """
-    raw_content = await file_info.read_raw(max_bytes=max_content_limit)
-    processed = await process_frontmatter(
-        raw_content,
-        project_flags,
-        context,
-        rendered_fields=("elicitation",),
-    )
-    if processed is None:
-        return None
-    if processed.errors:
-        return InteractiveDocumentProperties(DocumentElicitation(), processed.errors)
-
-    preflight_frontmatter = processed.frontmatter
-
-    parent_properties = DocumentProperties.from_frontmatter(
-        preflight_frontmatter,
-        source=_document_source_path(file_info.path, resolver),
-    )
-    parent_variables = {
-        key: value
-        for key, value in preflight_frontmatter.items()
-        if not key.startswith(FM_REQUIRES_PREFIX) and key != FM_INCLUDES
-    }
-    partial_context = context.new_child(parent_variables) if context is not None else TemplateContext(parent_variables)
-    partial_property_sets: list[DocumentProperties] = []
-    requirements_context = {**dict(partial_context), **project_flags}
-    includes = get_frontmatter_includes(dict(preflight_frontmatter))
-    if FM_INCLUDES in preflight_frontmatter and includes is None:
-        logger.warning("Ignoring malformed includes declaration for interactive properties: %s", file_info.path)
-    for include_path in includes or []:
-        partial_path = declared_partial_path(include_path)
-        try:
-            _, partial_frontmatter, partial_errors = await load_partial_content(
-                partial_path,
-                file_info.path.parent,
-                requirements_context,
-                resolver=resolver,
-                max_content_limit=max_content_limit,
-                rendered_fields=("elicitation",),
-            )
-        except PartialNotFoundError as error:
-            logger.error("Partial template not found for interactive properties: %s - %s", include_path, error)
-            continue
-        except (OSError, PermissionError) as error:
-            logger.error("Failed to read interactive partial %s: %s", include_path, error)
-            continue
-        except UnsafePartialPathError as error:
-            logger.warning("Unsafe interactive partial reference omitted: %s", error)
-            continue
-        except ValueError as error:
-            logger.error("Invalid interactive partial path %s: %s", include_path, error)
-            continue
-        if not partial_frontmatter:
-            continue
-        if partial_errors:
-            return InteractiveDocumentProperties(DocumentElicitation(), partial_errors)
-        if not check_frontmatter_requirements(partial_frontmatter, requirements_context):
-            continue
-        partial_property_sets.append(
-            DocumentProperties.from_frontmatter(
-                partial_frontmatter,
-                source=_document_source_path(file_info.path.parent / partial_path, resolver),
-            )
-        )
-    properties = DocumentProperties.combine((parent_properties, *partial_property_sets))
-    return InteractiveDocumentProperties(elicitation=properties.elicitation)
 
 
 async def _recommendation_footnotes(
@@ -205,6 +99,7 @@ async def render_template(
     pre_partial_contributions: Optional[Dict[str, list[DocumentContribution]]] = None,
     resolver: Callable[[str | Path], Path] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
+    elicitation_runtime: "ElicitationRuntime | None" = None,
 ) -> Optional[RenderedContent]:
     """Render a template file with frontmatter and context.
 
@@ -269,6 +164,7 @@ async def render_template(
             pre_rendered_partial_contributions=pre_partial_contributions,
             frontmatter_errors=processed.errors,
             max_content_limit=max_content_limit,
+            elicitation_runtime=elicitation_runtime,
         )
         if not result.success:
             raise RuntimeError(f"Template rendering failed: {result.error}")
@@ -277,6 +173,13 @@ async def render_template(
         rendered_content = rendered_result.content
         partial_contributions = rendered_result.partial_contributions
         template_errors = rendered_result.errors
+        if elicitation_runtime is not None:
+            # A resumed or fallback form can change kwargs while the body renders.
+            # Re-render delivery metadata so it observes the same resolved context.
+            refreshed = await process_frontmatter(content, project_flags, final_context)
+            assert refreshed is not None, "A template accepted before rendering cannot become requirement-filtered"
+            processed = refreshed
+            template_errors = list(dict.fromkeys([*template_errors, *refreshed.errors]))
     else:
         rendered_content = processed.content
         partial_contributions = []

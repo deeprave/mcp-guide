@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Awaitable, Callable, Dict, Mapping, Optional, TypeVar
 
 import chevron
 from chevron import ChevronError
@@ -10,6 +10,7 @@ from chevron import ChevronError
 from mcp_guide.content_limits import DEFAULT_MAX_CONTENT_LIMIT, ensure_within_limit
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
+from mcp_guide.elicitation import ElicitationInterrupted, ElicitationRuntime
 from mcp_guide.render.bindings import build_template_bindings
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.document_properties import DocumentContribution, DocumentProperties
@@ -43,22 +44,28 @@ class TemplateRenderResult:
 class _TrackingDict(Dict[str, _VT]):
     """Dict subclass that records which keys were accessed (for chevron partial tracking)."""
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, on_access: Callable[[str], None] | None = None, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.accessed: dict[str, None] = {}
+        self._on_access = on_access
+
+    def _record_access(self, key: str) -> None:
+        self.accessed[key] = None
+        if self._on_access is not None:
+            self._on_access(key)
 
     def __getitem__(self, key: str) -> _VT:
-        self.accessed[key] = None
+        self._record_access(key)
         return super().__getitem__(key)
 
     def get(self, key: object, default: Any = None) -> Any:
         if isinstance(key, str):
-            self.accessed[key] = None
+            self._record_access(key)
         return super().get(key, default)
 
     def __contains__(self, key: object) -> bool:
         if isinstance(key, str):
-            self.accessed[key] = None
+            self._record_access(key)
         return super().__contains__(key)
 
 
@@ -88,6 +95,7 @@ async def render_template_content(
     recommendation_footnotes: Callable[[list["Recommendation"]], Awaitable[str]] | None = None,
     frontmatter_errors: list[str] | None = None,
     max_content_limit: int = DEFAULT_MAX_CONTENT_LIMIT,
+    elicitation_runtime: ElicitationRuntime | None = None,
 ) -> Result[TemplateRenderResult]:
     """Render template content with context.
 
@@ -112,6 +120,7 @@ async def render_template_content(
             name: list(contributions) for name, contributions in (pre_rendered_partial_contributions or {}).items()
         }
         errors = list(frontmatter_errors or [])
+        partial_frontmatter_by_name: dict[str, Mapping[str, Any]] = {}
 
         if metadata:
             # Add frontmatter data to context
@@ -147,6 +156,7 @@ async def render_template_content(
                                 )
 
                             processed_partials[partial_name] = partial_content
+                            partial_frontmatter_by_name[partial_name] = partial_frontmatter
                             # Track frontmatter for partials that have content
                             if partial_frontmatter and partial_content:
                                 properties = DocumentProperties.from_frontmatter(partial_frontmatter)
@@ -171,14 +181,40 @@ async def render_template_content(
         # Apply transient function if provided
         final_context = transient_fn(render_context) if transient_fn else render_context
 
+        if elicitation_runtime is not None:
+            continuation_error = elicitation_runtime.prepare_continuation()
+            if continuation_error is not None:
+                return continuation_error
+            elicitation_runtime.register_forms((metadata or {}).get("elicitation"), final_context)
+
         bindings = build_template_bindings(
             final_context,
             file_path,
             recommendations_enabled=recommendation_footnotes is not None,
         )
 
-        # Use a tracking dict so we know which partials chevron actually renders
-        tracking_partials: _TrackingDict[str] = _TrackingDict(processed_partials)
+        if elicitation_runtime is not None:
+            from chevron.tokenizer import tokenize
+
+            form_names = {
+                token[1].removeprefix("elicit.")
+                for source in (content, *processed_partials.values())
+                for token in tokenize(source)
+                if token[0] == "section" and token[1].startswith("elicit.")
+            }
+            bindings.lambdas.update({f"elicit.{name}": elicitation_runtime.lambda_for(name) for name in form_names})
+
+        def register_partial_forms(name: str) -> None:
+            if elicitation_runtime is None:
+                return
+            elicitation_runtime.register_forms(
+                partial_frontmatter_by_name.get(name, {}).get("elicitation"), final_context
+            )
+
+        # Use a tracking dict so we know which partials Chevron actually renders.
+        # Registering forms at access time makes declaration precedence follow
+        # Mustache rendering order rather than the parent include list.
+        tracking_partials: _TrackingDict[str] = _TrackingDict(processed_partials, on_access=register_partial_forms)
 
         # Render template with Chevron (TemplateContext works as ChainMap)
         logger.trace(f"Rendering template {file_path} with partials: {list(processed_partials.keys())}")
@@ -208,6 +244,8 @@ async def render_template_content(
 
         return Result.ok(TemplateRenderResult(rendered, partial_contributions, [*errors, *bindings.functions.errors]))
 
+    except ElicitationInterrupted:
+        raise
     except ChevronError as e:
         # Enhanced Chevron-specific error handling with line context
         error_msg = str(e)

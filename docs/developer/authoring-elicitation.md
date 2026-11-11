@@ -1,9 +1,9 @@
 # Elicitation Authoring Guide
 
 Elicitation lets an interactive Guide entrypoint ask a connected MCP client for the values it
-needs before Guide renders the entrypoint. It is shared by command and skill entrypoints: define a
-form once in frontmatter and the same resolver handles URI values, modern multi-round input, and
-legacy sequential input.
+needs at the point its template section renders. It is shared by command and skill entrypoints:
+declare a form in frontmatter, invoke it from the body, and the same resolver handles URI values,
+modern multi-round input, and legacy sequential input.
 
 Use this guide with [Command Authoring](authoring-command.md) or
 [Skills Authoring](authoring-skills.md). It describes only the shared input contract.
@@ -11,18 +11,17 @@ Use this guide with [Command Authoring](authoring-command.md) or
 ## Where elicitation applies
 
 Declare `elicitation` only on an interactive command or the selected `SKILL.md` entrypoint.
-Guide resolves it before rendering the body. A command supports native command resources,
+Guide resolves a form only when its `elicit.<form-name>` section renders. A command supports native command resources,
 `guide://_command` resource reads, and underscore, colon, and semicolon prompt routes. A skill
 supports its selected `guide://$skill-name` entrypoint.
 
-Ordinary documents and non-entrypoint skill members do not elicit. An entrypoint may also compose
-forms from partials explicitly named by its `includes` frontmatter. A listed partial may contribute
-frontmatter-only forms; its body still appears only when the entrypoint renders the normal Mustache
-partial. `requires-*` is evaluated before a partial contributes its forms.
+Ordinary documents and non-entrypoint skill members do not elicit. An entrypoint may compose a form
+from a partial listed in `includes`, but the partial declaration becomes available only when normal
+Mustache rendering reaches `{{> partial}}`. `requires-*` is evaluated before that partial is loaded.
 
-Form identifiers and field names must be unique across the effective entrypoint and its contributing
-partials. Invalid frontmatter, duplicate identifiers or fields, self-references, and conditional
-cycles are authoring errors.
+Invalid frontmatter is an authoring error. A later rendered declaration with the same form identifier
+replaces the earlier declaration for the rest of that request; include-list order and unrendered
+partials have no effect.
 
 ## Form declaration
 
@@ -42,6 +41,17 @@ elicitation:
           description: Review target type.
       required: [mode]
 ```
+
+Declare a form in frontmatter, then invoke it explicitly around the instructions that need its values:
+
+```mustache
+{{#elicit.review-target}}
+Reviewing `{{kwargs.mode}}`.
+{{/elicit.review-target}}
+```
+
+The lambda renders only its enclosed section after the form resolves. A false Mustache branch never
+invokes its form. Reusing a form section in the same request reuses its accepted values.
 
 Supported property types are `string`, `integer`, `number`, and `boolean`. `enum` values and
 defaults must use the declared primitive type. `required` must name properties in that same form.
@@ -78,14 +88,15 @@ elicitation:
 ```
 
 A form is omitted, rather than requested, when a positional argument or keyword already supplies its
-value, or when its source has no choices (for example a project without collections). The command or
-skill then applies its own validation, so a missing name is reported as it would be without a form.
+value, or when its source has no choices (for example a project without collections). Its section
+renders without form values, so the command or skill then applies its own validation and reports a
+missing name as it would be without a form.
 An unrecognised `source` is logged and its marker removed; a static `enum` declared on the same
 property is still sent to the client, so omit it if the property should be free text.
 
 Shipped commands share the `_partials/_choose-category` and `_partials/_choose-collection` partials.
-Because a partial's form identifier and field names must be unique within an entrypoint, those forms
-use the field `name`; a command lists the partial in `includes` and reads the answer from
+Those partials invoke their own forms when rendered. A command lists the partial in `includes`,
+renders it with `{{> choose-category}}` or `{{> choose-collection}}`, and reads the answer from
 `kwargs.name` when no positional argument was supplied:
 
 ```mustache
@@ -198,12 +209,10 @@ elicitation:
 
 `when` matches only when **every** condition matches. Values are compared after the supplying
 field has been normalised to its declared primitive type. A condition that does not match makes the
-form inapplicable. A condition whose value is not yet known makes the branch unresolved; Guide
-first asks for the form that supplies that value, even if the supplier has no required fields.
-
-Guide re-evaluates branches after each accepted answer, default, and cancellation. This supports
-multi-step flows without asking for a branch that no longer applies. A form cannot depend on itself
-or participate in a dependency cycle.
+form inapplicable. A condition whose value is not yet known is an authoring error at that section:
+invoke the supplying form in an earlier rendered section. Guide re-evaluates the current section
+after each accepted answer, default, and cancellation. This supports multi-step flows without asking
+for a branch that does not render.
 
 For an AND match, add more keys:
 
@@ -222,8 +231,8 @@ different:
 
 | Connection | Behaviour |
 | --- | --- |
-| Legacy MCP | Guide uses the legacy sequential elicitation request path and asks only the forms currently applicable. |
-| MCP 2026-07-28 | Guide returns an `input_required` result containing the currently applicable forms. The client sends accepted responses on a later request. |
+| Legacy MCP | Guide uses the legacy sequential elicitation request path for the rendered form. |
+| MCP 2026-07-28 | Guide returns an `input_required` result for the rendered form. The client sends its answer on a later request. |
 
 For the modern protocol, continuation state retains accepted values, completed forms, requested
 forms, the originating entrypoint, the original URI keywords, and command positional arguments.
@@ -264,5 +273,5 @@ Mustache keyword paths for the entrypoint type, for example:
 Reviewing {{kwargs.mode}} {{kwargs.reference}}
 ```
 
-The resolver never infers a form from an entrypoint name. It uses only the effective `elicitation`
-frontmatter declared by the selected interactive entrypoint and its eligible partials.
+The resolver never infers a form from an entrypoint name. It uses only a declared form invoked by an
+`elicit.<form-name>` section in the selected interactive entrypoint or a rendered eligible partial.

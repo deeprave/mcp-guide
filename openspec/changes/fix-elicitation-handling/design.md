@@ -19,7 +19,7 @@ See proposal.md. The current command and skill paths collect form declarations f
 
 ### Rendered `elicit` section selects a declaration
 
-Add an asynchronous `elicit` section extension to the per-render template extension registry. Its body names a form declared by the active template or rendered partial. Only reaching the section invokes its form. The extension awaits normal MCP form resolution, then renders its enclosed source with accepted values layered into the normal `kwargs` and `raw_kwargs` context.
+Add an asynchronous `elicit` section extension to the per-render template extension registry. Its body names a form declared by the active template or rendered partial. Only reaching the section invokes its form. The extension awaits normal MCP form resolution, then renders its enclosed source with accepted values layered into the normal `kwargs` context.
 
 This keeps the form declaration structural and reusable while making invocation ordinary template control flow. It replaces eager include-tree scanning, which cannot know which Mustache branch will render.
 

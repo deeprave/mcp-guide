@@ -31,15 +31,13 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.prompt_decorator import get_prompt_name, promptfunc
 from mcp_guide.discovery.commands import CommandAliasMetadata, discover_commands, normalise_alias_metadata
 from mcp_guide.discovery.files import FileInfo, discover_document_files
-from mcp_guide.elicitation import resolve_elicitations
+from mcp_guide.elicitation import ElicitationInterrupted, ElicitationRuntime
 from mcp_guide.filesystem.read_write_security import SecurityError, normalise_export_destination
-from mcp_guide.input_sources import prepare_form_sources
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render import render_template
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext, keyword_context
-from mcp_guide.render.template import collect_interactive_document_properties
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     AGENT_ERROR,
@@ -479,49 +477,6 @@ async def _execute_command(
     if await _is_help_command(command_path, request_context) and args:
         return await get_command_help(session, command_context, commands_dir, request_context.resolve_document_path)
 
-    # Resolve feature requirements before pre-render input collection so an
-    # excluded entrypoint or partial cannot request input.
-    interactive_properties = None
-    if "elicitation" in frontmatter or "includes" in frontmatter:
-        try:
-            interactive_properties = await collect_interactive_document_properties(
-                file_info,
-                project_flags=requirements_context,
-                context=command_context,
-                resolver=request_context.get_docroot_resolver(),
-            )
-        except (OSError, ValueError) as error:
-            return Result.failure(
-                f"Command preflight failed: {error}", error_type=ERROR_FILE_ERROR, disposition=AGENT_ERROR
-            )
-    if interactive_properties is not None:
-        if interactive_properties.errors:
-            return Result.failure(
-                "\n".join(interactive_properties.errors), error_type=ERROR_VALIDATION, disposition=AGENT_ERROR
-            )
-        if interactive_properties.elicitation.diagnostic:
-            return Result.failure(interactive_properties.elicitation.diagnostic, error_type=ERROR_VALIDATION)
-        try:
-            entrypoint_path = file_info.path.relative_to(commands_dir).as_posix()
-        except ValueError:
-            return Result.failure(
-                "Command preflight failed: command source is outside the commands directory.",
-                error_type=ERROR_FILE_ERROR,
-                disposition=AGENT_ERROR,
-            )
-        forms = interactive_properties.elicitation.forms
-        forms = prepare_form_sources(forms, command_context, args, kwargs)
-        resolved_kwargs = await resolve_elicitations(
-            {"elicitation": forms},
-            kwargs,
-            mcp_context,
-            entrypoint=f"command:{entrypoint_path}",
-            args=args,
-        )
-        if isinstance(resolved_kwargs, (Result, InputRequiredResult)):
-            return resolved_kwargs
-        kwargs = resolved_kwargs
-
     if command_path == "openspec/list":
         from mcp_guide.openspec.task import OpenSpecTask
 
@@ -530,6 +485,7 @@ async def _execute_command(
         if openspec_task is not None and (force_refresh or not openspec_task.is_cache_valid()):
             openspec_task.prepare_changes_refresh(force=force_refresh)
 
+    uri_kwargs = dict(kwargs)
     if command_path in {"worktree/new", "worktree/use"}:
         from mcp_guide.worktree_names import allocate_worktree_name
         from mcp_guide.worktree_task import WorktreeTask
@@ -542,13 +498,27 @@ async def _execute_command(
             )
         if command_path == "worktree/new":
             kwargs = {**kwargs, "worktree_name": allocate_worktree_name()}
-            if worktree_task is not None:
-                worktree_task.invalidate_inventory()
 
     # Refresh the base context after command-specific state changes, then add
     # resolved elicitation keywords for rendering.
     base_context = await get_template_contexts(session)
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
+    try:
+        entrypoint_path = file_info.path.relative_to(commands_dir).as_posix()
+    except ValueError:
+        return Result.failure(
+            "Command source is outside the commands directory.",
+            error_type=ERROR_FILE_ERROR,
+            disposition=AGENT_ERROR,
+        )
+    elicitation_runtime = ElicitationRuntime(
+        kwargs=dict(kwargs),
+        original_uri_kwargs=uri_kwargs,
+        mcp_context=mcp_context,
+        entrypoint=f"command:{entrypoint_path}",
+        args=args,
+    )
+    command_context = command_context.new_child({"kwargs": elicitation_runtime.kwargs})
 
     # Render template using new API
     try:
@@ -559,7 +529,10 @@ async def _execute_command(
             project_flags=requirements_context,
             context=command_context,
             resolver=request_context.get_docroot_resolver(),
+            elicitation_runtime=elicitation_runtime,
         )
+    except ElicitationInterrupted as interruption:
+        return interruption.outcome
     except FileNotFoundError as e:
         logger.exception(f"Command file not found: {command_path}")
         return Result.failure(

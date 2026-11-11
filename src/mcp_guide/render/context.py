@@ -14,11 +14,7 @@ logger = get_logger(__name__)
 
 def keyword_context(kwargs: Mapping[str, Any]) -> dict[str, Any]:
     """Return the shared template representation of URI or command keywords."""
-    raw_kwargs = dict(kwargs)
-    return {
-        "kwargs": raw_kwargs.copy(),
-        "raw_kwargs": raw_kwargs,
-    }
+    return {"kwargs": dict(kwargs)}
 
 
 class TemplateContext(ChainMap[str, Any]):

@@ -24,17 +24,15 @@ from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.core.validation import validate_content_name
 from mcp_guide.discovery.commands import discover_commands, normalise_alias_metadata
 from mcp_guide.discovery.files import discover_document_files
-from mcp_guide.elicitation import resolve_elicitations
+from mcp_guide.elicitation import ElicitationInterrupted, ElicitationRuntime
 from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
 from mcp_guide.feature_flags.validators import is_value_true
-from mcp_guide.input_sources import prepare_form_sources
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.context import TemplateContext, keyword_context
 from mcp_guide.render.frontmatter import check_frontmatter_requirements, parse_content_with_frontmatter
-from mcp_guide.render.rendering import TemplateRenderError, discover_single_file, render_content
-from mcp_guide.render.template import InteractiveDocumentProperties, collect_interactive_document_properties
+from mcp_guide.render.rendering import TemplateRenderError, render_content
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     AGENT_ERROR,
@@ -309,52 +307,17 @@ async def _read_guide_skill(
         return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
     skill, member_path = selected
 
-    rendered_kwargs: Mapping[str, Any] = kwargs or {}
-    interactive_properties: InteractiveDocumentProperties | None = None
+    rendered_kwargs = dict(kwargs or {})
     template_context = (await get_template_contexts(request_context.session)).new_child(
         _skill_template_context(skill, rendered_kwargs)
     )
-    if member_path == "SKILL.md" and ("elicitation" in skill.frontmatter or "includes" in skill.frontmatter):
-        try:
-            entrypoint_file = (
-                await discover_single_file(
-                    request_context.resolve_document_path,
-                    SKILLS_DIR,
-                    f"{skill.package_root}/SKILL.md",
-                    "Guide skills",
-                )
-            )[0]
-        except FileNotFoundError:
-            return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
-        try:
-            interactive_properties = await collect_interactive_document_properties(
-                entrypoint_file,
-                project_flags=await resolve_all_flags(request_context.session),
-                context=template_context,
-                resolver=request_context.resolve_document_path,
-            )
-        except (OSError, ValueError) as error:
-            return Result.failure(f"Guide skill preflight failed: {error}", error_type=ERROR_VALIDATION)
-        if interactive_properties is not None:
-            if interactive_properties.errors:
-                return Result.failure("\n".join(interactive_properties.errors), error_type=ERROR_VALIDATION)
-            if interactive_properties.elicitation.diagnostic:
-                return Result.failure(interactive_properties.elicitation.diagnostic, error_type=ERROR_VALIDATION)
-            forms = prepare_form_sources(
-                interactive_properties.elicitation.forms, template_context, (), rendered_kwargs
-            )
-            resolved_kwargs = await resolve_elicitations(
-                {"elicitation": forms},
-                rendered_kwargs,
-                mcp_context,
-                entrypoint=f"skill:{skill_path}",
-            )
-            if isinstance(resolved_kwargs, (Result, InputRequiredResult)):
-                return resolved_kwargs
-            rendered_kwargs = resolved_kwargs
-            template_context = (await get_template_contexts(request_context.session)).new_child(
-                _skill_template_context(skill, rendered_kwargs)
-            )
+    elicitation_runtime = ElicitationRuntime(
+        kwargs=rendered_kwargs,
+        original_uri_kwargs=dict(rendered_kwargs),
+        mcp_context=mcp_context,
+        entrypoint=f"skill:{skill_path}",
+    )
+    template_context = template_context.new_child({"kwargs": elicitation_runtime.kwargs})
 
     async def prepare_policy_partials(file_info, context, project_flags):
         return await gather_policy_partials(request_context, file_info, context or TemplateContext({}), project_flags)
@@ -368,7 +331,10 @@ async def _read_guide_skill(
             "Guide skills",
             prepare_partials=prepare_policy_partials,
             resolver=request_context.resolve_document_path,
+            elicitation_runtime=elicitation_runtime,
         )
+    except ElicitationInterrupted as interruption:
+        return interruption.outcome
     except FileNotFoundError:
         return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
     except TemplateRenderError as error:

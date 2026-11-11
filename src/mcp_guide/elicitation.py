@@ -3,8 +3,8 @@
 import json
 import math
 import re
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, replace
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass, field, replace
 from typing import Annotated, Any, ClassVar, Literal, cast
 
 import anyio
@@ -62,6 +62,14 @@ class ResolvedElicitationKeywords(dict[str, Any]):
     def __init__(self, values: Mapping[str, Any], *, defaulted_forms: frozenset[str] = frozenset()) -> None:
         super().__init__(values)
         self.defaulted_forms = defaulted_forms
+
+
+class ElicitationInterrupted(Exception):
+    """Stop a template render to return an elicitation outcome to its entrypoint."""
+
+    def __init__(self, outcome: Result[Any] | InputRequiredResult) -> None:
+        self.outcome = outcome
+        super().__init__("Template rendering requires elicitation")
 
 
 @dataclass(frozen=True)
@@ -334,6 +342,13 @@ def _normalise_uri_kwargs(
         for elicitation in elicitations
         for field, definition in cast(Mapping[str, Mapping[str, Any]], elicitation.schema["properties"]).items()
     }
+    return _normalise_uri_values(definitions, kwargs)
+
+
+def _normalise_uri_values(
+    definitions: Mapping[str, Mapping[str, Any]], kwargs: Mapping[str, Any]
+) -> dict[str, Any] | Result[Any]:
+    """Validate and normalise URI values against their declared field definitions."""
     normalised = dict(kwargs)
     for field, definition in definitions.items():
         if field not in normalised:
@@ -675,6 +690,7 @@ class _Resolution:
     entrypoint: str
     forms: tuple[Elicitation, ...]
     uri_keywords: Mapping[str, Any]
+    request_keywords: Mapping[str, Any]
     known: dict[str, Any]
     defaulted: set[str]
     completed: set[str]
@@ -787,7 +803,7 @@ def _request_modern(
     """Return one input_required result for every missing form."""
     request_state = _continuation_state(
         state.entrypoint,
-        state.uri_keywords,
+        state.request_keywords,
         args,
         state.known,
         state.defaulted,
@@ -895,6 +911,7 @@ async def resolve_elicitations(
         entrypoint=entrypoint,
         forms=parsed,
         uri_keywords=normalised_kwargs,
+        request_keywords=kwargs,
         known=dict(restored.known if restored is not None else normalised_kwargs),
         defaulted=set(restored.defaulted_forms if restored is not None else ()),
         completed=set(restored.completed_forms if restored is not None else ()),
@@ -917,3 +934,233 @@ async def resolve_elicitations(
     if protocol == "2026-07-28":
         return _request_modern(state, missing, args)
     return await _elicit_legacy(state, mcp_context, missing)
+
+
+async def _resolve_rendered_form(
+    elicitation: Elicitation,
+    *,
+    uri_keywords: Mapping[str, Any],
+    request_keywords: Mapping[str, Any],
+    known: Mapping[str, Any],
+    mcp_context: Context | None,
+    entrypoint: str,
+    args: Sequence[str],
+    restore_continuation: bool,
+    defaulted_forms: set[str],
+    completed_forms: set[str],
+) -> ResolvedElicitationKeywords | Result[Any] | InputRequiredResult:
+    """Resolve the one form reached by the active Mustache render.
+
+    It intentionally never discovers another form. A conditional template
+    branch therefore controls whether its form is requested at all.
+    """
+    normalised_keywords = _normalise_uri_kwargs((elicitation,), uri_keywords)
+    if isinstance(normalised_keywords, Result):
+        return normalised_keywords
+    restored = (
+        _restore_continuation_state(
+            getattr(mcp_context, "request_state", None) if mcp_context is not None else None,
+            entrypoint,
+            request_keywords,
+            args,
+        )
+        if restore_continuation
+        else None
+    )
+    if isinstance(restored, Result):
+        return restored
+    state = _Resolution(
+        entrypoint=entrypoint,
+        forms=(elicitation,),
+        uri_keywords=normalised_keywords,
+        request_keywords=request_keywords,
+        known=dict(restored.known if restored is not None else known),
+        defaulted=set(restored.defaulted_forms if restored is not None else defaulted_forms),
+        completed=set(restored.completed_forms if restored is not None else completed_forms),
+    )
+    responses = (
+        getattr(mcp_context, "input_responses", None) if restore_continuation and mcp_context is not None else None
+    )
+    if responses:
+        failure = _apply_responses(state, restored, responses, mcp_context)
+        if failure is not None:
+            return failure
+
+    condition = _condition_state(elicitation, state.known)
+    if condition is None:
+        missing = ", ".join(
+            sorted(field for field in (elicitation.when or {}) if _is_missing_value(state.known, field))
+        )
+        return Result.failure(
+            f"Input form '{elicitation.identifier}' requires values from an earlier rendered form: {missing}.",
+            error_type=ERROR_VALIDATION,
+        )
+    if (
+        condition is False
+        or elicitation.identifier in state.completed
+        or not _required_fields_missing(elicitation, state.known)
+    ):
+        return state.keywords()
+
+    can_elicit = mcp_context is not None and _client_supports_elicitation(mcp_context)
+    protocol = getattr(getattr(mcp_context, "request_context", None), "protocol_version", None)
+    if not can_elicit:
+        return _resolve_without_elicitation(state, (elicitation,))
+    if protocol == "2026-07-28":
+        return _request_modern(state, (elicitation,), args)
+    assert mcp_context is not None
+    return await _elicit_legacy(state, mcp_context, (elicitation,))
+
+
+@dataclass
+class ElicitationRuntime:
+    """Request-local forms and values for one rendered command or skill."""
+
+    kwargs: dict[str, Any]
+    original_uri_kwargs: dict[str, Any]
+    mcp_context: Context | None
+    entrypoint: str
+    args: Sequence[str] = ()
+    forms: dict[str, Elicitation] = field(default_factory=dict)
+    omitted_forms: set[str] = field(default_factory=set)
+    fields: dict[str, Mapping[str, Any]] = field(default_factory=dict)
+    pending_declarations: list[tuple[object, Mapping[str, Any] | None]] = field(default_factory=list)
+    defaulted_forms: set[str] = field(default_factory=set)
+    completed_forms: set[str] = field(default_factory=set)
+    continuation_prepared: bool = False
+    continuation_consumed: bool = False
+
+    def register_forms(self, raw_forms: object, context: Mapping[str, Any] | None = None) -> None:
+        """Register a rendered declaration for lazy validation at its first elicit section."""
+        if raw_forms is not None:
+            self.pending_declarations.append((raw_forms, context))
+
+    def _update_registered_forms(self) -> Result[Any] | None:
+        """Validate declarations only when a rendered elicit section needs them."""
+        while self.pending_declarations:
+            raw_forms, context = self.pending_declarations.pop(0)
+            update_error = self.update_forms(raw_forms, context)
+            if update_error is not None:
+                return update_error
+        return None
+
+    def prepare_continuation(self) -> Result[Any] | None:
+        """Restore sealed request state before the template chooses its next section."""
+        if self.continuation_prepared:
+            return None
+        self.continuation_prepared = True
+        restored = _restore_continuation_state(
+            getattr(self.mcp_context, "request_state", None) if self.mcp_context is not None else None,
+            self.entrypoint,
+            self.original_uri_kwargs,
+            self.args,
+        )
+        if isinstance(restored, Result):
+            return restored
+        if restored is not None:
+            self.kwargs.update(restored.known)
+            self.defaulted_forms.update(restored.defaulted_forms)
+            self.completed_forms.update(restored.completed_forms)
+        return None
+
+    def update_forms(self, raw_forms: object, context: Mapping[str, Any] | None = None) -> Result[Any] | None:
+        """Register forms from a template whose body is now eligible to render."""
+        if raw_forms is None:
+            return None
+        if not isinstance(raw_forms, Mapping):
+            return _failure("'elicitation' must be a mapping of form names")
+        from mcp_guide.input_sources import prepare_form_sources
+
+        prepared = prepare_form_sources(raw_forms, context, self.args, self.kwargs)
+        self.omitted_forms.update(
+            identifier for identifier in raw_forms if isinstance(identifier, str) and identifier not in prepared
+        )
+        for identifier, definition in prepared.items():
+            if not isinstance(identifier, str) or not identifier:
+                return _failure("form names must be non-empty strings")
+            parsed = _validate_schema(identifier, definition)
+            if isinstance(parsed, Result):
+                return parsed
+            previous = self.forms.get(identifier)
+            if previous is not None and previous.schema != parsed.schema:
+                previous_fields = cast(Mapping[str, Mapping[str, Any]], previous.schema["properties"])
+                replacement_fields = cast(Mapping[str, Mapping[str, Any]], parsed.schema["properties"])
+                for field, previous_definition in previous_fields.items():
+                    if replacement_fields.get(field) == previous_definition:
+                        continue
+                    if field not in self.original_uri_kwargs:
+                        self.kwargs.pop(field, None)
+                self.defaulted_forms.discard(identifier)
+                self.completed_forms.discard(identifier)
+            self.forms[identifier] = parsed
+        self.fields = {
+            field: definition
+            for declared in self.forms.values()
+            for field, definition in cast(Mapping[str, Mapping[str, Any]], declared.schema["properties"]).items()
+        }
+        for elicitation in self.forms.values():
+            if elicitation.when is None:
+                continue
+            normalised: dict[str, tuple[Primitive, ...]] = {}
+            for field, permitted in elicitation.when.items():
+                definition = self.fields.get(field)
+                if definition is None:
+                    return _failure(f"'{elicitation.identifier}.when.{field}' must name a declared form property")
+                values = tuple(_normalise_field_value(definition, value) for value in permitted)
+                if any(value is None for value in values):
+                    return _failure(f"'{elicitation.identifier}.when.{field}' must match its declared primitive type")
+                normalised[field] = cast(tuple[Primitive, ...], values)
+            self.forms[elicitation.identifier] = replace(elicitation, when=normalised)
+        normalised_uri = _normalise_uri_values(self.fields, self.original_uri_kwargs)
+        if isinstance(normalised_uri, Result):
+            return normalised_uri
+        self.kwargs.update(normalised_uri)
+        return None
+
+    def lambda_for(self, identifier: str) -> Callable[..., Awaitable[str]]:
+        """Return the Chevron compat lambda for one syntactically referenced form."""
+        import chevron
+
+        @chevron.compat
+        async def invoke(body: str, render: Callable[[str, Mapping[str, Any]], Awaitable[str]]) -> str:
+            update_error = self._update_registered_forms()
+            if update_error is not None:
+                raise ElicitationInterrupted(update_error)
+            elicitation = self.forms.get(identifier)
+            if elicitation is None:
+                if identifier in self.omitted_forms:
+                    return await render(body, {"kwargs": self.kwargs})
+                raise ElicitationInterrupted(
+                    Result.failure(
+                        f"Template references undeclared input form '{identifier}'.", error_type=ERROR_VALIDATION
+                    )
+                )
+            responses = getattr(self.mcp_context, "input_responses", None) if self.mcp_context is not None else None
+            has_response = isinstance(responses, Mapping) and identifier in responses
+            resolved = await _resolve_rendered_form(
+                elicitation,
+                uri_keywords=self.original_uri_kwargs,
+                request_keywords=self.original_uri_kwargs,
+                known=self.kwargs,
+                mcp_context=self.mcp_context,
+                entrypoint=self.entrypoint,
+                args=self.args,
+                restore_continuation=not self.continuation_consumed and has_response,
+                defaulted_forms=self.defaulted_forms,
+                completed_forms=self.completed_forms,
+            )
+            if isinstance(resolved, (Result, InputRequiredResult)):
+                raise ElicitationInterrupted(resolved)
+            self.kwargs.update(resolved)
+            self.defaulted_forms.update(resolved.defaulted_forms)
+            self.completed_forms.add(identifier)
+            self.continuation_consumed = self.continuation_consumed or has_response
+            return await render(
+                body,
+                {
+                    "kwargs": self.kwargs,
+                    "elicitation": {"defaulted_forms": {name: True for name in self.defaulted_forms}},
+                },
+            )
+
+        return invoke

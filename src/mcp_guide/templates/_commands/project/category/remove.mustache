@@ -14,6 +14,7 @@ type: 'category'
 name: '{{args.0.value}}'
 {{/args.0.value}}
 {{^args.0.value}}
+{{>choose-category}}
 {{#kwargs.name}}
 Use the {{tool_prefix}}category_collection_remove tool with:
 type: 'category'

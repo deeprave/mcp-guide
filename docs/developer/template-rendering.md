@@ -79,20 +79,20 @@ private scope; use it when the rendered output varies by project or feature stat
 See [Elicitation Authoring](authoring-elicitation.md) for the complete author-facing declaration,
 branching, protocol, and continuation-state reference.
 
-`elicitation` is a composable frontmatter property for an interactive command or selected skill
-entrypoint. Before rendering either body, Guide collects its own declaration and declarations from
-eligible partials explicitly named in `includes`. This pre-render step lets a frontmatter-only
-partial provide a shared form without emitting its body.
+`elicitation` is a declarative frontmatter property for an interactive command or selected skill
+entrypoint. A form runs only when the body renders its matching
+`{{#elicit.<form-name>}}...{{/elicit.<form-name>}}` section. This lets Mustache conditions select
+whether input is needed without a separate pre-render pass.
 
 Relevant frontmatter values are rendered from the normal template context before Guide evaluates
 them. This includes nested elicitation declarations and document properties, while `requires-*`
 remains a gating declaration evaluated before rendering.
 
 The normal renderer remains unchanged: listing a partial does not interpolate it. Use `{{> name}}`
-when its body should appear. `requires-*` applies before a partial contributes input properties, and
-duplicate form identifiers or schema property names across contributors are rejected with a
-source-aware diagnostic. Ordinary content rendering and non-entrypoint skill members do not evaluate
-`elicitation`, because they cannot safely run an MCP request/response interaction.
+when its body should appear; its form declarations become available at that point. A later rendered
+declaration of the same form identifier replaces an earlier one for the remainder of the request.
+Ordinary content rendering and non-entrypoint skill members do not evaluate `elicitation`, because
+they cannot safely run an MCP request/response interaction.
 
 ## Rendering Templates
 

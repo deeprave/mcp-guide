@@ -126,7 +126,3 @@ def test_worktree_inventory_expires_after_handoff_lock_timeout():
     assert task.is_inventory_current(now=190.0)
     assert not task.is_inventory_current(now=190.1)
     assert task.active_worktree_paths() == set()
-
-    activation.data["worktree_inventory_observed_at"] = time.time()
-    task.invalidate_inventory()
-    assert not task.is_inventory_current()

@@ -139,7 +139,7 @@ async def resource_project(runtime, tmp_path):
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "Review {{kwargs.mode}}"
+        "{{#elicit.review-target}}Review {{kwargs.mode}}{{/elicit.review-target}}"
     )
     (docroot / "_skills/workflow-status/resources/checklist.md.mustache").write_text(
         "Package={{skill.path}}; resources={{skill.resources_uri}}; mode={{kwargs.mode}}"

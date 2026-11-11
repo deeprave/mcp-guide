@@ -106,7 +106,7 @@ async def test_read_resource_returns_and_resumes_declared_command_input(resource
         "          type: string\n"
         "      required: [mode]\n"
         "---\n"
-        "Project {{kwargs.mode}}"
+        "{{#elicit.target}}Project {{kwargs.mode}}{{/elicit.target}}"
     )
     context = SimpleNamespace(
         session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),

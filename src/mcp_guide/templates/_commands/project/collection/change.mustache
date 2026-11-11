@@ -27,6 +27,7 @@ new_description: '{{kwargs.new_description}}'
 {{/kwargs.new_description}}
 {{/args.0.value}}
 {{^args.0.value}}
+{{>choose-collection}}
 {{#kwargs.name}}
 Use the {{tool_prefix}}category_collection_change tool with:
 type: 'collection'

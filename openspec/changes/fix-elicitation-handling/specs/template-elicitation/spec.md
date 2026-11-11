@@ -54,7 +54,7 @@ The system SHALL support an `elicitation` frontmatter mapping on a selected Guid
 - **WHEN** a command renders an `elicit` section for a declared form whose required properties are unresolved
 - **THEN** Guide SHALL issue the same capability-negotiated MCP input request used for a skill entrypoint
 - **AND** SHALL render the invoked section after values are available
-- **AND** SHALL make accepted values available through `kwargs` and `raw_kwargs` inside the invoked section
+- **AND** SHALL make accepted values available through `kwargs` inside the invoked section
 
 #### Scenario: Uninvoked declaration does not request input
 

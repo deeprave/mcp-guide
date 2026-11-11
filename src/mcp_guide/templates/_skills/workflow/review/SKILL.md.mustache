@@ -48,6 +48,7 @@ elicitation:
           minimum: 1
       required: [pull_request_number]
 ---
+{{#elicit.review-target}}
 # Code Review
 
 ## Directives
@@ -102,7 +103,7 @@ elicitation:
 {{/kwargs.mode}}{{#kwargs.branch}}- Review branch `{{kwargs.branch}}` against its merge base
 {{/kwargs.branch}}{{#kwargs.pull_request_reference}}- Review pull request `{{kwargs.pull_request_reference}}`
 {{/kwargs.pull_request_reference}}{{#kwargs.pull_request_number}}- Review pull request `#{{kwargs.pull_request_number}}` in the current repository
-{{/kwargs.pull_request_number}}{{^kwargs.mode}}- The server may request `review-target` before this skill is rendered. If it does not, ask the user to choose a target using the client's choice-picker interaction
+{{/kwargs.pull_request_number}}{{^kwargs.mode}}- Select the review target before beginning the review.
   - Uncommitted work — review the complete working tree against `HEAD`
   - Current change — review the current change against `main`
   - Named branch — review that branch against its merge base
@@ -116,6 +117,15 @@ elicitation:
 - A pull-request URL, `<owner>/<repo>/pulls/#<number>` reference, or current-repository pull-request number — that pull request
 - A numeric value — that pull-request number in the current repository
 - An unsupported mode — ask the user to clarify; do not infer another review scope
+
+{{#equals}}branch{{kwargs.mode}}{{#elicit.branch-name}}{{#kwargs.branch}}- Review branch `{{kwargs.branch}}` against its merge base
+{{/kwargs.branch}}{{^kwargs.branch}}- Ask the user for the branch to review. Do not begin the review until it is provided.
+{{/kwargs.branch}}{{/elicit.branch-name}}{{/equals}}
+{{#equals}}pull-request-reference{{kwargs.mode}}{{#elicit.pull-request-reference}}- Review pull request `{{kwargs.pull_request_reference}}`
+{{/elicit.pull-request-reference}}{{/equals}}
+{{#equals}}pull-request-number{{kwargs.mode}}{{#elicit.pull-request-number}}{{#kwargs.pull_request_number}}- Review pull request `#{{kwargs.pull_request_number}}` in the current repository
+{{/kwargs.pull_request_number}}{{^kwargs.pull_request_number}}- Ask the user for the pull-request number to review. Do not begin the review until it is provided.
+{{/kwargs.pull_request_number}}{{/elicit.pull-request-number}}{{/equals}}
 
 ## Guidelines
 
@@ -132,3 +142,4 @@ elicitation:
 
 - Keep both reviews independent; do not provide prior findings, conclusions, prior conversation, existing review records, or one reviewer's output to the other
 - Do not implement, format, commit, push, or discard changes during review or finding triage unless the user explicitly confirms the collected accepted actions
+{{/elicit.review-target}}
