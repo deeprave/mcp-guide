@@ -1835,11 +1835,10 @@ Content here...
 <li>Paths are relative to the origin document</li>
 <li>Partials must be within the document root (cannot point outside <code>docroot</code>)</li>
 </ul>
-<p>For an interactive command or selected skill entrypoint, eligible partials named in <code>includes</code> also
-contribute composable <code>elicitation</code> frontmatter before the entrypoint body renders. A partial can
-therefore provide a form without adding body text; body content still appears only through <code>{{&gt; name}}</code>.
-Duplicate form identifiers or input property names across the entrypoint and its contributing partials
-are rejected with an authoring diagnostic that identifies both sources.</p>
+<p>For an interactive command or selected skill entrypoint, an eligible partial named in <code>includes</code> can
+declare an <code>elicitation</code> form. It becomes available only when the entrypoint renders that partial and
+its body invokes <code>{{#elicit.&lt;form-name&gt;}}...{{/elicit.&lt;form-name&gt;}}</code>. A later rendered declaration
+of the same identifier replaces the earlier one for the rest of the request.</p>
 <h3 id="template-examples">Template Examples<a class="headerlink" href="#template-examples" title="Permanent link">&para;</a></h3>
 <p>Many working template examples are installed in the document root. Explore these to see practical implementations of variables, conditionals, loops, and partials.</p>
 <h2 id="template-context">Template Context<a class="headerlink" href="#template-context" title="Permanent link">&para;</a></h2>

@@ -1313,23 +1313,22 @@
 
 <h1 id="elicitation-authoring-guide">Elicitation Authoring Guide<a class="headerlink" href="#elicitation-authoring-guide" title="Permanent link">&para;</a></h1>
 <p>Elicitation lets an interactive Guide entrypoint ask a connected MCP client for the values it
-needs before Guide renders the entrypoint. It is shared by command and skill entrypoints: define a
-form once in frontmatter and the same resolver handles URI values, modern multi-round input, and
-legacy sequential input.</p>
+needs at the point its template section renders. It is shared by command and skill entrypoints:
+declare a form in frontmatter, invoke it from the body, and the same resolver handles URI values,
+modern multi-round input, and legacy sequential input.</p>
 <p>Use this guide with <a href="../authoring-command/">Command Authoring</a> or
 <a href="../authoring-skills/">Skills Authoring</a>. It describes only the shared input contract.</p>
 <h2 id="where-elicitation-applies">Where elicitation applies<a class="headerlink" href="#where-elicitation-applies" title="Permanent link">&para;</a></h2>
 <p>Declare <code>elicitation</code> only on an interactive command or the selected <code>SKILL.md</code> entrypoint.
-Guide resolves it before rendering the body. A command supports native command resources,
+Guide resolves a form only when its <code>elicit.&lt;form-name&gt;</code> section renders. A command supports native command resources,
 <code>guide://_command</code> resource reads, and underscore, colon, and semicolon prompt routes. A skill
 supports its selected <code>guide://$skill-name</code> entrypoint.</p>
-<p>Ordinary documents and non-entrypoint skill members do not elicit. An entrypoint may also compose
-forms from partials explicitly named by its <code>includes</code> frontmatter. A listed partial may contribute
-frontmatter-only forms; its body still appears only when the entrypoint renders the normal Mustache
-partial. <code>requires-*</code> is evaluated before a partial contributes its forms.</p>
-<p>Form identifiers and field names must be unique across the effective entrypoint and its contributing
-partials. Invalid frontmatter, duplicate identifiers or fields, self-references, and conditional
-cycles are authoring errors.</p>
+<p>Ordinary documents and non-entrypoint skill members do not elicit. An entrypoint may compose a form
+from a partial listed in <code>includes</code>, but the partial declaration becomes available only when normal
+Mustache rendering reaches <code>{{&gt; partial}}</code>. <code>requires-*</code> is evaluated before that partial is loaded.</p>
+<p>Invalid frontmatter is an authoring error. A later rendered declaration with the same form identifier
+replaces the earlier declaration for the rest of that request; include-list order and unrendered
+partials have no effect.</p>
 <h2 id="form-declaration">Form declaration<a class="headerlink" href="#form-declaration" title="Permanent link">&para;</a></h2>
 <p><code>elicitation</code> is a mapping from a local form identifier to a form declaration. Every form needs a
 non-empty <code>message</code> and an object JSON Schema with a non-empty <code>properties</code> mapping.</p>
@@ -1346,6 +1345,14 @@ non-empty <code>message</code> and an object JSON Schema with a non-empty <code>
 <span class="w">      </span><span class="nt">required</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">mode</span><span class="p p-Indicator">]</span>
 </code></pre></div>
 
+<p>Declare a form in frontmatter, then invoke it explicitly around the instructions that need its values:</p>
+<div class="codehilite"><pre><span></span><code><span class="cp">{{</span><span class="err">#</span><span class="nv">elicit.review</span><span class="o">-</span><span class="nv">target</span><span class="cp">}}</span>
+<span class="x">Reviewing `</span><span class="cp">{{</span><span class="nv">kwargs.mode</span><span class="cp">}}</span><span class="x">`.</span>
+<span class="cp">{{</span><span class="o">/</span><span class="nv">elicit.review</span><span class="o">-</span><span class="nv">target</span><span class="cp">}}</span>
+</code></pre></div>
+
+<p>The lambda renders only its enclosed section after the form resolves. A false Mustache branch never
+invokes its form. Reusing a form section in the same request reuses its accepted values.</p>
 <p>Supported property types are <code>string</code>, <code>integer</code>, <code>number</code>, and <code>boolean</code>. <code>enum</code> values and
 defaults must use the declared primitive type. <code>required</code> must name properties in that same form.
 Guide sends clients only the MCP form-schema subset: <code>type</code>, <code>properties</code> and <code>required</code> (and
@@ -1393,13 +1400,14 @@ project before the form is delivered. Guide removes the marker, so the client re
 </code></pre></div>
 
 <p>A form is omitted, rather than requested, when a positional argument or keyword already supplies its
-value, or when its source has no choices (for example a project without collections). The command or
-skill then applies its own validation, so a missing name is reported as it would be without a form.
+value, or when its source has no choices (for example a project without collections). Its section
+renders without form values, so the command or skill then applies its own validation and reports a
+missing name as it would be without a form.
 An unrecognised <code>source</code> is logged and its marker removed; a static <code>enum</code> declared on the same
 property is still sent to the client, so omit it if the property should be free text.</p>
 <p>Shipped commands share the <code>_partials/_choose-category</code> and <code>_partials/_choose-collection</code> partials.
-Because a partial's form identifier and field names must be unique within an entrypoint, those forms
-use the field <code>name</code>; a command lists the partial in <code>includes</code> and reads the answer from
+Those partials invoke their own forms when rendered. A command lists the partial in <code>includes</code>,
+renders it with <code>{{&gt; choose-category}}</code> or <code>{{&gt; choose-collection}}</code>, and reads the answer from
 <code>kwargs.name</code> when no positional argument was supplied:</p>
 <div class="codehilite"><pre><span></span><code><span class="p">{{</span><span class="c1">#args.0.value}}Use the {{tool_prefix}}category_collection_remove tool with type: 'category' and name: '{{args.0.value}}'{{/args.0.value}}</span>
 <span class="p">{{</span><span class="o">^</span><span class="n">args</span><span class="o">.</span><span class="mf">0.</span><span class="n">value</span><span class="p">}}{{</span><span class="c1">#kwargs.name}}Use the {{tool_prefix}}category_collection_remove tool with type: 'category' and name: '{{kwargs.name}}'{{/kwargs.name}}{{/args.0.value}}</span>
@@ -1495,11 +1503,10 @@ value is one permitted primitive or a list of permitted primitives.</p>
 
 <p><code>when</code> matches only when <strong>every</strong> condition matches. Values are compared after the supplying
 field has been normalised to its declared primitive type. A condition that does not match makes the
-form inapplicable. A condition whose value is not yet known makes the branch unresolved; Guide
-first asks for the form that supplies that value, even if the supplier has no required fields.</p>
-<p>Guide re-evaluates branches after each accepted answer, default, and cancellation. This supports
-multi-step flows without asking for a branch that no longer applies. A form cannot depend on itself
-or participate in a dependency cycle.</p>
+form inapplicable. A condition whose value is not yet known is an authoring error at that section:
+invoke the supplying form in an earlier rendered section. Guide re-evaluates the current section
+after each accepted answer, default, and cancellation. This supports multi-step flows without asking
+for a branch that does not render.</p>
 <p>For an AND match, add more keys:</p>
 <div class="codehilite"><pre><span></span><code><span class="nt">when</span><span class="p">:</span>
 <span class="w">  </span><span class="nt">mode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pull-request</span>
@@ -1520,11 +1527,11 @@ different:</p>
 <tbody>
 <tr>
 <td>Legacy MCP</td>
-<td>Guide uses the legacy sequential elicitation request path and asks only the forms currently applicable.</td>
+<td>Guide uses the legacy sequential elicitation request path for the rendered form.</td>
 </tr>
 <tr>
 <td>MCP 2026-07-28</td>
-<td>Guide returns an <code>input_required</code> result containing the currently applicable forms. The client sends accepted responses on a later request.</td>
+<td>Guide returns an <code>input_required</code> result for the rendered form. The client sends its answer on a later request.</td>
 </tr>
 </tbody>
 </table>
@@ -1588,8 +1595,8 @@ Mustache keyword paths for the entrypoint type, for example:</p>
 <div class="codehilite"><pre><span></span><code><span class="x">Reviewing </span><span class="cp">{{</span><span class="nv">kwargs.mode</span><span class="cp">}}</span><span class="x"> </span><span class="cp">{{</span><span class="nv">kwargs.reference</span><span class="cp">}}</span>
 </code></pre></div>
 
-<p>The resolver never infers a form from an entrypoint name. It uses only the effective <code>elicitation</code>
-frontmatter declared by the selected interactive entrypoint and its eligible partials.</p>
+<p>The resolver never infers a form from an entrypoint name. It uses only a declared form invoked by an
+<code>elicit.&lt;form-name&gt;</code> section in the selected interactive entrypoint or a rendered eligible partial.</p>
 
 
 
