@@ -8,47 +8,50 @@ including command execution, conditional follow-up input, and partial contributi
 
 ### Requirement: Shared entrypoint elicitation
 
-The system SHALL support an `elicitation` frontmatter mapping on a selected Guide
-skill entrypoint and on a selected Guide command template. It SHALL use the same
-validation, capability negotiation, input-result handling, URI-keyword precedence,
-and template keyword context for both entrypoint kinds. It SHALL NOT infer a form
-from an entrypoint name.
+The system SHALL support an `elicitation` frontmatter mapping on a selected Guide skill entrypoint and on a selected Guide command template. A declaration SHALL define a named form but SHALL NOT request input by itself. A rendered `elicit` section SHALL select the named form. Guide SHALL use the same validation, capability negotiation, input-result handling, URI-keyword precedence, and template keyword context for commands and skills.
 
 #### Scenario: Command requests declared input
 
-- **WHEN** a selected command has an effective elicitation form with missing
-  required properties
-- **THEN** Guide SHALL issue the same capability-negotiated MCP input request used
-  for a skill entrypoint
-- **AND** SHALL render the command only after the required values are available
-- **AND** SHALL make accepted values available through `kwargs` and `raw_kwargs`
+- **WHEN** a command renders an `elicit` section for a declared form whose required properties are unresolved
+- **THEN** Guide SHALL issue the same capability-negotiated MCP input request used for a skill entrypoint
+- **AND** SHALL render the invoked section after values are available
+- **AND** SHALL make accepted values available through `kwargs` inside the invoked section
+
+#### Scenario: Uninvoked declaration does not request input
+
+- **WHEN** a selected template declares a form but no rendered branch invokes it
+- **THEN** Guide SHALL not request that form
+
+#### Scenario: Explicit URI values satisfy an invoked form
+
+- **WHEN** command URI keywords satisfy an invoked form's required properties
+- **THEN** Guide SHALL render the command without requesting that form
+- **AND** SHALL preserve those values in the normal command template keyword context
+
+#### Scenario: Entry point has no invoked form
+
+- **WHEN** a selected skill or command renders no `elicit` section
+- **THEN** its existing rendering and request behaviour SHALL remain unchanged
 
 ### Requirement: Elicitation form declaration schema
 
-Each named form SHALL declare a non-empty `message` and an object schema with a
-non-empty `properties` mapping. Properties SHALL use only `string`, `integer`,
-`number`, or `boolean` types. An `enum`, when provided, SHALL contain primitive
-values. A form's required property names SHALL be declared in that form. Form
-identifiers and property names SHALL be unique across the effective entrypoint
-declaration.
+Each named form SHALL declare a non-empty `message` and an object schema with a non-empty `properties` mapping. Properties SHALL use only `string`, `integer`, `number`, or `boolean` types. An `enum`, when provided, SHALL contain primitive values. A form's required property names SHALL be declared in that form. A later rendered `elicitation` mapping MAY replace an earlier declaration with the same form identifier.
 
 #### Scenario: Invalid form declaration
-- **WHEN** an elicitation form has an unsupported property type or duplicate identifier
-- **THEN** Guide reports a frontmatter validation diagnostic
+
+- **WHEN** an elicitation form has an unsupported property type or duplicate identifier in one mapping
+- **THEN** Guide SHALL report a frontmatter validation diagnostic
 
 #### Scenario: Explicit URI values satisfy a command form
 
-- **WHEN** command URI keywords satisfy an effective form's required properties
-- **THEN** Guide SHALL render the command without requesting that form
-- **AND** SHALL preserve those values in the normal command template keyword
-  context
+- **WHEN** command URI keywords satisfy an invoked form's required properties
+- **THEN** Guide SHALL render the invoked section without requesting that form
+- **AND** SHALL preserve those values in the normal command template keyword context
 
 #### Scenario: Defaulted form is visible to the template
 
-- **WHEN** an applicable form is completed with its schema defaults or render
-  fallback
-- **THEN** the template context SHALL expose that form at
-  `elicitation.defaulted_forms.<form-name>`
+- **WHEN** an invoked form is completed with its schema defaults or render fallback
+- **THEN** the template context SHALL expose that form at `elicitation.defaulted_forms.<form-name>`
 
 #### Scenario: Numeric field constraint
 
@@ -58,20 +61,18 @@ declaration.
 
 #### Scenario: Typed URI value selects a conditional branch
 
-- **WHEN** a URI keyword supplies a value for a declared numeric or boolean
-  elicitation field
+- **WHEN** a URI keyword supplies a value for a declared numeric or boolean elicitation field
 - **THEN** Guide SHALL validate and normalise it to the declared field type
 - **AND** SHALL use the normalised value when evaluating `when` conditions
 
 #### Scenario: Entry point has no declared form
 
-- **WHEN** a selected skill or command has no effective `elicitation` frontmatter
+- **WHEN** a selected skill or command has no `elicitation` frontmatter
 - **THEN** its existing rendering and request behaviour SHALL remain unchanged
 
 #### Scenario: Non-interactive document delivery
 
-- **WHEN** ordinary document content is served through a category, collection, or
-  general content request
+- **WHEN** ordinary document content is served through a category, collection, or general content request
 - **THEN** Guide SHALL NOT evaluate `elicitation` frontmatter
 - **AND** SHALL deliver the document through the existing non-interactive path
 
@@ -193,128 +194,62 @@ The system SHALL deliver a form that has optional (non-required) properties to l
 
 ### Requirement: Declarative conditional elicitation
 
-The system SHALL allow a form to declare `when` conditions over primitive URI or
-previously accepted elicitation values. A `when` mapping SHALL require every named
-property to match one of its declared primitive values before the form is applicable.
-The system SHALL evaluate applicability after each accepted input result and SHALL
-request only applicable forms whose required properties remain unresolved.
+The system SHALL allow an invoked form to declare `when` conditions over primitive URI or previously accepted elicitation values. A form is applicable only when its rendered `elicit` section is reached and every `when` condition matches a declared primitive value. The system SHALL resolve invoked forms in rendered section order, without a separate declaration-discovery pass.
 
 #### Scenario: Branch to a follow-up form
 
-- **WHEN** a command or skill receives `mode=branch` from URI keywords or an
-  accepted form response
-- **AND** a second form declares `when: {mode: [branch]}` and requires `reference`
-- **THEN** Guide SHALL request `reference` before rendering
+- **WHEN** a rendered template reaches an `elicit` section whose form declares `when: {mode: [branch]}`
+- **AND** `mode=branch` was supplied by URI keywords or an accepted form response
+- **THEN** Guide SHALL request that form before rendering its enclosed section
 
 #### Scenario: Skip an inapplicable branch
 
-- **WHEN** a command or skill receives `mode=main`
-- **AND** a second form declares `when: {mode: [branch, pull-request]}`
-- **THEN** Guide SHALL NOT request the second form
-- **AND** SHALL render after every applicable form is satisfied
+- **WHEN** a Mustache condition excludes a branch containing an `elicit` section
+- **THEN** Guide SHALL not request that section's form regardless of its declaration
 
 #### Scenario: Multiple immediately applicable forms
 
-- **WHEN** more than one form is applicable from the URI keyword context and has
-  missing required properties
-- **THEN** a modern MCP response SHALL request all of those forms together
-- **AND** a legacy interaction SHALL collect the same forms through its existing
-  compatible elicitation path
+- **WHEN** rendering reaches multiple `elicit` sections with unresolved required forms
+- **THEN** Guide SHALL resolve each form in rendered section order
+- **AND** SHALL not scan later template branches to batch forms before rendering
 
 #### Scenario: Branching form needs input from a prior form
 
-- **WHEN** a form's `when` condition cannot yet be evaluated because it depends on
-  a missing property from another form
-- **THEN** Guide SHALL first request the form that supplies that property
-- **AND** after acceptance SHALL issue a follow-up input request if the condition
-  becomes true
-- **AND** SHALL retain previously accepted values for the original request while
-  processing the follow-up
+- **WHEN** a reached form's `when` condition depends on a missing value from an earlier reached form
+- **THEN** Guide SHALL request the supplying form first
+- **AND** SHALL evaluate the dependent section when rendering reaches it after acceptance
 
 #### Scenario: Client cannot elicit input
 
-- **WHEN** an applicable form has unresolved required properties
-- **AND** the client does not support MCP elicitation or does not present the form
-- **THEN** a form that declares `fallback: render` SHALL cause the entrypoint to render with
-  instructions that list the available choices and direct the agent to ask the user to
-  select one before proceeding
-- **AND** a form without `fallback: render` SHALL cause Guide to return clear guidance
-  naming the URI keywords currently required to progress, without rendering the entrypoint
-- **AND** Guide SHALL NOT render the entrypoint with assumed values
+- **WHEN** a reached form has unresolved required properties and the client cannot present it
+- **THEN** Guide SHALL apply its existing render fallback or return the existing clear missing-input guidance
+- **AND** SHALL not render the invoked section with assumed values
 
 ### Requirement: Elicitation partial composition
 
-The system SHALL treat `elicitation` as a composable document property. The selected
-parent and each contributing partial SHALL combine distinct form declarations into
-one effective entrypoint declaration before input is requested. A partial excluded by
-its existing frontmatter requirements SHALL not contribute a form. Duplicate form
-identifiers or property names across contributing documents SHALL fail with a clear
-frontmatter diagnostic rather than silently selecting one declaration.
+The system SHALL update a request-local form declaration registry as the template and its partials render. A rendered `elicitation` mapping SHALL add its forms to that registry, and a later rendered declaration with the same form identifier SHALL replace the earlier declaration. Include declaration order and unrendered partials SHALL not affect the registry.
 
 #### Scenario: Partial contributes a distinct form
 
-- **WHEN** a command or skill parent includes a partial with a distinct
-  `elicitation` form
-- **THEN** the partial's form SHALL be considered together with the parent's forms
-- **AND** accepted values SHALL be available to both parent and partial template
-  contexts
+- **WHEN** a partial renders an `elicitation` declaration for a distinct form
+- **THEN** Guide SHALL add that form to the request-local registry before a later section invokes it
 
 #### Scenario: Conditional partial does not contribute
 
-- **WHEN** a partial with an elicitation declaration is excluded by its
-  `requires-*` frontmatter
-- **THEN** Guide SHALL NOT request that partial's form
+- **WHEN** a partial does not render through the ordinary Mustache rendering path
+- **THEN** its elicitation declarations SHALL not update the request-local form registry
 
 #### Scenario: Duplicate partial form declaration
 
-- **WHEN** the parent and a contributing partial declare the same form identifier
-  or property name
-- **THEN** Guide SHALL fail the selected entrypoint with a clear diagnostic
-- **AND** SHALL NOT issue an ambiguous input request
+- **WHEN** a later rendered partial declares a form identifier already in the request-local registry
+- **THEN** Guide SHALL replace the earlier declaration with the later declaration
+- **AND** a later invocation of that identifier SHALL use the replacement
 
-### Requirement: Frontmatter-only elicitation partials
+#### Scenario: Omitted replacement removes prior form state
 
-The system SHALL allow a frontmatter partial to contribute elicitation declarations
-without emitting body content. A partial named in the parent's frontmatter partial
-list SHALL be processed for eligible elicitation declarations even when it is not
-interpolated through a Mustache partial tag. Preflight SHALL NOT carry its delivery
-headers into the response. Its body SHALL NOT be included in rendered output unless
-the parent also interpolates it through the existing partial mechanism.
-
-#### Scenario: Property-only partial supplies a form
-
-- **WHEN** a command or skill lists a partial containing only frontmatter that
-  declares an elicitation form
-- **THEN** Guide SHALL process and combine that form
-- **AND** SHALL not add body content from that partial to the rendered entrypoint
-
-#### Scenario: Property-only partial has no form
-
-- **WHEN** a parent lists a frontmatter-only partial that contributes no
-  elicitation declaration
-- **THEN** Guide SHALL contribute no elicitation or response metadata from preflight inspection of that partial
-- **AND** SHALL not change the rendered body solely because the partial was listed
-
-#### Scenario: Interactive partial cannot be loaded
-
-- **WHEN** an entrypoint cannot load one of its listed property contributors
-- **THEN** Guide SHALL log a source-aware warning
-- **AND** SHALL continue without that contributor
-- **AND** SHALL NOT make partial availability a client-facing elicitation failure
-
-#### Scenario: Malformed includes declaration
-
-- **WHEN** an entrypoint's `includes` declaration is present but is not a list of strings
-- **THEN** Guide SHALL log a source-aware warning
-- **AND** SHALL continue as if it had no preflight partial contributors
-- **AND** an absent `includes` declaration SHALL remain valid and produce no warning
-
-#### Scenario: Form-only delivery headers are discarded
-
-- **GIVEN** a command or skill lists an eligible form-only partial declaring `type`, `instruction`, or `cache`
-- **WHEN** its form is resolved and the partial is not rendered
-- **THEN** the resolved inputs SHALL be available to rendering
-- **AND** none of those delivery headers SHALL affect response metadata
+- **WHEN** a later rendered declaration with an existing form identifier is omitted because its source is unavailable or its value is already supplied
+- **THEN** Guide SHALL remove the earlier declaration and its non-URI form state
+- **AND** an invocation of that identifier SHALL render without eliciting the earlier form
 
 ### Requirement: Elicitation validation and conditional semantics
 

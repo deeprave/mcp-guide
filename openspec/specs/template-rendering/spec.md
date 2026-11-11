@@ -285,46 +285,6 @@ frontmatter from an unsafe target.
 - **AND** it SHALL omit the unsafe partial without exposing its content
 - **AND** it SHALL log a non-sensitive warning
 
-### Requirement: Elicitation-aware partial property collection
-
-Before rendering an interactive skill or command entrypoint, the template system
-SHALL collect only eligible parent and partial input declarations needed to resolve
-elicitation. It SHALL discard unrelated headers after resolving the state it needs
-and SHALL NOT merge preflight delivery properties into rendered output. It SHALL
-include frontmatter-only partials declared through the existing parent partial
-list, while retaining existing output interpolation rules.
-
-#### Scenario: Collect properties before interactive rendering
-
-- **WHEN** an interactive command or skill has parent or eligible partial
-  elicitation frontmatter
-- **THEN** the renderer SHALL make the composed declarations available before
-  rendering output
-- **AND** SHALL render output only after the interaction has resolved the
-  applicable required values
-
-#### Scenario: Do not interpolate a property-only partial
-
-- **WHEN** a listed partial contributes frontmatter properties but is not
-  referenced by a Mustache partial tag
-- **THEN** the renderer SHALL not append or otherwise interpolate that partial's
-  body content
-- **AND** SHALL retain only its eligible elicitation contribution for input resolution
-
-#### Scenario: Status skips setup partials
-
-- **GIVEN** status declares `user/information`, agent information is available and workflow has a known phase
-- **WHEN** status is delivered after preflight
-- **THEN** skipped setup partials SHALL NOT contribute delivery metadata
-- **AND** status SHALL retain `user/information`
-
-#### Scenario: Rendered contributors remain authoritative
-
-- **GIVEN** a parent and partial declare different disposition, instruction or cache settings
-- **WHEN** the partial actually renders after input resolution
-- **THEN** final metadata SHALL follow existing rendering composition rules
-- **AND** preflight inspection SHALL NOT add another metadata contributor
-
 ### Requirement: Universal frontmatter template evaluation
 
 The renderer SHALL treat only `instruction`, `description`, and `elicitation`
@@ -334,20 +294,6 @@ for rendered documents, commands, skills and partials.
 #### Scenario: Renderable frontmatter whitelist
 - **WHEN** a document, command, skill, or partial renders frontmatter
 - **THEN** only instruction, description, and elicitation values are evaluated as Mustache templates
-
-### Requirement: Interactive frontmatter preflight evaluation
-
-Interactive preflight SHALL evaluate only elicitation-related values needed for
-input resolution with temporary supporting context; it SHALL NOT evaluate
-unrelated renderable headers as delivery fields.
-
-#### Scenario: Interactive preflight uses the universal whitelist
-
-- **WHEN** interactive preflight resolves parent or partial frontmatter
-- **THEN** it SHALL evaluate only elicitation-related values needed for input resolution
-- **AND** it SHALL use `requires-*` and `includes` for eligibility and discovery as needed
-- **AND** it SHALL discard unrelated headers before returning preflight state
-- **AND** original frontmatter SHALL remain available for independent rendering with resolved inputs
 
 ### Requirement: Literal structural frontmatter and diagnostics
 
@@ -499,3 +445,22 @@ enable `Extension.ALL`.
 - **WHEN** a Guide-owned template needs first or last item formatting
 - **THEN** it SHALL use the enhanced iterator's `.first` or `.last` metadata
 - **AND** it SHALL use `.` for the current scalar item rather than a Guide-injected wrapper value
+
+### Requirement: Rendered elicitation sections
+
+The renderer SHALL provide an asynchronous `elicit` section extension for interactive command and skill templates. The extension SHALL select a named frontmatter form only when Mustache renders that section. It SHALL await unresolved required input and, once input is available, render the enclosed section with the accepted values in the normal template context.
+
+#### Scenario: Selected section awaits input
+
+- **WHEN** rendering reaches an `elicit` section for a declared form with missing required properties
+- **THEN** Guide SHALL await that form's input before rendering the enclosed section
+
+#### Scenario: Accepted input renders the section
+
+- **WHEN** the client supplies valid values for an invoked form
+- **THEN** Guide SHALL render the enclosed section with those values available through normal keyword context
+
+#### Scenario: Conditional branch selects direct instructions
+
+- **WHEN** a template's rendered condition excludes an `elicit` section
+- **THEN** Guide SHALL complete the selected branch without scanning or requesting its form
