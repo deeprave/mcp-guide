@@ -491,6 +491,51 @@ async def test_command_uses_the_later_rendered_partial_form_declaration(resource
 
 
 @pytest.mark.anyio
+async def test_command_omits_an_earlier_form_replaced_by_a_supplied_source(
+    resource_project, modern_elicitation_context
+):
+    """An omitted later declaration removes the earlier form with its name."""
+    command_dir = resource_project.resolve_document_path("_commands/project")
+    (command_dir / "project.mustache").write_text(
+        "---\n"
+        "aliases: ['project']\n"
+        "includes: ['input']\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Choose parent value.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties: {branch: {type: string}}\n"
+        "      required: [branch]\n"
+        "---\n"
+        "Project {{>input}}"
+    )
+    (command_dir / "_input.mustache").write_text(
+        "---\n"
+        "elicitation:\n"
+        "  target:\n"
+        "    message: Choose category.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties: {category: {type: string, source: project-categories}}\n"
+        "      required: [category]\n"
+        "---\n"
+        "{{#elicit.target}}Category {{kwargs.category}}{{/elicit.target}}"
+    )
+
+    result = await guide_command_resource.__wrapped__(
+        "project",
+        request_context=resource_project,
+        request_uri="guide://_project?category=docs",
+        mcp_context=modern_elicitation_context(),
+    )
+    payload = json.loads(result.contents[0].content)
+
+    assert payload["success"] is True
+    assert payload["value"] == "Project Category docs"
+
+
+@pytest.mark.anyio
 async def test_generic_resource_preserves_an_already_complete_command_uri(resource_project):
     """The generic command route does not append an already represented document path."""
     response = await guide_resource.__wrapped__(

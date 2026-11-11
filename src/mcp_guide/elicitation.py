@@ -1072,15 +1072,24 @@ class ElicitationRuntime:
         from mcp_guide.input_sources import prepare_form_sources
 
         prepared = prepare_form_sources(raw_forms, context, self.args, self.kwargs)
-        self.omitted_forms.update(
+        omitted_identifiers = {
             identifier for identifier in raw_forms if isinstance(identifier, str) and identifier not in prepared
-        )
+        }
+        removed_fields: set[str] = set()
+        for identifier in omitted_identifiers:
+            previous = self.forms.pop(identifier, None)
+            if previous is not None:
+                removed_fields.update(cast(Mapping[str, Mapping[str, Any]], previous.schema["properties"]))
+            self.defaulted_forms.discard(identifier)
+            self.completed_forms.discard(identifier)
+        self.omitted_forms.update(omitted_identifiers)
         for identifier, definition in prepared.items():
             if not isinstance(identifier, str) or not identifier:
                 return _failure("form names must be non-empty strings")
             parsed = _validate_schema(identifier, definition)
             if isinstance(parsed, Result):
                 return parsed
+            self.omitted_forms.discard(identifier)
             previous = self.forms.get(identifier)
             if previous is not None and previous.schema != parsed.schema:
                 previous_fields = cast(Mapping[str, Mapping[str, Any]], previous.schema["properties"])
@@ -1098,6 +1107,8 @@ class ElicitationRuntime:
             for declared in self.forms.values()
             for field, definition in cast(Mapping[str, Mapping[str, Any]], declared.schema["properties"]).items()
         }
+        for field in removed_fields - self.fields.keys() - self.original_uri_kwargs.keys():
+            self.kwargs.pop(field, None)
         for elicitation in self.forms.values():
             if elicitation.when is None:
                 continue

@@ -125,6 +125,12 @@ The system SHALL update a request-local form declaration registry as the templat
 - **THEN** Guide SHALL replace the earlier declaration with the later declaration
 - **AND** a later invocation of that identifier SHALL use the replacement
 
+#### Scenario: Omitted replacement removes prior form state
+
+- **WHEN** a later rendered declaration with an existing form identifier is omitted because its source is unavailable or its value is already supplied
+- **THEN** Guide SHALL remove the earlier declaration and its non-URI form state
+- **AND** an invocation of that identifier SHALL render without eliciting the earlier form
+
 ## REMOVED Requirements
 
 ### Requirement: Frontmatter-only elicitation partials
