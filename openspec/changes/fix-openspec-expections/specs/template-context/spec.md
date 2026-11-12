@@ -3,7 +3,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: OpenSpec Context Data
-The template context system SHALL include OpenSpec project data only from OpenSpec CLI responses when OpenSpec support is enabled. It SHALL not read, request, or derive context from a presumed worktree-relative OpenSpec installation.
+The template context system SHALL include OpenSpec project data only from OpenSpec CLI responses run in the session's active worktree when OpenSpec support is enabled. It SHALL not read, request, or derive context from a presumed worktree-relative OpenSpec installation.
 
 #### Scenario: OpenSpec project metadata
 - **WHEN** an OpenSpec-enabled template requires project metadata
@@ -42,6 +42,11 @@ The template context system SHALL obtain OpenSpec change data only when a render
 - **WHEN** an OpenSpec-enabled command or template requires changes data and the cached list has expired
 - **THEN** the system SHALL request a refreshed changes list
 - **AND** SHALL replace the cached list and its acquisition time after receiving the response
+
+#### Scenario: Unusable changes response
+- **WHEN** a changes-list response has malformed JSON or does not match the active refresh request ID
+- **THEN** the system SHALL leave the cached list and pending refresh unchanged
+- **AND** SHALL return a failure that identifies the unusable response
 
 #### Scenario: Forced refresh after a mutation
 - **WHEN** a successful OpenSpec mutation directs the agent to `guide://_openspec/list?force`

@@ -197,9 +197,8 @@ class TemplateContextCache(SessionListener):
     async def _build_openspec_context(self) -> "TemplateContext":
         """Build OpenSpec context fresh for each rendered document.
 
-        Changes data has a lazy TTL and client-observed directory-mtime
-        validity check.  It therefore must not be retained in the materialised
-        base template context.
+        Changes data has a lazy TTL. It therefore must not be retained in the
+        materialised base template context.
         """
         task_manager = self._task_manager()
         try:
@@ -237,19 +236,20 @@ class TemplateContextCache(SessionListener):
                         )
                         return False
 
-                return TemplateContext(
-                    {
-                        "openspec": {
-                            "available": openspec_state.validated,
-                            "version": openspec_state.version,
-                            "changes": openspec_task_subscriber.get_changes() or [],
-                            "changes_refresh_id": openspec_task_subscriber.changes_refresh_id,
-                            "show": openspec_task_subscriber.get_show(),
-                            "status": openspec_task_subscriber.get_status(),
-                            "has_version": has_version,
-                        }
-                    }
+                openspec_context: dict[str, Any] = {
+                    "available": openspec_state.validated,
+                    "version": openspec_state.version,
+                    "changes": openspec_task_subscriber.get_changes() or [],
+                    "changes_refresh_id": openspec_task_subscriber.changes_refresh_id,
+                    "show": openspec_task_subscriber.get_show(),
+                    "status": openspec_task_subscriber.get_status(),
+                    "has_version": has_version,
+                }
+                openspec_context["request_changes"] = openspec_task_subscriber.changes_request_section(openspec_context)
+                openspec_context["refresh_changes"] = openspec_task_subscriber.changes_request_section(
+                    openspec_context, force=True
                 )
+                return TemplateContext({"openspec": openspec_context})
             else:
                 return TemplateContext({"openspec": False})
         except Exception as e:

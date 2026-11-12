@@ -22,16 +22,19 @@ async def openspec_session(runtime, tmp_path):
     templates.mkdir(parents=True)
     for name, body in {
         "openspec-check": "Detect OpenSpec",
-        "openspec-project-check": "Check project assets",
         "_status-format": "{{changeName}} {{#isComplete}}complete{{/isComplete}}{{^isComplete}}pending{{/isComplete}}",
         "_show-format": "{{changeName}}: {{description}}",
-        "_error-format": "{{error}}: {{message}}",
+        "_error-format": "{{error}}: {{message}}{{#init_advised}} init-advised{{/init_advised}}",
         "_list-format": "Current changes",
     }.items():
         (templates / f"{name}.mustache").write_text(body)
     command = docs / "_commands" / "openspec" / "list.mustache"
     command.parent.mkdir(parents=True)
-    command.write_text("{{openspec.changes_refresh_id}}")
+    command.write_text(
+        "{{#kwargs.force}}{{#openspec.refresh_changes}}{{openspec.changes_refresh_id}}{{/openspec.refresh_changes}}"
+        "{{/kwargs.force}}{{^kwargs.force}}{{#openspec.request_changes}}{{openspec.changes_refresh_id}}"
+        "{{/openspec.request_changes}}{{/kwargs.force}}"
+    )
     runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docs), "projects": {}}))
     session = await create_bound_test_session(runtime)
     await session.project_flags().set("openspec", FeatureValue(True))
@@ -55,7 +58,7 @@ async def test_initialisation_reuses_only_recent_global_state(openspec_session, 
     assert task.get_changes() is None
     assert (await task.handle_event(EventType.TIMER_ONCE, {})).result
     instruction = (await manager.process_result(Result.ok())).additional_agent_instructions
-    assert instruction == ("Check project assets" if age is None else None if age == 100 else "Detect OpenSpec")
+    assert instruction == ("Detect OpenSpec" if age in {None, 86400} else None)
     if age == 100:
         assert task.is_available() is True
         assert task.get_version() == "1.10.0"
@@ -121,35 +124,13 @@ async def test_missing_cli_persists_unavailability_without_followup(openspec_ses
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(
-    "entries,expected_message",
-    [
-        ([{"name": "config.yaml"}], None),
-        ([{"name": "config.yaml"}, {"name": "changes", "type": "file"}], None),
-        (
-            [{"name": "changes", "type": "directory"}],
-            "OpenSpec is enabled, but this project is not initialised. Run guide://_openspec/init.",
-        ),
-        (
-            [{"name": "config.yaml", "type": "directory"}],
-            "OpenSpec is enabled, but this project is not initialised. Run guide://_openspec/init.",
-        ),
-    ],
-    ids=["config-only", "changes-is-ancillary", "missing-config", "config-is-not-file"],
-)
-async def test_enable_transition_checks_initialisation_without_gating_refresh(
-    openspec_session, runtime, entries, expected_message
-):
+async def test_enable_transition_is_passive_about_project_store(openspec_session, runtime):
     manager = openspec_session.task_manager
     task = OpenSpecTask()
     activation = TaskActivation(manager, task, openspec_session, enabled_flags=frozenset({"openspec"}))
     assert await task.start(activation)
 
     assert (await task.handle_event(EventType.TIMER_ONCE, {})).result
-    assert (await manager.process_result(Result.ok())).additional_agent_instructions == "Check project assets"
-    result = await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec", "files": entries})
-    assert result is not None and result.result
-    assert result.message == expected_message
     assert (await manager.process_result(Result.ok())).additional_agent_instructions == "Detect OpenSpec"
     detection = await task.handle_event(
         EventType.FS_FILE_CONTENT,
@@ -187,6 +168,33 @@ async def test_response_rendering_and_cache(openspec_session, name, data, expect
 
 
 @pytest.mark.anyio
+async def test_error_guidance_follows_explicit_cli_initialisation_remediation(openspec_session):
+    task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
+
+    ordinary_error = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-status.json", "content": json.dumps({"error": "Unknown change", "message": "Missing"})},
+    )
+    assert ordinary_error is not None
+    assert ordinary_error.rendered_content.content == "Unknown change: Missing"
+
+    root_error = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {
+            "path": ".openspec-status.json",
+            "content": json.dumps(
+                {
+                    "error": "No OpenSpec root found from the current directory.",
+                    "message": "Fix: Run openspec init to create a root here.",
+                }
+            ),
+        },
+    )
+    assert root_error is not None
+    assert root_error.rendered_content.content.endswith("init-advised")
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("empty", [False, True], ids=["grouped", "empty"])
 async def test_changes_grouping_and_ttl_expiry(openspec_session, monkeypatch, empty):
     now = 1000.0
@@ -208,10 +216,6 @@ async def test_changes_grouping_and_ttl_expiry(openspec_session, monkeypatch, em
         ]
     )
     request_id = task.prepare_changes_refresh()
-    await task.handle_event(
-        EventType.FS_DIRECTORY,
-        {"path": "openspec/changes", "files": [], "mtime": 10.0, "request_id": request_id},
-    )
     result = await task.handle_event(
         EventType.FS_FILE_CONTENT,
         {"path": ".openspec-changes.json", "content": json.dumps({"changes": changes}), "request_id": request_id},
@@ -234,7 +238,7 @@ async def test_changes_grouping_and_ttl_expiry(openspec_session, monkeypatch, em
 
 
 @pytest.mark.anyio
-async def test_changes_cache_requires_client_directory_mtime(openspec_session):
+async def test_changes_cache_accepts_correlated_cli_response_without_directory_metadata(openspec_session):
     task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
     changes = {"changes": []}
 
@@ -243,25 +247,11 @@ async def test_changes_cache_requires_client_directory_mtime(openspec_session):
         EventType.FS_FILE_CONTENT,
         {"path": ".openspec-changes.json", "content": json.dumps(changes), "request_id": request_id},
     )
-    assert not task.is_cache_valid()
-
-    await task.handle_event(
-        EventType.FS_DIRECTORY,
-        {"path": "openspec/changes", "files": [], "mtime": 10.0, "request_id": request_id},
-    )
-    await task.handle_event(
-        EventType.FS_FILE_CONTENT,
-        {"path": ".openspec-changes.json", "content": json.dumps(changes), "request_id": request_id},
-    )
     assert task.is_cache_valid()
-
-    await task.handle_event(EventType.FS_DIRECTORY, {"path": "openspec/changes", "files": [], "mtime": 11.0})
-    assert not task.is_cache_valid()
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("invalidator", ["directory_change", "ttl_expiry"])
-async def test_invalid_changes_cache_rebuilds_openspec_template_context(openspec_session, monkeypatch, invalidator):
+async def test_expired_changes_cache_rebuilds_openspec_template_context(openspec_session, monkeypatch):
     now = 1_000.0
     monkeypatch.setattr("time.time", lambda: now)
     task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
@@ -269,24 +259,13 @@ async def test_invalid_changes_cache_rebuilds_openspec_template_context(openspec
 
     request_id = task.prepare_changes_refresh()
     await task.handle_event(
-        EventType.FS_DIRECTORY,
-        {"path": "openspec/changes", "files": [], "mtime": 10.0, "request_id": request_id},
-    )
-    await task.handle_event(
         EventType.FS_FILE_CONTENT,
         {"path": ".openspec-changes.json", "content": json.dumps({"changes": changes}), "request_id": request_id},
     )
     cached_context = await get_template_contexts(openspec_session)
     assert cached_context["openspec"]["changes"]
 
-    if invalidator == "directory_change":
-        refresh_id = task.prepare_changes_refresh(force=True)
-        await task.handle_event(
-            EventType.FS_DIRECTORY,
-            {"path": "openspec/changes", "files": [], "mtime": 11.0, "request_id": refresh_id},
-        )
-    else:
-        now += 3601
+    now += 3601
 
     refreshed_context = await get_template_contexts(openspec_session)
     assert refreshed_context is not cached_context
@@ -298,10 +277,6 @@ async def test_changes_cache_is_not_carried_to_a_replacement_task(openspec_sessi
     manager = openspec_session.task_manager
     task = manager.get_task_by_type(OpenSpecTask)
     request_id = task.prepare_changes_refresh()
-    await task.handle_event(
-        EventType.FS_DIRECTORY,
-        {"path": "openspec/changes", "files": [], "mtime": 10.0, "request_id": request_id},
-    )
     await task.handle_event(
         EventType.FS_FILE_CONTENT,
         {"path": ".openspec-changes.json", "content": '{"changes": []}', "request_id": request_id},
@@ -320,17 +295,9 @@ async def test_changes_cache_is_not_carried_to_a_replacement_task(openspec_sessi
 async def test_superseded_changes_refresh_response_is_ignored(openspec_session):
     task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
     first_request_id = task.prepare_changes_refresh()
-    await task.handle_event(
-        EventType.FS_DIRECTORY,
-        {"path": "openspec/changes", "files": [], "mtime": 10.0, "request_id": first_request_id},
-    )
 
     current_request_id = task.prepare_changes_refresh(force=True)
-    await task.handle_event(
-        EventType.FS_DIRECTORY,
-        {"path": "openspec/changes", "files": [], "mtime": 11.0, "request_id": current_request_id},
-    )
-    await task.handle_event(
+    stale = await task.handle_event(
         EventType.FS_FILE_CONTENT,
         {
             "path": ".openspec-changes.json",
@@ -338,6 +305,8 @@ async def test_superseded_changes_refresh_response_is_ignored(openspec_session):
             "request_id": first_request_id,
         },
     )
+    assert stale is not None
+    assert not stale.result
     assert task.get_changes() is None
 
     await task.handle_event(
@@ -351,6 +320,29 @@ async def test_superseded_changes_refresh_response_is_ignored(openspec_session):
     changes = task.get_changes()
     assert changes is not None
     assert changes["in_progress"][0]["name"] == "current"
+
+
+@pytest.mark.anyio
+async def test_unusable_changes_responses_fail_without_changing_the_cache(openspec_session):
+    task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
+    request_id = task.prepare_changes_refresh()
+
+    missing_request_id = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-changes.json", "content": '{"changes": []}'},
+    )
+    assert missing_request_id is not None
+    assert not missing_request_id.result
+    assert task.changes_refresh_id == request_id
+
+    malformed = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-changes.json", "content": "not JSON", "request_id": request_id},
+    )
+    assert malformed is not None
+    assert not malformed.result
+    assert task.changes_refresh_id == request_id
+    assert task.get_changes() is None
 
 
 @pytest.mark.anyio

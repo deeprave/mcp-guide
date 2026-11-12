@@ -477,14 +477,6 @@ async def _execute_command(
     if await _is_help_command(command_path, request_context) and args:
         return await get_command_help(session, command_context, commands_dir, request_context.resolve_document_path)
 
-    if command_path == "openspec/list":
-        from mcp_guide.openspec.task import OpenSpecTask
-
-        openspec_task = session.task_manager.get_task_by_type(OpenSpecTask)
-        force_refresh = bool(kwargs.get("force", False))
-        if openspec_task is not None and (force_refresh or not openspec_task.is_cache_valid()):
-            openspec_task.prepare_changes_refresh(force=force_refresh)
-
     uri_kwargs = dict(kwargs)
     if command_path in {"worktree/new", "worktree/use"}:
         from mcp_guide.worktree_names import allocate_worktree_name

@@ -9,6 +9,10 @@ type: user/information
 {{message}}
 
 {{/message}}
+{{#init_advised}}
+The OpenSpec CLI advises initialising a root with {{#resource}}_openspec/init{{/resource}}, then retrying from the active worktree.
+{{/init_advised}}
+
 {{?available_changes}}
 **Available changes:**
 {{#available_changes}}

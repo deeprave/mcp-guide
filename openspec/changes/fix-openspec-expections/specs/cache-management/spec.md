@@ -24,7 +24,7 @@ The system SHALL maintain cache state for an OpenSpec changes list, including it
 - **AND** a later OpenSpec-list render SHALL request a refreshed list
 
 #### Scenario: Missing or changed directory metadata
-- **GIVEN** cached changes data exists
+- **GIVEN** cached changes data exists and client directory metadata is absent or changes
 - **WHEN** a consumer requests a forced refresh
 - **THEN** the OpenSpec-list render SHALL request a new OpenSpec-list result
 - **AND** SHALL not inspect or request a changes-directory modification time
