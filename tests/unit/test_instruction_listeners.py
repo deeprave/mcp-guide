@@ -58,6 +58,21 @@ async def test_startup_guidance_is_not_gated_by_a_feature_flag(listener_session)
 
 
 @pytest.mark.anyio
+async def test_startup_guidance_includes_handoff_context(listener_session):
+    """Handoff guidance is delivered in the initial project briefing."""
+    session, system = listener_session
+    (system / "_handoff-context.mustache").write_text("Handoff guidance")
+    (system / "_startup.mustache").write_text(
+        "---\nincludes:\n  - _handoff-context\n---\nStartup\n{{>handoff-context}}"
+    )
+
+    await StartupInstructionListener().on_project_changed(session, "old", session.project_name)
+
+    delivered = await session.task_manager.process_result(Result.ok())
+    assert delivered.additional_agent_instructions == "Startup\nHandoff guidance"
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("kind", ["guide", "startup"])
 @pytest.mark.parametrize(
     "content", ["   ", "---\nrequires-never-enabled: true\n---\nHidden"], ids=["blank", "filtered"]

@@ -4,6 +4,7 @@ includes:
   - _partials/disposition-guide
   - _partials/guide-scope
   - _partials/workflow-state
+  - _handoff-context
 ---
 ## How Guide talks to you
 
@@ -14,6 +15,7 @@ includes:
 Once per session, Guide may ask you to read a small file it just created and send back its contents (a random value it generated, nothing sensitive) to check whether it shares your filesystem directly. Responding within 60 seconds lets Guide read files itself instead of asking you to send them, and lets you use `~`/environment variables/relative paths — real conveniences, not busywork. If you miss the window, nothing breaks; Guide just falls back to asking you to send files as it does now.
 
 {{>guide-scope}}
+{{>handoff-context}}
 {{?workflow}}
 {{>workflow-state}}
 {{/workflow}}

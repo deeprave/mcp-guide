@@ -49,7 +49,14 @@ Guide SHALL allocate a readable name for a new linked-worktree handoff and recor
 
 ### Requirement: Shared handover context is worktree-keyed
 
-Worktree-specific handover data SHALL be stored at `projects.<project-name>.worktrees.<worktree-name>` in the shared context object. Reserved top-level sections MAY contain global todo notes or ancillary information and SHALL be preserved. The primary checkout SHALL use the `root` worktree label within its own project namespace.
+Worktree-specific handover data SHALL be stored at `projects.<project-name>.worktrees.<worktree-name>` in the shared context object. Every worktree entry SHALL include a `timestamp` recording the entry's date and time, and a `path` recording the worktree path. `issue` and `phase` MAY be included but are not required because workflow state is tracked separately. Entries MAY include other information needed for another agent or session to resume the work, such as a plan, task metadata, milestone, next action, blockers, or handoff instructions. Reserved top-level sections MAY contain global todo notes or ancillary information and SHALL be preserved. The primary checkout SHALL use the `root` worktree label within its own project namespace.
+
+#### Scenario: Worktree handover records resumable state
+- **GIVEN** a client updates its worktree handover entry
+- **WHEN** it writes `projects.<project-name>.worktrees.<worktree-name>`
+- **THEN** the entry SHALL include its `timestamp` and `path`
+- **AND** it MAY include information needed to resume work
+- **AND** it SHALL NOT require `issue` or `phase`
 
 #### Scenario: Concurrent worktree handovers
 - **GIVEN** two linked-worktree sessions update shared handover context for one project

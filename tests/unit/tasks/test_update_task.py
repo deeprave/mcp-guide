@@ -1,13 +1,10 @@
 """Startup document-update prompts use real flags, version files and rendering."""
 
-from dataclasses import replace
-
 import pytest
 import yaml
 from tests.helpers import create_bound_test_session, create_unbound_test_session
 
 from mcp_guide import __version__
-from mcp_guide.feature_flags.constants import DEFAULT_DOCUMENTS_PATH, FLAG_HANDOFF_CONTEXT, FLAG_PATH_DOCUMENTS
 from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType
 from mcp_guide.tasks.update_task import StartupTask
@@ -85,89 +82,6 @@ async def test_development_mode_skips_startup_update_prompt(runtime, tmp_path):
     assert result.result
     assert session.task_manager.is_queue_empty()
     assert session.task_manager.get_task_by_type(StartupTask) is None
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize(
-    ("value", "expected"),
-    [
-        (None, None),
-        (True, None),
-        (False, "disabled"),
-    ],
-)
-async def test_startup_task_queues_rendered_handoff_context_guidance(runtime, tmp_path, value, expected):
-    """Startup guidance is rendered through the ordinary template pipeline."""
-    docroot = tmp_path / "documents"
-    (docroot / "_system").mkdir(parents=True)
-    (docroot / "_system" / "_handoff-context.mustache").write_text(
-        "{{#handoff_context.target}}target={{handoff-context-path}};format={{handoff_context.format}}"
-        "{{/handoff_context.target}}{{^handoff_context.target}}disabled{{/handoff_context.target}}"
-    )
-    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
-    session = await create_bound_test_session(runtime)
-    if value is not None:
-        await session.project_flags().set(FLAG_HANDOFF_CONTEXT, value)
-    task = session.task_manager.get_task_by_type(StartupTask)
-    assert task is not None
-
-    result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-    assert result.result
-    delivered = await session.task_manager.process_result(Result.ok())
-    expected = expected or f"target={session.bound_root_path / DEFAULT_DOCUMENTS_PATH / 'context.json'};format=JSON"
-    assert delivered.additional_agent_instructions == expected
-
-
-@pytest.mark.anyio
-async def test_startup_handoff_guidance_uses_configured_shared_paths(runtime, tmp_path):
-    """Configured handoff and documents paths stay rooted at the project."""
-    docroot = tmp_path / "documents"
-    (docroot / "_system").mkdir(parents=True)
-    (docroot / "_system" / "_handoff-context.mustache").write_text(
-        "target={{handoff-context-path}};documents={{documents-path}};format={{handoff_context.format}}"
-    )
-    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
-    session = await create_bound_test_session(runtime)
-    project = await session.get_project()
-    await session.update_config(
-        lambda current: replace(current, allowed_write_paths=[*project.allowed_write_paths, ".work/"])
-    )
-    await session.project_flags().set(FLAG_PATH_DOCUMENTS, ".work/")
-    await session.project_flags().set(FLAG_HANDOFF_CONTEXT, "handover.yaml")
-    task = session.task_manager.get_task_by_type(StartupTask)
-    assert task is not None
-
-    result = await task.handle_event(EventType.TIMER_ONCE, {})
-
-    assert result.result
-    delivered = await session.task_manager.process_result(Result.ok())
-    assert delivered.additional_agent_instructions == (
-        f"target={session.bound_root_path / '.work' / 'handover.yaml'};"
-        f"documents={session.bound_root_path / '.work'}/;format=YAML"
-    )
-
-
-@pytest.mark.anyio
-async def test_document_update_guidance_precedes_handoff_guidance(runtime, tmp_path):
-    """A stale installed document set is more urgent than ordinary handoff guidance."""
-    docroot = tmp_path / "documents"
-    (docroot / "_system").mkdir(parents=True)
-    (docroot / "_system" / "_handoff-context.mustache").write_text("Handoff")
-    (docroot / "_system" / "_update.mustache").write_text("Update")
-    (docroot / ".version").write_text("0.0.1")
-    runtime.configuration_service().config_file.write_text(
-        yaml.safe_dump({"docroot": str(docroot), "projects": {}, "feature_flags": {"autoupdate": True}})
-    )
-    session = await create_bound_test_session(runtime)
-    await session.project_flags().set(FLAG_HANDOFF_CONTEXT, True)
-    task = session.task_manager.get_task_by_type(StartupTask)
-    assert task is not None
-
-    await task.handle_event(EventType.TIMER_ONCE, {})
-
-    assert (await session.task_manager.process_result(Result.ok())).additional_agent_instructions == "Update"
-    assert (await session.task_manager.process_result(Result.ok())).additional_agent_instructions == "Handoff"
 
 
 @pytest.mark.anyio
