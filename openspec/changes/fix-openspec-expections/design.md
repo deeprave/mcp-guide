@@ -2,17 +2,17 @@
 
 ## Context
 
-Guide currently mixes two separate facts: whether the OpenSpec executable is installed, and whether the active project can resolve an OpenSpec store. It checks the former with `openspec --version`, but answers the latter by asking the client to inspect a worktree-local `openspec/` directory and its `config.yaml` and `changes` entries.
+Guide currently mixes whether the OpenSpec executable is installed with a separate, invalid attempt to validate an active project's store. It checks the former with `openspec --version`, but answers the latter by asking the client to inspect a worktree-local `openspec/` directory and its `config.yaml` and `changes` entries.
 
-That layout is not authoritative. OpenSpec resolves a store from the active directory, including ancestor installations and named-store configuration. The client can therefore run OpenSpec successfully for a project whose own worktree contains no `openspec/` directory.
+That layout is not authoritative. OpenSpec resolves a store from the active directory, including ancestor installations and named-store configuration. Guide does not need to reproduce or preflight that behaviour: it invokes the CLI only when it needs CLI output.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Treat OpenSpec CLI results from the bound project as the authority for executable availability, store resolution, changes, and resolved artifact paths.
+- Treat OpenSpec CLI results from the bound project as the authority for changes and resolved artifact paths when those are needed.
 - Keep project OpenSpec opt-in and the existing machine-wide 24-hour version check.
-- Remove OpenSpec-specific client filesystem probes and path construction from task handling and rendered guidance.
+- Remove OpenSpec-specific client filesystem probes, store validation, and path construction from task handling and rendered guidance.
 - Retain efficient session-local changes caching without relying on client filesystem metadata.
 
 **Non-Goals:**
@@ -23,11 +23,11 @@ That layout is not authoritative. OpenSpec resolves a store from the active dire
 
 ## Decisions
 
-### Separate CLI availability from project-store resolution
+### Use the CLI on demand, without project-store validation
 
-`openspec --version` remains the machine-wide, 24-hour cached executable check. An explicit project enable transition additionally runs a CLI command from the bound project, initially `openspec list --json`, to determine whether that invocation resolves a usable store. The latter is project and client-context specific; it is not persisted as global availability.
+`openspec --version` remains the machine-wide, 24-hour cached executable check. Enabling OpenSpec for a project does not run a project-scoped CLI command or otherwise determine whether that project resolves a usable store.
 
-Guide will not inspect `openspec/config.yaml`, list `openspec/changes`, or walk ancestor directories. Reimplementing discovery would diverge from the CLI and cannot support future store mechanisms. A successful empty list is a valid resolution. A CLI failure produces the existing initialisation guidance and leaves the user's explicit OpenSpec selection intact; Guide does not mutate project configuration in response to a transient or missing store.
+Guide will not inspect `openspec/config.yaml`, list `openspec/changes`, walk ancestor directories, or preflight a CLI command. Reimplementing discovery would diverge from the CLI and cannot support future store mechanisms. When a consumer needs changes, Guide runs `openspec list --json` from the session's active worktree; a successful empty list is valid, while an error is handled by that consumer without mutating the user's explicit OpenSpec setting.
 
 ### Make structured CLI replies the template data boundary
 
@@ -37,21 +37,21 @@ Workflow and command templates will run the appropriate CLI command and use its 
 
 ### Use TTL and explicit invalidation for change data
 
-The changes cache remains session-local and keeps its one-hour TTL. `guide://_openspec/list?force` starts a new generation and replaces any cached list once its matching CLI reply arrives. Mutating commands retain the explicit forced-refresh recommendation. No OpenSpec filesystem event or directory mtime participates in cache validity.
+The changes cache remains session-local and keeps its one-hour TTL. `guide://_openspec/list?force` starts a new generation and replaces any cached list once its matching CLI reply arrives. Dispatching a mutation-capable OpenSpec command invalidates cached OpenSpec results but does not request replacement data; a later consumer requests the CLI result it needs. No OpenSpec filesystem event or directory mtime participates in cache validity.
 
 ### Preserve passive ordinary binding
 
-Ordinary session binding and reconnect remain passive: they can reuse current global CLI-version state but do not issue a project-store or changes request. The project-store check occurs only after an explicit OpenSpec enable transition, while commands and templates obtain change data only on demand.
+Ordinary session binding, reconnect, and an explicit OpenSpec enable transition remain passive: they can reuse current global CLI-version state but do not issue a project-scoped OpenSpec request. Commands and templates obtain change data only on demand.
 
 ## Risks / Trade-offs
 
 - [A project is moved or its ancestor store changes while a list cache is valid] → TTL expiry and explicit refresh after mutations provide bounded freshness without duplicating the CLI's discovery logic.
-- [CLI errors lack a stable machine-readable reason for every version] → Guide presents the initialisation resource for an unsuccessful project-resolution command and preserves the raw formatted CLI error where available.
+- [CLI errors lack a stable machine-readable reason] → The consumer that requested the CLI result preserves the formatted CLI error where available and does not mutate the project's enabled setting.
 - [A CLI result contains an unfamiliar future store layout] → Guide treats it as opaque structured output rather than deriving paths from it, maintaining forward compatibility.
 
 ## Migration Plan
 
 1. Replace OpenSpec filesystem probes and their directory-event correlation with CLI-result-only handling.
 2. Revise the affected templates to remove assumed local OpenSpec paths and use CLI results or CLI-provided resolved locations.
-3. Retire directory-mtime cache metadata and coverage, then verify the revised enablement, on-demand list, forced refresh, and inherited-store flows.
+3. Retire directory-mtime cache metadata and retain the revised passive enablement, on-demand list, and forced-refresh behaviour.
 4. Existing project flags and cached version state remain compatible; no configuration migration is required.

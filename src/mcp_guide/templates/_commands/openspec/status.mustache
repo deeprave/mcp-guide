@@ -7,12 +7,9 @@ requires-openspec: true
 includes:
   - ../../_openspec/status-format
 instruction: >
-  After receiving the openspec status JSON, check each artifact's `outputPath` for glob patterns (contains `*` or `**`).
-  For each glob pattern found:
-    1. Use the `glob` tool with pattern `openspec/changes/[change-name]/[outputPath]` to expand it
-    2. Replace the glob pattern in `outputPath` with the comma-separated list of relative paths (relative to `openspec/changes/[change-name]/`)
-    3. If no files match, replace with "(no files)"
-  Then send the modified JSON using {{tool_prefix}}send_file_content with path `.openspec-status.json` to update the cache.
+  Send the OpenSpec status JSON unchanged using {{tool_prefix}}send_file_content
+  with path `.openspec-status.json` to update the cache. Its output paths are
+  authoritative; do not derive or expand them from an assumed store layout.
 ---
 {{#openspec}}
 {{#status}}
@@ -21,11 +18,11 @@ instruction: >
 
 {{^status}}
 {{#args.0.value}}
-Run `openspec status --change {{args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results.
+Run `openspec status --change {{#shell_quote}}{{args.0.value}}{{/shell_quote}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results.
 {{/args.0.value}}
 {{^args.0.value}}
 {{#workflow.issue}}
-Run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results.
+Try `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results. The workflow issue may be a non-OpenSpec work phrase; an unknown change is not a workflow failure.
 {{/workflow.issue}}
 {{^workflow.issue}}
 {{#_error}}No change-id provided and no current workflow issue set.{{/_error}}

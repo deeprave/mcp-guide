@@ -2,8 +2,8 @@
 
 ## 1. CLI-authoritative OpenSpec task
 
-- [ ] 1.1 Replace enablement and changes-refresh filesystem probes with correlated OpenSpec CLI responses, retaining version-state caching and adding behavioural coverage for inherited or named-store resolution, unsuccessful resolution, TTL expiry, and forced refresh.
+- [x] 1.1 Replace enablement and changes-refresh filesystem probes with correlated OpenSpec CLI responses requested only by consumers that need CLI data, retaining version-state caching and invalidating command-result caches when mutation-capable OpenSpec guidance is dispatched.
 
 ## 2. CLI-based OpenSpec guidance
 
-- [ ] 2.1 Revise onboarding, OpenSpec command, context, and workflow templates to remove worktree-local OpenSpec paths, consume CLI results and resolved locations, and update their behavioural coverage.
+- [x] 2.1 Revise onboarding, OpenSpec command, context, and workflow templates to remove worktree-local OpenSpec paths and consume CLI results and resolved locations.

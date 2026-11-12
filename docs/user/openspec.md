@@ -1,97 +1,87 @@
 # OpenSpec Integration
 
-mcp-guide integrates with OpenSpec, an AI-native system for spec-driven development, providing automatic monitoring and command access for managing changes and specifications.
-
-For more information on OpenSpec, visit https://openspec.dev
-
-## Overview
-
-OpenSpec integration enables structured change management with automatic monitoring of project changes. The integration validates OpenSpec availability, tracks changes, and provides prompt commands for common operations.
+mcp-guide integrates with [OpenSpec](https://openspec.dev), an AI-native system
+for spec-driven development. Enable it for a project with the `openspec`
+project flag to make OpenSpec commands and context available.
 
 ## Integration Behaviour
 
-### Validation and Shared CLI State
+### CLI Availability
 
-OpenSpec is enabled exclusively per project. When enabled, mcp-guide validates the
-project's OpenSpec configuration and tracks changes. CLI availability and version
-are shared machine-wide: an enabled project checks them when the global state is
-absent or older than 24 hours, then other enabled projects reuse that result.
+Enabling OpenSpec is passive: mcp-guide does not inspect `openspec/config.yaml`,
+list a presumed `openspec/` directory, or otherwise validate a project store.
+The OpenSpec CLI resolves the applicable store from the active worktree,
+including ancestor and named stores.
 
-The shared CLI check verifies that `openspec` is installed and records its version.
+mcp-guide checks the availability and version of the `openspec` executable with
+`openspec --version`. That machine-wide result is reused for 24 hours by
+enabled projects. It only establishes whether the CLI is available; it does not
+assert that a particular project has an OpenSpec store.
 
-Project validation checks:
-- Confirms `openspec/config.yaml` exists (required by current OpenSpec versions)
-- Tests that `openspec list` executes successfully (even if no changes exist)
+### Change Data
 
-### Session Monitoring
+mcp-guide requests `openspec list --json` only when a command or template needs
+the change list. The agent returns that CLI result through the normal structured
+reply path, after which mcp-guide caches it in the active session for one hour.
+An explicit refresh replaces the cached result. Dispatching a mutation-capable
+OpenSpec command invalidates relevant cached results, but does not request
+replacement data automatically.
 
-During each session, the integration:
-- Reuses the shared OpenSpec CLI availability and version result for up to 24 hours
-- Refreshes change list hourly or after agent makes OpenSpec changes
-- Caches responses to minimize redundant command execution
-
-### User Experience
-
-The integration may seem verbose in some agents as it executes OpenSpec commands to maintain synchronisation. These commands are necessary for the integration to function correctly. Frequent use of guide tools and prompt commands helps keep OpenSpec and the MCP server synchronised.
+There is no filesystem monitoring, directory-mtime refresh, or enable-time
+OpenSpec list preflight. If the CLI reports that no OpenSpec root exists, its
+own error and remediation are authoritative.
 
 ## OpenSpec Commands
 
-When OpenSpec is enabled, additional OpenSpec commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use `guide://_help` for the full command list, or `guide://_help/openspec%2Finit` and `guide://_help/openspec%2Flist` for help on specific OpenSpec commands.
+When OpenSpec is enabled, these commands are available:
 
-**`guide://_openspec/init`** _(:openspec/init)_
-Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and `openspec/config.yaml` file.
+- **`guide://_openspec/init`** — run `openspec init` to initialise a root when
+  the CLI advises doing so.
+- **`guide://_openspec/propose`** — begin a proposed OpenSpec change through
+  the OpenSpec CLI and its resolved schema.
+- **`guide://_openspec/list`** — list active changes, requesting and caching
+  `openspec list --json` only when needed.
+- **`guide://_openspec/show`** — show a specific or current change.
+- **`guide://_openspec/status`** — show completion status for a change.
+- **`guide://_openspec/validate`** — validate a change against its schema.
+- **`guide://_openspec/archive`** — archive a completed change and update the
+  resolved main specifications where applicable.
+- **`guide://_openspec/schemas`** — discover schemas available to the resolved
+  OpenSpec store.
 
-**`guide://_openspec/propose`** _(:openspec/propose; aliases: openspec/new, openspec/create)_
-Initiate a new OpenSpec change by creating the change directory structure and proposal document. Emphasises dialogue with the user before writing documents. Optionally creates `tasks.md` for tracking implementation.
+Use `guide://_help` for command help, or `guide://_help/openspec%2F<command>`
+for a specific command.
 
-**`guide://_openspec/list`** _(:openspec/list)_
-List all OpenSpec changes in the project. Triggers a refresh of the change list from OpenSpec CLI.
+## Workflow Integration
 
-**`guide://_openspec/show`** _(:openspec/show)_
-Show details for the current or a specific OpenSpec change, including proposal, tasks, and spec deltas.
-
-**`guide://_openspec/validate`** _(:openspec/validate)_
-Validate the current or a specific OpenSpec change against schema requirements and structural rules.
-
-**`guide://_openspec/status`** _(:openspec/status)_
-Get the completion status and percentage for an OpenSpec change based on completed tasks.
-
-**`guide://_openspec/archive`** _(:openspec/archive)_
-Archive a completed OpenSpec change, moving it to the archive directory and optionally updating main specs.
-
-**`guide://_openspec/schemas`** _(:openspec/schemas)_
-Discover available OpenSpec schemas in the project for creating new specifications.
-
-## Integration with the `workflow` feature flag
-
-When both OpenSpec and workflow feature flags are enabled, they work together:
-
-- The workflow `issue` field typically specifies the OpenSpec change name (e.g., `add-feature-x` or `add-feature-x/sub-spec`)
-- mcp-guide provides its own versions of OpenSpec prompts:
-  - `guide://_workflow/implement` - Equivalent to openspec-apply (with full project guidelines)
-  - `guide://_openspec/archive` - Equivalent to openspec-archive
-  - `guide://_openspec/propose` - Equivalent to openspec-propose
-
-Otherwise, OpenSpec and workflow operate independently.
+OpenSpec and workflow are independent project capabilities. When both are
+enabled, a workflow `issue` is still only a concise dash-delimited work phrase.
+It may match an OpenSpec change ID, but it is not required to; tracked-issue
+references belong in the separate `tracking` field. OpenSpec commands therefore
+accept an explicit change ID or may use the current workflow issue as a
+candidate. An unknown candidate is normal for a non-OpenSpec workflow issue and
+does not fail the workflow phase.
 
 ## OpenSpec Template Context
 
-When OpenSpec is enabled, OpenSpec information is available in content templates via `{{openspec.*}}` variables:
+When OpenSpec is enabled, content templates may use these variables:
 
-- `{{openspec.available}}` - Boolean indicating if OpenSpec is available
-- `{{openspec.version}}` - OpenSpec version string
-- `{{openspec.changes}}` - Array of change objects with name, status, and task counts
-- `{{openspec.show}}` - Details of currently shown change
-- `{{openspec.status}}` - Status information for current change
+- `{{openspec.available}}` — whether the shared CLI availability check passed.
+- `{{openspec.version}}` — the detected OpenSpec version.
+- `{{openspec.changes}}` — after a successful list response, a grouped mapping
+  with `in_progress`, `draft`, and `complete` lists of change objects.
+- `{{openspec.show}}` — cached details of the currently shown change, when
+  available.
+- `{{openspec.status}}` — cached status information for the current change,
+  when available.
+
+Before a successful list response, `changes` is intentionally falsey so a
+Mustache template can render its request branch. That sentinel is not an
+alternative public list shape.
 
 ## Configuration
 
-### The `openspec` Feature Flag
+The `openspec` project flag controls this integration:
 
-This project-only feature flag enables OpenSpec integration:
-
-**Boolean:**
-- `false` / absent: OpenSpec integration disabled (default)
-- `true`: Enable OpenSpec integration with automatic monitoring
-
-When enabled, the OpenSpecTask runs periodically to monitor changes and maintain synchronisation with the OpenSpec CLI.
+- `false` or absent — OpenSpec integration is disabled.
+- `true` — enable OpenSpec commands and context for the project.

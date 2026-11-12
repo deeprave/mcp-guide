@@ -2,7 +2,7 @@
 type: agent/instruction
 aliases: ["issue"]
 description: "Manage current workflow issue"
-usage: "guide://_workflow/issue[?issue=<issue-id>&description=<desc>&tracking=<type id>&clear&next]"
+usage: "guide://_workflow/issue[?issue=<work-phrase>&description=<desc>&tracking=<type id>&clear&next]"
 category: "project-workflow"
 requires-workflow: true
 argrequired:
@@ -20,19 +20,23 @@ instruction: >
 {{h2}}Issue Management
 
 {{b}}Arguments{{b}}
-- `--issue=issue-id` - Set new issue (openspec path or component)
+- `--issue=work-phrase` - Set the current issue to a concise dash-delimited work phrase
 - `--description="text"` - Set issue description
 - `--tracking="TYPE ID"` - Set tracking (e.g. "JIRA GUIDE-123")
-- `--queue=issue-id` - Queue an issue (openspec path or component)
+- `--queue=work-phrase` - Queue a concise dash-delimited work phrase
 - `--clear` - Remove current issue
 - `--next` - Move next queued issue to current
 
 > Only one of --clear, --next, or issue-id is valid.
 > --description and --tracking can be used anytime.
 > Validate phase restrictions before making changes.
+> Issue and queue values are identifiers, not descriptions: use lowercase words separated by dashes, without punctuation or parentheses. Tracking references use `--tracking`, not `--issue`.
+{{#openspec}}
+> An issue may match an OpenSpec change ID, but it is not required to do so.
+{{/openspec}}
 
 {{h2}}Examples
-- `{{#command}}issue{{/command}}{{#command-flags}}issue=openspec/changes/new-feature{{/command-flags}}`
+- `{{#command}}issue{{/command}}{{#command-flags}}issue=new-feature{{/command-flags}}`
 - `{{#command}}issue{{/command}}{{#command-flags}}description=Fix validation bug{{/command-flags}}`
 - `{{#command}}issue{{/command}}{{#command-flags}}tracking=JIRA PROJ-456{{/command-flags}}`
 - `{{#command}}issue{{/command}}{{#command-flags}}clear{{/command-flags}}`

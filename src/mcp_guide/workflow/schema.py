@@ -1,8 +1,11 @@
 """Workflow state schema definitions."""
 
+import re
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+WORK_PHRASE_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 
 
 class WorkflowState(BaseModel):
@@ -22,3 +25,20 @@ class WorkflowState(BaseModel):
     model_config = ConfigDict(
         extra="allow",  # Allow additional fields to be loaded and preserved
     )
+
+    @field_validator("issue")
+    @classmethod
+    def validate_issue(cls, value: str | None) -> str | None:
+        """Require a safe, portable identifier for the current work item."""
+        if value is not None and not WORK_PHRASE_PATTERN.fullmatch(value):
+            raise ValueError("must be a lowercase dash-delimited work phrase without punctuation or whitespace")
+        return value
+
+    @field_validator("queue")
+    @classmethod
+    def validate_queue(cls, values: list[str]) -> list[str]:
+        """Require queued work items to use the same safe identifier format."""
+        invalid = [value for value in values if not WORK_PHRASE_PATTERN.fullmatch(value)]
+        if invalid:
+            raise ValueError("entries must be lowercase dash-delimited work phrases without punctuation or whitespace")
+        return values

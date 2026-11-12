@@ -1,6 +1,7 @@
 """Explicit Guide extension bindings for Mustache rendering."""
 
 import inspect
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -78,7 +79,7 @@ def _build_lambda_registry(
     ) -> Callable[..., Any]:
         return _safe_lambda(func, protocol, errors=errors)
 
-    return {
+    lambdas = {
         "_error": safe(functions._error, chevron.compat),
         "prompt": safe(get_prompt_name, chevron.func),
         "tool_prefix": safe(get_tool_prefix, chevron.func),
@@ -102,6 +103,13 @@ def _build_lambda_registry(
         "command-flags": safe(functions.command_flags, chevron.compat),
         "command-alias": safe(functions.command_alias, chevron.compat),
     }
+    openspec = functions.context.get("openspec")
+    if isinstance(openspec, Mapping):
+        for name in ("request_changes", "refresh_changes", "invalidate_results"):
+            callback = openspec.get(name)
+            if callable(callback):
+                lambdas[f"openspec.{name}"] = safe(callback, chevron.section)
+    return lambdas
 
 
 def build_template_lambda_registry(

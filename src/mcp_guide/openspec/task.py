@@ -3,6 +3,7 @@
 import json
 import re
 import time
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 from packaging.version import InvalidVersion, Version
@@ -14,10 +15,8 @@ from mcp_guide.feature_flags.types import FeatureValue, RawFeatureValue
 from mcp_guide.feature_flags.validators import is_value_true
 from mcp_guide.openspec.rendering import openspec_template_context, render_openspec_template
 from mcp_guide.openspec.state import OpenSpecState, parse_openspec_state, serialise_openspec_state
-from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.render.content import RenderedContent
 from mcp_guide.render.context import TemplateContext
-from mcp_guide.render.functions import TemplateFunctions
 from mcp_guide.runtime import get_runtime
 from mcp_guide.task_manager import EventType
 from mcp_guide.task_manager.protocol import DEFAULT_ONCE_INTERVAL, InitialisableMixin
@@ -44,37 +43,28 @@ class OpenSpecTask(InitialisableMixin):
         self.activation: TaskActivation | None = None
         self._session: Any = None
         self._detection_requested = False
-        self._validate_project_assets = False
         self._flag_checked = False
         self._available: Optional[bool] = None
         self._version: Optional[str] = None
         self._version_this_session: Optional[str] = None  # Session-level cache
         self._changes_cache: Optional[list[dict[str, Any]]] = None
         self._changes_timestamp: Optional[float] = None
-        self._changes_directory_mtime: Optional[float] = None
-        self._observed_changes_directory_mtime: Optional[float] = None
         self._changes_refresh_generation = 0
         self._pending_changes_refresh_id: Optional[str] = None
-        self._changes_directory_refresh_id: Optional[str] = None
 
         # Instruction tracking IDs
         self._detection_instruction_id: Optional[str] = None
-        self._project_check_instruction_id: Optional[str] = None
 
     async def start(self, activation: "TaskActivation") -> bool:
         """Start OpenSpec detection if enabled for the current project."""
         self.activation = activation
         self._session = activation.session
-        self._validate_project_assets = FLAG_OPENSPEC in activation.enabled_flags
         if not await self._is_enabled():
             logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
             self._flag_checked = True
             return False
 
-        activation.subscribe(
-            EventType.FS_FILE_CONTENT | EventType.FS_DIRECTORY,
-            once_interval=DEFAULT_ONCE_INTERVAL,
-        )
+        activation.subscribe(EventType.FS_FILE_CONTENT, once_interval=DEFAULT_ONCE_INTERVAL)
         return True
 
     @property
@@ -102,12 +92,6 @@ class OpenSpecTask(InitialisableMixin):
         if not openspec_enabled:
             await self._activation.unsubscribe()
             logger.debug(f"OpenSpecTask disabled - {FLAG_OPENSPEC} flag not set")
-            self._flag_checked = True
-            return EventResult(result=True)
-
-        if self._validate_project_assets:
-            await self.request_project_check()
-            self._validate_project_assets = False
             self._flag_checked = True
             return EventResult(result=True)
 
@@ -276,19 +260,11 @@ class OpenSpecTask(InitialisableMixin):
         Returns:
             True if cache exists and is not expired, False otherwise.
         """
-        if (
-            self._changes_cache is None
-            or self._changes_timestamp is None
-            or self._changes_directory_mtime is None
-            or self._observed_changes_directory_mtime is None
-            or self._changes_directory_mtime != self._observed_changes_directory_mtime
-        ):
+        if self._changes_cache is None or self._changes_timestamp is None:
             return False
 
-        import time
-
         age = time.time() - self._changes_timestamp
-        return age < ttl
+        return 0 <= age < ttl
 
     def prepare_changes_refresh(self, *, force: bool = False) -> str:
         """Return the opaque identifier for a requested changes refresh.
@@ -302,8 +278,46 @@ class OpenSpecTask(InitialisableMixin):
 
         self._changes_refresh_generation += 1
         self._pending_changes_refresh_id = f"openspec-changes-{self._changes_refresh_generation}"
-        self._changes_directory_refresh_id = None
         return self._pending_changes_refresh_id
+
+    def invalidate_cached_results(self) -> None:
+        """Discard cached OpenSpec command results after a mutation is dispatched.
+
+        Rendering a mutation-capable command is the dispatch boundary: the
+        subsequent CLI operation may alter the available changes or a cached
+        change's details.  This deliberately does not request replacement data.
+        A later consumer explicitly requests the CLI result it needs.
+        """
+        self._changes_cache = None
+        self._changes_timestamp = None
+        self._pending_changes_refresh_id = None
+        task_manager = self._session.task_manager
+        task_manager.set_cached_data("openspec_changes", None)
+        task_manager.set_cached_data("openspec_status", None)
+        task_manager.set_cached_data("openspec_show", None)
+
+    def invalidate_results_section(self, _context: dict[str, Any]) -> Any:
+        """Return a section lambda that invalidates OpenSpec results on dispatch."""
+
+        def invalidate_results(_text: str) -> str:
+            self.invalidate_cached_results()
+            return ""
+
+        return invalidate_results
+
+    def changes_request_section(self, context: dict[str, Any], *, force: bool = False) -> Any:
+        """Return a section lambda that prepares a correlated list response.
+
+        The command template invokes this only when it needs changes data.  It
+        keeps request preparation with the OpenSpec task instead of coupling
+        generic command handling to a particular command path.
+        """
+
+        def request_changes(text: str) -> str:
+            context["changes_refresh_id"] = self.prepare_changes_refresh(force=force)
+            return text
+
+        return request_changes
 
     @property
     def changes_refresh_id(self) -> Optional[str]:
@@ -314,23 +328,38 @@ class OpenSpecTask(InitialisableMixin):
         """Return whether a filesystem reply belongs to the active refresh."""
         return isinstance(request_id, str) and request_id == self._pending_changes_refresh_id
 
+    @staticmethod
+    def _response_format_error(path_name: str, detail: str) -> "EventResult":
+        """Return a corrective error for a recognised malformed CLI response."""
+        from mcp_guide.task_manager.manager import EventResult
+
+        return EventResult(result=False, message=f"OpenSpec response `{path_name}` is invalid: {detail}")
+
+    @staticmethod
+    def _validate_response_shape(path_name: str, payload: object) -> str | None:
+        """Validate the minimum shape Guide consumes for a recognised response."""
+        if not isinstance(payload, Mapping):
+            return "expected a JSON object"
+
+        if path_name == ".openspec-info.json":
+            version = payload.get("version")
+            if version is not None and not isinstance(version, str):
+                return "`version` must be a string or null"
+
+        if path_name == ".openspec-changes.json":
+            changes = payload.get("changes")
+            if not isinstance(changes, list):
+                return "`changes` must be a list"
+            if not all(isinstance(change, Mapping) for change in changes):
+                return "every `changes` entry must be an object"
+
+        return None
+
     async def request_detection(self) -> None:
         """Request combined OpenSpec CLI detection from the client."""
         rendered = await render_openspec_template(self._session, "openspec-check")
         if rendered:
             self._detection_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
-
-    async def request_project_check(self) -> None:
-        """Request repository-asset validation for an explicit enable transition."""
-        rendered = await render_openspec_template(self._session, "openspec-project-check")
-        if rendered:
-            self._project_check_instruction_id = await self._activation.queue_instruction_with_ack(rendered.content)
-
-    async def _initialisation_guidance(self) -> str:
-        """Return the client-appropriate OpenSpec initialisation reference."""
-        context = await get_template_contexts(self._session)
-        reference = TemplateFunctions(context).resource("_openspec/init")
-        return f"OpenSpec is enabled, but this project is not initialised. Run {reference}."
 
     async def handle_event(self, event_type: EventType, data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
@@ -338,48 +367,6 @@ class OpenSpecTask(InitialisableMixin):
 
         if result := await self._handle_timer_once(event_type):
             return result
-
-        # Handle directory listing events
-        if event_type & EventType.FS_DIRECTORY:
-            path = data.get("path", "")
-            if path == "openspec" and self._project_check_instruction_id is not None:
-                files = data.get("files", [])
-                config_present = any(
-                    entry.get("name") == "config.yaml" and entry.get("type") in (None, "file")
-                    for entry in files
-                    if isinstance(entry, dict)
-                )
-                await self._activation.acknowledge_instruction(self._project_check_instruction_id)
-                self._project_check_instruction_id = None
-                await self.request_detection()
-                if not config_present:
-                    return EventResult(
-                        result=True,
-                        message=await self._initialisation_guidance(),
-                    )
-                return EventResult(result=True)
-            if path == "openspec/changes":
-                request_id = data.get("request_id")
-                if request_id is None:
-                    # Preserve passive directory-mtime invalidation for clients
-                    # that report a listing outside the explicit refresh flow.
-                    # Such a listing can invalidate cached data, but cannot
-                    # authorise a changes-list response for a pending refresh.
-                    mtime = data.get("mtime")
-                    self._observed_changes_directory_mtime = (
-                        float(mtime) if isinstance(mtime, (int, float)) and not isinstance(mtime, bool) else None
-                    )
-                    return EventResult(result=True)
-                if not self._is_current_changes_refresh(request_id):
-                    logger.debug("Ignoring OpenSpec changes directory response for a superseded refresh")
-                    return EventResult(result=True)
-                mtime = data.get("mtime")
-                self._observed_changes_directory_mtime = (
-                    float(mtime) if isinstance(mtime, (int, float)) and not isinstance(mtime, bool) else None
-                )
-                self._changes_directory_refresh_id = request_id
-                return EventResult(result=True)
-            return None
 
         # Handle file content events
         if event_type & EventType.FS_FILE_CONTENT:
@@ -390,18 +377,23 @@ class OpenSpecTask(InitialisableMixin):
 
             if path_name == ".openspec-changes.json":
                 request_id = data.get("request_id")
-                if not self._is_current_changes_refresh(request_id) or request_id != self._changes_directory_refresh_id:
-                    logger.debug("Ignoring OpenSpec changes response for a superseded or incomplete refresh")
-                    return EventResult(result=True)
+                if not self._is_current_changes_refresh(request_id):
+                    logger.debug("Ignoring OpenSpec changes response for a superseded refresh")
+                    return EventResult(
+                        result=False,
+                        message="Ignored OpenSpec changes response: request ID does not match the active refresh",
+                    )
 
             if path_name == ".openspec-info.json":
                 content = data.get("content", "")
                 try:
                     report = json.loads(content)
                 except json.JSONDecodeError:
-                    logger.warning("Invalid JSON in OpenSpec detection response")
-                    report = {}
-                version = report.get("version") if isinstance(report, dict) else None
+                    return self._response_format_error(path_name, "expected valid JSON with a `version` field")
+                error = self._validate_response_shape(path_name, report)
+                if error:
+                    return self._response_format_error(path_name, error)
+                version = report.get("version")
                 await self._parse_detection(version if isinstance(version, str) else None)
                 return EventResult(result=True)
 
@@ -412,8 +404,14 @@ class OpenSpecTask(InitialisableMixin):
             try:
                 json_data = json.loads(content)
             except json.JSONDecodeError:
+                if path_name == ".openspec-changes.json":
+                    return EventResult(result=False, message="OpenSpec changes response is not valid JSON")
                 logger.debug(f"Non-JSON content in {path_name}, skipping")
                 return None
+
+            error = self._validate_response_shape(path_name, json_data)
+            if error:
+                return self._response_format_error(path_name, error)
 
             # Check for error responses first
             if "error" in json_data:
@@ -447,12 +445,10 @@ class OpenSpecTask(InitialisableMixin):
                 # Cache the changes data
                 import time
 
-                changes = json_data.get("changes", [])
+                changes = json_data["changes"]
                 self._changes_cache = changes
                 self._changes_timestamp = time.time()
-                self._changes_directory_mtime = self._observed_changes_directory_mtime
                 self._pending_changes_refresh_id = None
-                self._changes_directory_refresh_id = None
                 self._activation.set_cached_data("openspec_changes", changes)
                 logger.debug(f"Cached {len(changes)} OpenSpec changes")
 
@@ -524,8 +520,11 @@ class OpenSpecTask(InitialisableMixin):
         Returns:
             RenderedContent with formatted content, or None if filtered by requires-*
         """
+        message = "\n".join(value for key in ("error", "message") if isinstance(value := data.get(key), str))
+        context = dict(data)
+        context["init_advised"] = "Run openspec init to create a root here" in message
         return await render_openspec_template(
             self._session,
             "_error-format",
-            extra_context=openspec_template_context(data),
+            extra_context=openspec_template_context(context),
         )

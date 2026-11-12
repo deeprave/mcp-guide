@@ -25,8 +25,8 @@ Code quality checks must pass. This may include (depending on language):
 {{h2}}⚠️ IMPORTANT
 {{b}}IF YOU HAVE NOT ALREADY DONE SO YOU MUST UPDATE COMPLETION STATUS:{{b}}
 
-Before commencing checks, you {{b}}MUST{{b}}: {{#workflow.issue}}
-- Update `openspec/changes/{{workflow.issue}}/tasks.md` marking all completed items{{/workflow.issue}}{{#workflow.plan}}
+Before commencing checks, you {{b}}MUST{{b}}: {{#openspec}}{{#workflow.issue}}
+- If `{{workflow.issue}}` is an OpenSpec change identifier, use `openspec status --change {{workflow.issue}} --json` to locate and update its task artifact, marking all completed items. A workflow issue is a dash-delimited work phrase and may not be an OpenSpec change; an unknown change does not fail CHECK.{{/workflow.issue}}{{/openspec}}{{#workflow.plan}}
 - Update the current implementation plan ({{workflow.plan}}) marking all completed items{{/workflow.plan}}
 - Present a summary of:
    - What has been completed

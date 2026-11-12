@@ -6,12 +6,13 @@ usage: "guide://_openspec/archive[/<change-id>]"
 
 requires-openspec: true
 ---
+{{#openspec.invalidate_results}}{{/openspec.invalidate_results}}
 {{#args.0.value}}
-Run `openspec archive {{args.0.value}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`
+Run `openspec archive {{#shell_quote}}{{args.0.value}}{{/shell_quote}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`
 {{/args.0.value}}
 {{^args.0.value}}
 {{#workflow.issue}}
-Run `openspec archive {{workflow.issue}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`
+Try `openspec archive {{workflow.issue}} --yes` and send the result using {{tool_prefix}}send_file_content with path `.openspec-archive.txt`. The workflow issue may be a non-OpenSpec work phrase; an unknown change is not a workflow failure.
 {{/workflow.issue}}
 {{^workflow.issue}}
 {{#_error}}No change-id provided and no current workflow issue set.{{/_error}}

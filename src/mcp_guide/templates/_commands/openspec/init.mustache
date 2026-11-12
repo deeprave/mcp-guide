@@ -6,13 +6,12 @@ usage: "guide://_openspec/init"
 
 requires-openspec: true
 ---
+{{#openspec.invalidate_results}}{{/openspec.invalidate_results}}
 To initialise OpenSpec in this project, please run:
 
 `openspec init`
 
-This will create the required directory structure:
-- openspec/config.yaml
-- openspec/changes/
-- openspec/specs/
+OpenSpec resolves the store it initialises; do not assume a worktree-local
+directory layout.
 
 After initialisation, use {{#recommend}}command:openspec/list?force{{/recommend}} to refresh the cached changes list.
