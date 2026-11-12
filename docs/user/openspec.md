@@ -23,7 +23,9 @@ assert that a particular project has an OpenSpec store.
 mcp-guide requests `openspec list --json` only when a command or template needs
 the change list. The agent returns that CLI result through the normal structured
 reply path, after which mcp-guide caches it in the active session for one hour.
-An explicit refresh or a relevant OpenSpec mutation replaces the cached result.
+An explicit refresh replaces the cached result. Dispatching a mutation-capable
+OpenSpec command invalidates relevant cached results, but does not request
+replacement data automatically.
 
 There is no filesystem monitoring, directory-mtime refresh, or enable-time
 OpenSpec list preflight. If the CLI reports that no OpenSpec root exists, its
@@ -56,7 +58,9 @@ OpenSpec and workflow are independent project capabilities. When both are
 enabled, a workflow `issue` is still only a concise dash-delimited work phrase.
 It may match an OpenSpec change ID, but it is not required to; tracked-issue
 references belong in the separate `tracking` field. OpenSpec commands therefore
-remain explicit rather than being inferred from every workflow issue.
+accept an explicit change ID or may use the current workflow issue as a
+candidate. An unknown candidate is normal for a non-OpenSpec workflow issue and
+does not fail the workflow phase.
 
 ## OpenSpec Template Context
 

@@ -90,6 +90,25 @@ def parse_workflow_state(content: str, *, raise_validation_error: bool = False) 
             tracking_error = next((error for error in e.errors() if error.get("loc") == ("tracking",)), None)
             if tracking_error is not None:
                 raise WorkflowStateValidationError("Invalid workflow file: `tracking` must be a string") from e
+            issue_error = next((error for error in e.errors() if error.get("loc") == ("issue",)), None)
+            if issue_error is not None:
+                raise WorkflowStateValidationError(
+                    "Invalid workflow file: `issue` must be a lowercase dash-delimited work phrase "
+                    "without punctuation or whitespace"
+                ) from e
+            queue_error = next(
+                (
+                    error
+                    for error in e.errors()
+                    if error.get("loc") == ("queue",) and error.get("type") == "value_error"
+                ),
+                None,
+            )
+            if queue_error is not None:
+                raise WorkflowStateValidationError(
+                    "Invalid workflow file: `queue` entries must be lowercase dash-delimited work phrases "
+                    "without punctuation or whitespace"
+                ) from e
             raise WorkflowStateValidationError("Invalid workflow file: one or more fields have invalid values") from e
         return None
     except Exception as e:

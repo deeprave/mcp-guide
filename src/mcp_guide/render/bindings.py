@@ -105,7 +105,7 @@ def _build_lambda_registry(
     }
     openspec = functions.context.get("openspec")
     if isinstance(openspec, Mapping):
-        for name in ("request_changes", "refresh_changes"):
+        for name in ("request_changes", "refresh_changes", "invalidate_results"):
             callback = openspec.get(name)
             if callable(callback):
                 lambdas[f"openspec.{name}"] = safe(callback, chevron.section)

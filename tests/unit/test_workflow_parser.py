@@ -41,8 +41,19 @@ def test_parse_workflow_state_preserves_plan_and_tracking() -> None:
         ("phase: implementation\ntracking:\n  openspec: sample\n", "`tracking` must be a string"),
         ("phase: implementation\nqueue: sample\n", "one or more fields have invalid values"),
         ("phase: unsupported\n", "unsupported phase `unsupported`"),
+        ("phase: implementation\nissue: Fix the thing!\n", "`issue` must be a lowercase dash-delimited"),
+        ("phase: implementation\nqueue: [valid-item, invalid item]\n", "`queue` entries must be lowercase"),
     ],
-    ids=["invalid-yaml", "non-mapping", "missing-phase", "structured-tracking", "invalid-field-type", "unknown-phase"],
+    ids=[
+        "invalid-yaml",
+        "non-mapping",
+        "missing-phase",
+        "structured-tracking",
+        "invalid-field-type",
+        "unknown-phase",
+        "unsafe-issue",
+        "unsafe-queued-issue",
+    ],
 )
 def test_parse_workflow_state_reports_validation_errors_when_requested(content: str, error: str) -> None:
     with pytest.raises(WorkflowStateValidationError, match=error):

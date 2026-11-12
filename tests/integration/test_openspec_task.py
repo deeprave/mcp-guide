@@ -28,12 +28,15 @@ async def openspec_session(runtime, tmp_path):
         "_list-format": "Current changes",
     }.items():
         (templates / f"{name}.mustache").write_text(body)
-    command = docs / "_commands" / "openspec" / "list.mustache"
-    command.parent.mkdir(parents=True)
-    command.write_text(
+    command_dir = docs / "_commands" / "openspec"
+    command_dir.mkdir(parents=True)
+    (command_dir / "list.mustache").write_text(
         "{{#kwargs.force}}{{#openspec.refresh_changes}}{{openspec.changes_refresh_id}}{{/openspec.refresh_changes}}"
         "{{/kwargs.force}}{{^kwargs.force}}{{#openspec.request_changes}}{{openspec.changes_refresh_id}}"
         "{{/openspec.request_changes}}{{/kwargs.force}}"
+    )
+    (command_dir / "archive.mustache").write_text(
+        "{{#openspec.invalidate_results}}{{/openspec.invalidate_results}}archive"
     )
     runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docs), "projects": {}}))
     session = await create_bound_test_session(runtime)
@@ -325,6 +328,19 @@ async def test_superseded_changes_refresh_response_is_ignored(openspec_session):
 @pytest.mark.anyio
 async def test_unusable_changes_responses_fail_without_changing_the_cache(openspec_session):
     task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
+    cached_request_id = task.prepare_changes_refresh()
+    cached = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {
+            "path": ".openspec-changes.json",
+            "content": '{"changes": [{"name": "known", "status": "in-progress"}]}',
+            "request_id": cached_request_id,
+        },
+    )
+    assert cached is not None and cached.result
+    expected_changes = task.get_changes()
+    assert expected_changes is not None
+
     request_id = task.prepare_changes_refresh()
 
     missing_request_id = await task.handle_event(
@@ -334,6 +350,7 @@ async def test_unusable_changes_responses_fail_without_changing_the_cache(opensp
     assert missing_request_id is not None
     assert not missing_request_id.result
     assert task.changes_refresh_id == request_id
+    assert task.get_changes() == expected_changes
 
     malformed = await task.handle_event(
         EventType.FS_FILE_CONTENT,
@@ -342,7 +359,52 @@ async def test_unusable_changes_responses_fail_without_changing_the_cache(opensp
     assert malformed is not None
     assert not malformed.result
     assert task.changes_refresh_id == request_id
+    assert task.get_changes() == expected_changes
+
+    invalid_shape = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-changes.json", "content": '{"changes": {}}', "request_id": request_id},
+    )
+    assert invalid_shape is not None
+    assert not invalid_shape.result
+    assert "`changes` must be a list" in invalid_shape.message
+    assert task.changes_refresh_id == request_id
+    assert task.get_changes() == expected_changes
+
+
+@pytest.mark.anyio
+async def test_recognised_structured_responses_report_the_expected_shape(openspec_session):
+    task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
+
+    result = await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-info.json", "content": '["not", "an", "object"]'},
+    )
+
+    assert result is not None
+    assert not result.result
+    assert result.message == "OpenSpec response `.openspec-info.json` is invalid: expected a JSON object"
+
+
+@pytest.mark.anyio
+async def test_mutation_command_dispatch_invalidates_cached_openspec_results(openspec_session):
+    task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
+    request_id = task.prepare_changes_refresh()
+    await task.handle_event(
+        EventType.FS_FILE_CONTENT,
+        {"path": ".openspec-changes.json", "content": '{"changes": []}', "request_id": request_id},
+    )
+    openspec_session.task_manager.set_cached_data("openspec_status", {"changeName": "known"})
+    openspec_session.task_manager.set_cached_data("openspec_show", {"id": "known"})
+    request_context = await request_context_for(openspec_session)
+
+    result = await handle_command("openspec/archive", request_context=request_context, middleware=[])
+
+    assert result.success
     assert task.get_changes() is None
+    assert task.get_status() is None
+    assert task.get_show() is None
+    assert task.changes_refresh_id is None
 
 
 @pytest.mark.anyio

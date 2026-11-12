@@ -37,7 +37,7 @@ Workflow and command templates will run the appropriate CLI command and use its 
 
 ### Use TTL and explicit invalidation for change data
 
-The changes cache remains session-local and keeps its one-hour TTL. `guide://_openspec/list?force` starts a new generation and replaces any cached list once its matching CLI reply arrives. Mutating commands retain the explicit forced-refresh recommendation. No OpenSpec filesystem event or directory mtime participates in cache validity.
+The changes cache remains session-local and keeps its one-hour TTL. `guide://_openspec/list?force` starts a new generation and replaces any cached list once its matching CLI reply arrives. Dispatching a mutation-capable OpenSpec command invalidates cached OpenSpec results but does not request replacement data; a later consumer requests the CLI result it needs. No OpenSpec filesystem event or directory mtime participates in cache validity.
 
 ### Preserve passive ordinary binding
 

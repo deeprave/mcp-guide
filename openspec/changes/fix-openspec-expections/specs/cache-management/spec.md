@@ -29,6 +29,12 @@ The system SHALL maintain cache state for an OpenSpec changes list, including it
 - **THEN** the OpenSpec-list render SHALL request a new OpenSpec-list result
 - **AND** SHALL not inspect or request a changes-directory modification time
 
+#### Scenario: Dispatch a mutation-capable OpenSpec command
+- **GIVEN** cached OpenSpec command results exist
+- **WHEN** Guide dispatches a command or skill that may mutate OpenSpec state
+- **THEN** Guide SHALL invalidate the relevant cached OpenSpec results
+- **AND** SHALL NOT automatically request replacement CLI data
+
 #### Scenario: Superseded refresh response
 - **GIVEN** a changes refresh has been superseded by a newer refresh
 - **WHEN** an OpenSpec-list response for the older refresh arrives

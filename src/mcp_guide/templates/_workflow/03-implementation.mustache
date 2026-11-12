@@ -34,7 +34,7 @@ Do not make architectural decisions without the user's direct import.
 {{h2}}⚠️ BEFORE TRANSITIONING FROM THIS PHASE
 {{b}}MUST UPDATE COMPLETION STATUS:{{b}}
 {{#openspec}}{{#workflow.issue}}
-  - Use `openspec status --change {{workflow.issue}} --json` to locate and update its task artifact, marking all completed items{{/workflow.issue}}
+  - If `{{workflow.issue}}` names an OpenSpec change, use `openspec status --change {{workflow.issue}} --json` to locate and update its task artifact, marking all completed items. A workflow issue is a dash-delimited work phrase and may not be an OpenSpec change; an unknown change does not fail IMPLEMENTATION.{{/workflow.issue}}
 {{/openspec}}{{#workflow.plan}}
   - Update the current implementation plan ({{workflow.plan}}) marking all completed items{{/workflow.plan}}
   - Present a summary of:

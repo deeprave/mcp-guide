@@ -249,6 +249,9 @@ class TemplateContextCache(SessionListener):
                 openspec_context["refresh_changes"] = openspec_task_subscriber.changes_request_section(
                     openspec_context, force=True
                 )
+                openspec_context["invalidate_results"] = openspec_task_subscriber.invalidate_results_section(
+                    openspec_context
+                )
                 return TemplateContext({"openspec": openspec_context})
             else:
                 return TemplateContext({"openspec": False})

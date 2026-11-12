@@ -3,6 +3,7 @@
 import json
 import re
 import time
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Optional, cast
 
 from packaging.version import InvalidVersion, Version
@@ -279,6 +280,31 @@ class OpenSpecTask(InitialisableMixin):
         self._pending_changes_refresh_id = f"openspec-changes-{self._changes_refresh_generation}"
         return self._pending_changes_refresh_id
 
+    def invalidate_cached_results(self) -> None:
+        """Discard cached OpenSpec command results after a mutation is dispatched.
+
+        Rendering a mutation-capable command is the dispatch boundary: the
+        subsequent CLI operation may alter the available changes or a cached
+        change's details.  This deliberately does not request replacement data.
+        A later consumer explicitly requests the CLI result it needs.
+        """
+        self._changes_cache = None
+        self._changes_timestamp = None
+        self._pending_changes_refresh_id = None
+        task_manager = self._session.task_manager
+        task_manager.set_cached_data("openspec_changes", None)
+        task_manager.set_cached_data("openspec_status", None)
+        task_manager.set_cached_data("openspec_show", None)
+
+    def invalidate_results_section(self, _context: dict[str, Any]) -> Any:
+        """Return a section lambda that invalidates OpenSpec results on dispatch."""
+
+        def invalidate_results(_text: str) -> str:
+            self.invalidate_cached_results()
+            return ""
+
+        return invalidate_results
+
     def changes_request_section(self, context: dict[str, Any], *, force: bool = False) -> Any:
         """Return a section lambda that prepares a correlated list response.
 
@@ -301,6 +327,33 @@ class OpenSpecTask(InitialisableMixin):
     def _is_current_changes_refresh(self, request_id: object) -> bool:
         """Return whether a filesystem reply belongs to the active refresh."""
         return isinstance(request_id, str) and request_id == self._pending_changes_refresh_id
+
+    @staticmethod
+    def _response_format_error(path_name: str, detail: str) -> "EventResult":
+        """Return a corrective error for a recognised malformed CLI response."""
+        from mcp_guide.task_manager.manager import EventResult
+
+        return EventResult(result=False, message=f"OpenSpec response `{path_name}` is invalid: {detail}")
+
+    @staticmethod
+    def _validate_response_shape(path_name: str, payload: object) -> str | None:
+        """Validate the minimum shape Guide consumes for a recognised response."""
+        if not isinstance(payload, Mapping):
+            return "expected a JSON object"
+
+        if path_name == ".openspec-info.json":
+            version = payload.get("version")
+            if version is not None and not isinstance(version, str):
+                return "`version` must be a string or null"
+
+        if path_name == ".openspec-changes.json":
+            changes = payload.get("changes")
+            if not isinstance(changes, list):
+                return "`changes` must be a list"
+            if not all(isinstance(change, Mapping) for change in changes):
+                return "every `changes` entry must be an object"
+
+        return None
 
     async def request_detection(self) -> None:
         """Request combined OpenSpec CLI detection from the client."""
@@ -336,9 +389,11 @@ class OpenSpecTask(InitialisableMixin):
                 try:
                     report = json.loads(content)
                 except json.JSONDecodeError:
-                    logger.warning("Invalid JSON in OpenSpec detection response")
-                    report = {}
-                version = report.get("version") if isinstance(report, dict) else None
+                    return self._response_format_error(path_name, "expected valid JSON with a `version` field")
+                error = self._validate_response_shape(path_name, report)
+                if error:
+                    return self._response_format_error(path_name, error)
+                version = report.get("version")
                 await self._parse_detection(version if isinstance(version, str) else None)
                 return EventResult(result=True)
 
@@ -353,6 +408,10 @@ class OpenSpecTask(InitialisableMixin):
                     return EventResult(result=False, message="OpenSpec changes response is not valid JSON")
                 logger.debug(f"Non-JSON content in {path_name}, skipping")
                 return None
+
+            error = self._validate_response_shape(path_name, json_data)
+            if error:
+                return self._response_format_error(path_name, error)
 
             # Check for error responses first
             if "error" in json_data:
@@ -386,7 +445,7 @@ class OpenSpecTask(InitialisableMixin):
                 # Cache the changes data
                 import time
 
-                changes = json_data.get("changes", [])
+                changes = json_data["changes"]
                 self._changes_cache = changes
                 self._changes_timestamp = time.time()
                 self._pending_changes_refresh_id = None

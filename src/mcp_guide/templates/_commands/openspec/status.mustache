@@ -18,11 +18,11 @@ instruction: >
 
 {{^status}}
 {{#args.0.value}}
-Run `openspec status --change {{args.0.value}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results.
+Run `openspec status --change {{#shell_quote}}{{args.0.value}}{{/shell_quote}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results.
 {{/args.0.value}}
 {{^args.0.value}}
 {{#workflow.issue}}
-Run `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results.
+Try `openspec status --change {{workflow.issue}} --json` and send the result using {{tool_prefix}}send_file_content with path `.openspec-status.json` to refresh the cache, then re-render this template to display the results. The workflow issue may be a non-OpenSpec work phrase; an unknown change is not a workflow failure.
 {{/workflow.issue}}
 {{^workflow.issue}}
 {{#_error}}No change-id provided and no current workflow issue set.{{/_error}}
