@@ -102,23 +102,27 @@ The system SHALL provide a decorator-based auto-registration system for task man
 - **AND** prevent initialization order issues
 
 ### Requirement: OpenSpec Context Data
-The template context system SHALL include OpenSpec project data when OpenSpec support is enabled.
+The template context system SHALL include OpenSpec project data only from OpenSpec CLI responses run in the session's active worktree when OpenSpec support is enabled. It SHALL not read, request, or derive context from a presumed worktree-relative OpenSpec installation.
 
 #### Scenario: OpenSpec project metadata
-- **WHEN** OpenSpec project is detected
-- **THEN** context includes project name, description, and tech stack from openspec/project.md
+- **WHEN** an OpenSpec-enabled template requires project metadata
+- **THEN** the context SHALL use data returned by an applicable OpenSpec CLI response
+- **AND** SHALL NOT read or request `openspec/project.md`
 
 #### Scenario: Active changes data
-- **WHEN** OpenSpec project has active changes
-- **THEN** context includes list of change IDs, titles, and status
+- **WHEN** an OpenSpec-enabled template requires active changes
+- **THEN** the context SHALL use the result of `openspec list --json`
+- **AND** a successful empty changes list SHALL remain valid OpenSpec context
 
 #### Scenario: Specification domains
-- **WHEN** OpenSpec project has specifications
-- **THEN** context includes list of spec domains and descriptions
+- **WHEN** an OpenSpec-enabled template requires specification domains
+- **THEN** the rendered guidance SHALL obtain them through an OpenSpec CLI command
+- **AND** SHALL NOT construct a path beneath a presumed `openspec/specs` directory
 
 #### Scenario: Agent configuration
-- **WHEN** AGENTS.md exists in OpenSpec project
-- **THEN** context includes AI assistant configuration and conventions
+- **WHEN** an OpenSpec-enabled template requires agent configuration
+- **THEN** the context SHALL obtain it through the ordinary project document mechanism
+- **AND** SHALL NOT treat OpenSpec store discovery as evidence that a worktree-local `AGENTS.md` exists
 
 ### Requirement: Global OpenSpec state context
 The template context system SHALL obtain OpenSpec CLI validation and version
@@ -144,37 +148,34 @@ controlled by that Project's `project_flags.openspec` setting.
   the project changed
 
 ### Requirement: On-demand OpenSpec changes context
-The template context system SHALL obtain OpenSpec change data only when a
-rendered feature requires that data. It SHALL evaluate that data in a dynamic
-context layer on every render, reusing a valid per-session cached changes list
-rather than issuing another client request.
+The template context system SHALL obtain OpenSpec change data only when a rendered feature requires that data. It SHALL evaluate that data in a dynamic context layer on every render, reusing a valid per-session cached `openspec list --json` result rather than issuing another client request or inspecting filesystem metadata.
 
 #### Scenario: First change-data consumer
-- **WHEN** an OpenSpec-enabled command or template requires changes data and
-  no valid cached list exists
+- **WHEN** an OpenSpec-enabled command or template requires changes data and no valid cached list exists
 - **THEN** the system SHALL request `openspec list --json` once
 - **AND** SHALL cache the received list for subsequent consumers
 
 #### Scenario: Valid changes cache
-- **WHEN** an OpenSpec-enabled command or template requires changes data and
-  the cached list is within its TTL and matches the observed
-  `openspec/changes` directory modification time
+- **WHEN** an OpenSpec-enabled command or template requires changes data and the cached list is within its TTL
 - **THEN** the system SHALL use the cached list
 - **AND** SHALL NOT request another OpenSpec changes list
 
 #### Scenario: Invalidated changes cache
-- **WHEN** an OpenSpec-enabled command or template requires changes data and
-  the cached list has expired or the observed `openspec/changes` directory
-  modification time differs from the cached value
+- **WHEN** an OpenSpec-enabled command or template requires changes data and the cached list has expired
 - **THEN** the system SHALL request a refreshed changes list
-- **AND** SHALL replace the cached list and its cache metadata after receiving
-  the response
+- **AND** SHALL replace the cached list and its acquisition time after receiving the response
+
+#### Scenario: Unusable changes response
+
+- **WHEN** a changes-list response has malformed JSON or does not match the active refresh request ID
+- **THEN** the system SHALL leave the cached list and pending refresh unchanged
+- **AND** SHALL return a failure that identifies the unusable response
 
 #### Scenario: Forced refresh after a mutation
 - **WHEN** a successful OpenSpec mutation directs the agent to
   `guide://_openspec/list?force`
-- **THEN** the list command SHALL request a fresh directory listing and
-  `openspec list --json` even when cached changes data remains valid
+- **THEN** the list command SHALL request a fresh `openspec list --json` result even when cached changes data remains valid
+- **AND** SHALL NOT request a directory listing
 
 ### Requirement: Prompt-aware template guidance
 The template context SHALL suppress prompt-invocation guidance for agents whose prompt prefix is absent.
