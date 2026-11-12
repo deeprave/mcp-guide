@@ -582,17 +582,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#integration-behaviour" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -605,10 +594,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#validation-and-shared-cli-state" class="md-nav__link">
+  <a href="#cli-availability" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Validation and Shared CLI State
+        CLI Availability
       
     </span>
   </a>
@@ -616,21 +605,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#session-monitoring" class="md-nav__link">
+  <a href="#change-data" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Session Monitoring
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#user-experience" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        User Experience
+        Change Data
       
     </span>
   </a>
@@ -654,10 +632,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#integration-with-the-workflow-feature-flag" class="md-nav__link">
+  <a href="#workflow-integration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Integration with the workflow feature flag
+        Workflow Integration
       
     </span>
   </a>
@@ -683,23 +661,6 @@
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Configuration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#the-openspec-feature-flag" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The openspec Feature Flag
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
@@ -1192,17 +1153,6 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Overview
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#integration-behaviour" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1215,10 +1165,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#validation-and-shared-cli-state" class="md-nav__link">
+  <a href="#cli-availability" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Validation and Shared CLI State
+        CLI Availability
       
     </span>
   </a>
@@ -1226,21 +1176,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#session-monitoring" class="md-nav__link">
+  <a href="#change-data" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Session Monitoring
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#user-experience" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        User Experience
+        Change Data
       
     </span>
   </a>
@@ -1264,10 +1203,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#integration-with-the-workflow-feature-flag" class="md-nav__link">
+  <a href="#workflow-integration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Integration with the workflow feature flag
+        Workflow Integration
       
     </span>
   </a>
@@ -1294,23 +1233,6 @@
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Configuration">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#the-openspec-feature-flag" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        The openspec Feature Flag
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
 </li>
       
     </ul>
@@ -1334,71 +1256,77 @@
 
 
 <h1 id="openspec-integration">OpenSpec Integration<a class="headerlink" href="#openspec-integration" title="Permanent link">&para;</a></h1>
-<p>mcp-guide integrates with OpenSpec, an AI-native system for spec-driven development, providing automatic monitoring and command access for managing changes and specifications.</p>
-<p>For more information on OpenSpec, visit https://openspec.dev</p>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>OpenSpec integration enables structured change management with automatic monitoring of project changes. The integration validates OpenSpec availability, tracks changes, and provides prompt commands for common operations.</p>
+<p>mcp-guide integrates with <a href="https://openspec.dev">OpenSpec</a>, an AI-native system
+for spec-driven development. Enable it for a project with the <code>openspec</code>
+project flag to make OpenSpec commands and context available.</p>
 <h2 id="integration-behaviour">Integration Behaviour<a class="headerlink" href="#integration-behaviour" title="Permanent link">&para;</a></h2>
-<h3 id="validation-and-shared-cli-state">Validation and Shared CLI State<a class="headerlink" href="#validation-and-shared-cli-state" title="Permanent link">&para;</a></h3>
-<p>OpenSpec is enabled exclusively per project. When enabled, mcp-guide validates the
-project's OpenSpec configuration and tracks changes. CLI availability and version
-are shared machine-wide: an enabled project checks them when the global state is
-absent or older than 24 hours, then other enabled projects reuse that result.</p>
-<p>The shared CLI check verifies that <code>openspec</code> is installed and records its version.</p>
-<p>Project validation checks:
-- Confirms <code>openspec/config.yaml</code> exists (required by current OpenSpec versions)
-- Tests that <code>openspec list</code> executes successfully (even if no changes exist)</p>
-<h3 id="session-monitoring">Session Monitoring<a class="headerlink" href="#session-monitoring" title="Permanent link">&para;</a></h3>
-<p>During each session, the integration:
-- Reuses the shared OpenSpec CLI availability and version result for up to 24 hours
-- Refreshes change list hourly or after agent makes OpenSpec changes
-- Caches responses to minimize redundant command execution</p>
-<h3 id="user-experience">User Experience<a class="headerlink" href="#user-experience" title="Permanent link">&para;</a></h3>
-<p>The integration may seem verbose in some agents as it executes OpenSpec commands to maintain synchronisation. These commands are necessary for the integration to function correctly. Frequent use of guide tools and prompt commands helps keep OpenSpec and the MCP server synchronised.</p>
+<h3 id="cli-availability">CLI Availability<a class="headerlink" href="#cli-availability" title="Permanent link">&para;</a></h3>
+<p>Enabling OpenSpec is passive: mcp-guide does not inspect <code>openspec/config.yaml</code>,
+list a presumed <code>openspec/</code> directory, or otherwise validate a project store.
+The OpenSpec CLI resolves the applicable store from the active worktree,
+including ancestor and named stores.</p>
+<p>mcp-guide checks the availability and version of the <code>openspec</code> executable with
+<code>openspec --version</code>. That machine-wide result is reused for 24 hours by
+enabled projects. It only establishes whether the CLI is available; it does not
+assert that a particular project has an OpenSpec store.</p>
+<h3 id="change-data">Change Data<a class="headerlink" href="#change-data" title="Permanent link">&para;</a></h3>
+<p>mcp-guide requests <code>openspec list --json</code> only when a command or template needs
+the change list. The agent returns that CLI result through the normal structured
+reply path, after which mcp-guide caches it in the active session for one hour.
+An explicit refresh replaces the cached result. Dispatching a mutation-capable
+OpenSpec command invalidates relevant cached results, but does not request
+replacement data automatically.</p>
+<p>There is no filesystem monitoring, directory-mtime refresh, or enable-time
+OpenSpec list preflight. If the CLI reports that no OpenSpec root exists, its
+own error and remediation are authoritative.</p>
 <h2 id="openspec-commands">OpenSpec Commands<a class="headerlink" href="#openspec-commands" title="Permanent link">&para;</a></h2>
-<p>When OpenSpec is enabled, additional OpenSpec commands become available. Some commands invoke the OpenSpec CLI directly (with response caching). Use <code>guide://_help</code> for the full command list, or <code>guide://_help/openspec%2Finit</code> and <code>guide://_help/openspec%2Flist</code> for help on specific OpenSpec commands.</p>
-<p><strong><code>guide://_openspec/init</code></strong> <em>(:openspec/init)</em>
-Initialise OpenSpec in the current project using the openspec command. This creates the required directory structure and <code>openspec/config.yaml</code> file.</p>
-<p><strong><code>guide://_openspec/propose</code></strong> <em>(:openspec/propose; aliases: openspec/new, openspec/create)</em>
-Initiate a new OpenSpec change by creating the change directory structure and proposal document. Emphasises dialogue with the user before writing documents. Optionally creates <code>tasks.md</code> for tracking implementation.</p>
-<p><strong><code>guide://_openspec/list</code></strong> <em>(:openspec/list)</em>
-List all OpenSpec changes in the project. Triggers a refresh of the change list from OpenSpec CLI.</p>
-<p><strong><code>guide://_openspec/show</code></strong> <em>(:openspec/show)</em>
-Show details for the current or a specific OpenSpec change, including proposal, tasks, and spec deltas.</p>
-<p><strong><code>guide://_openspec/validate</code></strong> <em>(:openspec/validate)</em>
-Validate the current or a specific OpenSpec change against schema requirements and structural rules.</p>
-<p><strong><code>guide://_openspec/status</code></strong> <em>(:openspec/status)</em>
-Get the completion status and percentage for an OpenSpec change based on completed tasks.</p>
-<p><strong><code>guide://_openspec/archive</code></strong> <em>(:openspec/archive)</em>
-Archive a completed OpenSpec change, moving it to the archive directory and optionally updating main specs.</p>
-<p><strong><code>guide://_openspec/schemas</code></strong> <em>(:openspec/schemas)</em>
-Discover available OpenSpec schemas in the project for creating new specifications.</p>
-<h2 id="integration-with-the-workflow-feature-flag">Integration with the <code>workflow</code> feature flag<a class="headerlink" href="#integration-with-the-workflow-feature-flag" title="Permanent link">&para;</a></h2>
-<p>When both OpenSpec and workflow feature flags are enabled, they work together:</p>
+<p>When OpenSpec is enabled, these commands are available:</p>
 <ul>
-<li>The workflow <code>issue</code> field typically specifies the OpenSpec change name (e.g., <code>add-feature-x</code> or <code>add-feature-x/sub-spec</code>)</li>
-<li>mcp-guide provides its own versions of OpenSpec prompts:</li>
-<li><code>guide://_workflow/implement</code> - Equivalent to openspec-apply (with full project guidelines)</li>
-<li><code>guide://_openspec/archive</code> - Equivalent to openspec-archive</li>
-<li><code>guide://_openspec/propose</code> - Equivalent to openspec-propose</li>
+<li><strong><code>guide://_openspec/init</code></strong> — run <code>openspec init</code> to initialise a root when
+  the CLI advises doing so.</li>
+<li><strong><code>guide://_openspec/propose</code></strong> — begin a proposed OpenSpec change through
+  the OpenSpec CLI and its resolved schema.</li>
+<li><strong><code>guide://_openspec/list</code></strong> — list active changes, requesting and caching
+  <code>openspec list --json</code> only when needed.</li>
+<li><strong><code>guide://_openspec/show</code></strong> — show a specific or current change.</li>
+<li><strong><code>guide://_openspec/status</code></strong> — show completion status for a change.</li>
+<li><strong><code>guide://_openspec/validate</code></strong> — validate a change against its schema.</li>
+<li><strong><code>guide://_openspec/archive</code></strong> — archive a completed change and update the
+  resolved main specifications where applicable.</li>
+<li><strong><code>guide://_openspec/schemas</code></strong> — discover schemas available to the resolved
+  OpenSpec store.</li>
 </ul>
-<p>Otherwise, OpenSpec and workflow operate independently.</p>
+<p>Use <code>guide://_help</code> for command help, or <code>guide://_help/openspec%2F&lt;command&gt;</code>
+for a specific command.</p>
+<h2 id="workflow-integration">Workflow Integration<a class="headerlink" href="#workflow-integration" title="Permanent link">&para;</a></h2>
+<p>OpenSpec and workflow are independent project capabilities. When both are
+enabled, a workflow <code>issue</code> is still only a concise dash-delimited work phrase.
+It may match an OpenSpec change ID, but it is not required to; tracked-issue
+references belong in the separate <code>tracking</code> field. OpenSpec commands therefore
+accept an explicit change ID or may use the current workflow issue as a
+candidate. An unknown candidate is normal for a non-OpenSpec workflow issue and
+does not fail the workflow phase.</p>
 <h2 id="openspec-template-context">OpenSpec Template Context<a class="headerlink" href="#openspec-template-context" title="Permanent link">&para;</a></h2>
-<p>When OpenSpec is enabled, OpenSpec information is available in content templates via <code>{{openspec.*}}</code> variables:</p>
+<p>When OpenSpec is enabled, content templates may use these variables:</p>
 <ul>
-<li><code>{{openspec.available}}</code> - Boolean indicating if OpenSpec is available</li>
-<li><code>{{openspec.version}}</code> - OpenSpec version string</li>
-<li><code>{{openspec.changes}}</code> - Array of change objects with name, status, and task counts</li>
-<li><code>{{openspec.show}}</code> - Details of currently shown change</li>
-<li><code>{{openspec.status}}</code> - Status information for current change</li>
+<li><code>{{openspec.available}}</code> — whether the shared CLI availability check passed.</li>
+<li><code>{{openspec.version}}</code> — the detected OpenSpec version.</li>
+<li><code>{{openspec.changes}}</code> — after a successful list response, a grouped mapping
+  with <code>in_progress</code>, <code>draft</code>, and <code>complete</code> lists of change objects.</li>
+<li><code>{{openspec.show}}</code> — cached details of the currently shown change, when
+  available.</li>
+<li><code>{{openspec.status}}</code> — cached status information for the current change,
+  when available.</li>
 </ul>
+<p>Before a successful list response, <code>changes</code> is intentionally falsey so a
+Mustache template can render its request branch. That sentinel is not an
+alternative public list shape.</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
-<h3 id="the-openspec-feature-flag">The <code>openspec</code> Feature Flag<a class="headerlink" href="#the-openspec-feature-flag" title="Permanent link">&para;</a></h3>
-<p>This project-only feature flag enables OpenSpec integration:</p>
-<p><strong>Boolean:</strong>
-- <code>false</code> / absent: OpenSpec integration disabled (default)
-- <code>true</code>: Enable OpenSpec integration with automatic monitoring</p>
-<p>When enabled, the OpenSpecTask runs periodically to monitor changes and maintain synchronisation with the OpenSpec CLI.</p>
+<p>The <code>openspec</code> project flag controls this integration:</p>
+<ul>
+<li><code>false</code> or absent — OpenSpec integration is disabled.</li>
+<li><code>true</code> — enable OpenSpec commands and context for the project.</li>
+</ul>
 
 
 
