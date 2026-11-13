@@ -1,16 +1,27 @@
 ---
 type: agent/instruction
 description: Hand an existing linked worktree to a fresh agent session
-usage: "guide://_worktree/use/<worktree-name>"
-minargs: 1
+usage: "guide://_worktree/use[/<worktree-name>]"
 requires-handoff-context: true
 requires-worktree-support: true
 includes:
   - ../_partials/handoff-context-target
   - ../../_system/_handoff-context
+elicitation:
+  worktree-path:
+    message: "Choose the linked worktree to hand over."
+    fallback: render
+    schema:
+      type: object
+      properties:
+        worktree_path:
+          type: string
+          source: worktree-inventory
+      required: [worktree_path]
 ---
 {{>handoff-context}}
 
+{{#args.0.value}}
 Using the current Git worktree inventory, read {{>handoff-context-target}}.
 Locate `projects.{{project.name}}.worktrees.{{args.0.value}}`. It must exist,
 and its recorded absolute `path` must appear in the fresh Git worktree inventory.
@@ -28,3 +39,26 @@ recorded path, and the complete handoff entry. Do not forward this session
 ID. The child must work from that path, create a fresh Guide interaction, bind
 the shared project root and that worktree, then read its local workflow file
 before workflow or handoff-context operations.
+{{/args.0.value}}
+
+{{^args.0.value}}
+{{#elicit.worktree-path}}
+The selected linked worktree is `{{kwargs.worktree_path}}`. Read its effective
+configured workflow file before taking the shared handoff-context lock. If the
+file has a valid non-`root` `worktree` label, retain that label and use or
+repair its corresponding handoff entry. Otherwise, use Guide's allocated
+label `{{kwargs.worktree_name}}`.
+
+Acquire the shared handoff-context lock. Record or update the selected path at
+`projects.{{project.name}}.worktrees.<label>`, including its required
+`timestamp`, `path`, and the instructions for the child. Initialise the
+selected worktree's effective configured workflow file with that same label,
+preserving its workflow state, before assigning the child.
+
+Give the child the final label, absolute selected path, and complete handoff
+entry. Do not forward this session ID. The child must work from that path,
+create a fresh Guide interaction, bind the shared project root and that
+worktree, and read its local workflow file before workflow or handoff-context
+operations.
+{{/elicit.worktree-path}}
+{{/args.0.value}}

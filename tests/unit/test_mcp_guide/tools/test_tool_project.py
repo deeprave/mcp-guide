@@ -120,6 +120,7 @@ async def test_set_project_accepts_an_explicit_worktree(runtime):
     assert result.success
     assert session.bound_root_path is not None
     assert str(session.worktree_path) == "/client/project_languid-lizard"
+    assert session.is_worktree()
     assert result.value["worktree"]["path"] == "/client/project_languid-lizard"
     assert result.value["worktree"]["name"] != "root"
 
@@ -139,6 +140,7 @@ async def test_set_project_leaves_an_existing_linked_worktree_label_unresolved(r
         "name": None,
     }
     assert session.worktree_name is None
+    assert session.is_worktree()
 
 
 @pytest.mark.anyio

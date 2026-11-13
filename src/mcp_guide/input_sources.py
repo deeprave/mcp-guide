@@ -11,6 +11,7 @@ logger = get_logger(__name__)
 WORKFLOW_PHASES_SOURCE = "workflow-phases"
 PROJECT_CATEGORIES_SOURCE = "project-categories"
 PROJECT_COLLECTIONS_SOURCE = "project-collections"
+WORKTREE_INVENTORY_SOURCE = "worktree-inventory"
 
 
 def prepare_form_sources(
@@ -88,10 +89,22 @@ def _collection_choices(context: Mapping[str, Any] | None) -> list[str]:
     return _project_names(context, "collections")
 
 
+def _worktree_choices(context: Mapping[str, Any] | None) -> list[str]:
+    """Return fresh linked-worktree paths, excluding the bound root."""
+    worktree = context.get("worktree") if isinstance(context, Mapping) else None
+    inventory = worktree.get("inventory") if isinstance(worktree, Mapping) else None
+    paths = inventory.get("paths") if isinstance(inventory, Mapping) else None
+    root_path = worktree.get("path") if isinstance(worktree, Mapping) else None
+    if not isinstance(paths, Sequence) or isinstance(paths, (str, bytes)):
+        return []
+    return list(dict.fromkeys(path for path in paths if isinstance(path, str) and path and path != root_path))
+
+
 _SOURCES: dict[str, Callable[[Mapping[str, Any] | None], list[str]]] = {
     WORKFLOW_PHASES_SOURCE: _phase_choices,
     PROJECT_CATEGORIES_SOURCE: _category_choices,
     PROJECT_COLLECTIONS_SOURCE: _collection_choices,
+    WORKTREE_INVENTORY_SOURCE: _worktree_choices,
 }
 
 

@@ -26,6 +26,12 @@ Guide SHALL allocate a readable non-`root` label only while a root-bound session
 - **THEN** its recorded absolute path SHALL be present in fresh Git worktree inventory
 - **AND** it SHALL retain that name rather than allocate a replacement
 
+#### Scenario: Existing worktree is selected from inventory
+- **GIVEN** a root-bound parent requests `guide://_worktree/use` without a label
+- **WHEN** Guide has a fresh Git worktree inventory
+- **THEN** it SHALL present the linked worktree paths for selection
+- **AND** the root agent SHALL establish or retain the selected checkout's label and handoff entry before assigning a child
+
 #### Scenario: Child receives its worktree name
 - **GIVEN** a shared handover entry contains a linked-worktree name and path
 - **WHEN** a parent spawns the assigned child

@@ -1,12 +1,14 @@
 """Command and content routing through real templates and bound project data."""
 
 import json
+from types import SimpleNamespace
 
 import pytest
 import yaml
+from mcp_types import InputRequiredResult
 
 from mcp_guide.models import Category
-from mcp_guide.prompts.guide_prompt import guide, handle_command
+from mcp_guide.prompts.guide_prompt import _execute_command, guide, handle_command
 from mcp_guide.tools.tool_filesystem import SendFileContentArgs, internal_send_file_content
 from tests.helpers import create_bound_test_session, create_unbound_test_session, request_context_for
 
@@ -161,6 +163,70 @@ async def test_worktree_use_retains_the_existing_handoff_label(command_project, 
 
     assert result.success
     assert result.value == "Use existing-label for existing-label"
+
+
+@pytest.mark.anyio
+async def test_worktree_use_rejects_an_invalid_explicit_label(command_project, runtime):
+    commands, _ = command_project
+    worktree = commands / "worktree"
+    worktree.mkdir()
+    (worktree / "use.mustache").write_text("Use {{kwargs.worktree_name}}")
+    session = await create_bound_test_session(runtime, "worktree-use-invalid")
+    inventory = await internal_send_file_content(
+        SendFileContentArgs(path=".git-worktrees.json", content=json.dumps([str(session.bound_root_path)])),
+        await request_context_for(session),
+    )
+    assert inventory.success
+
+    result = await handle_command(
+        "worktree/use", args=["bad/label"], request_context=await request_context_for(session), middleware=[]
+    )
+
+    assert not result.success
+    assert "Workflow worktree label" in result.error
+
+
+@pytest.mark.anyio
+async def test_worktree_use_offers_fresh_linked_worktree_paths(command_project, runtime):
+    commands, _ = command_project
+    worktree = commands / "worktree"
+    worktree.mkdir()
+    (worktree / "use.mustache").write_text(
+        "---\n"
+        "elicitation:\n"
+        "  worktree-path:\n"
+        "    message: Choose a linked worktree.\n"
+        "    schema:\n"
+        "      type: object\n"
+        "      properties:\n"
+        "        worktree_path:\n"
+        "          type: string\n"
+        "          source: worktree-inventory\n"
+        "      required: [worktree_path]\n"
+        "---\n"
+        "{{#elicit.worktree-path}}Selected {{kwargs.worktree_path}}{{/elicit.worktree-path}}"
+    )
+    session = await create_bound_test_session(runtime, "worktree-use-select")
+    linked = session.bound_root_path.parent / "linked-checkout"
+    inventory = await internal_send_file_content(
+        SendFileContentArgs(
+            path=".git-worktrees.json", content=json.dumps([str(session.bound_root_path), str(linked)])
+        ),
+        await request_context_for(session),
+    )
+    assert inventory.success
+    context = SimpleNamespace(
+        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
+        input_responses=None,
+        request_context=SimpleNamespace(protocol_version="2026-07-28"),
+    )
+
+    result = await _execute_command("worktree/use", {}, [], await request_context_for(session), mcp_context=context)
+
+    assert isinstance(result, InputRequiredResult)
+    assert result.input_requests["worktree-path"].params.requested_schema["properties"]["worktree_path"]["enum"] == [
+        str(linked)
+    ]
 
 
 @pytest.mark.anyio

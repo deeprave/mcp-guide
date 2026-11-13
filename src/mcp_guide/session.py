@@ -215,20 +215,29 @@ class Session:
         """Return the current label for this Session's worktree."""
         return self.__worktree_name
 
-    def adopt_worktree_name(self, name: str) -> None:
-        """Adopt the label recorded by this linked worktree's workflow file."""
-        if (
-            self.__worktree_path is None
-            or self.__bound_root_path is None
-            or self.__worktree_path == self.__bound_root_path
-        ):
-            raise ValueError("Only linked worktrees can adopt a workflow label")
+    def is_worktree(self) -> bool:
+        """Whether this bound session targets a linked worktree."""
+        return (
+            self.__bound_root_path is not None
+            and self.__worktree_path is not None
+            and self.__worktree_path != self.__bound_root_path
+        )
+
+    @staticmethod
+    def validate_worktree_name(name: str) -> None:
+        """Reject labels that cannot identify a linked worktree handoff."""
         if not _NAME_REGEX.match(name):
             raise ValueError(
                 "Workflow worktree label must contain only alphanumeric characters, underscores, and hyphens"
             )
         if name == "root":
             raise ValueError("Only the primary checkout may use the `root` worktree label")
+
+    def adopt_worktree_name(self, name: str) -> None:
+        """Adopt the label recorded by this linked worktree's workflow file."""
+        if not self.is_worktree():
+            raise ValueError("Only linked worktrees can adopt a workflow label")
+        self.validate_worktree_name(name)
         self.__worktree_name = name
         if self._template_cache is not None:
             self._template_cache.invalidate()

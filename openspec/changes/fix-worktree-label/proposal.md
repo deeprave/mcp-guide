@@ -8,7 +8,7 @@ Linked-worktree sessions currently mint a new label during `set_project`, before
 
 - Stop session binding from allocating a linked-worktree label; obtain the label from that worktree's workflow file instead.
 - Require root-originated worktree handoff to create or initialise the target's effective configured `workflow-file` and label before a child binds it.
-- Give a linked-worktree session a local minimum workflow capability when the shared project has workflow disabled, without changing the shared project configuration.
+- Normalise a linked-worktree session's effective workflow flag to the minimum phases when the root agent's persisted workflow flag is disabled, without changing persisted configuration.
 - Instruct each child worktree agent to read its local workflow file immediately so it can adopt the label and use the corresponding handover entry.
 - Allow `_worktree/use` to initialise an existing unlabelled worktree with a newly allocated label and workflow file before handoff.
 - Reject new-worktree creation from a non-root linked-worktree session.
@@ -27,5 +27,5 @@ None.
 ## Impact
 
 - Affects worktree session binding, worktree command templates and workflow monitoring.
-- Keeps durable project flags shared and unchanged; the minimum linked-worktree workflow capability is session-local.
+- Keeps durable project flags unchanged; the linked-worktree value exists only in effective flag resolution.
 - Does not add dependencies or change the public configuration identity of a linked worktree.

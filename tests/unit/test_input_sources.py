@@ -108,6 +108,19 @@ def test_project_categories_and_collections_become_enum_choices():
     assert collections["choose"]["schema"]["properties"]["name"] == {"type": "string", "enum": ["guidelines"]}
 
 
+def test_worktree_inventory_offers_linked_paths_only():
+    context = TemplateContext(
+        {"worktree": {"path": "/client/root", "inventory": {"paths": ["/client/root", "/client/linked"]}}}
+    )
+
+    prepared = prepare_form_sources(_project_form("worktree-inventory", field="worktree_path"), context)
+
+    assert prepared["choose"]["schema"]["properties"]["worktree_path"] == {
+        "type": "string",
+        "enum": ["/client/linked"],
+    }
+
+
 def test_project_source_form_is_omitted_when_supplied_or_without_choices():
     """A supplied value or an empty project leaves the command's own validation to respond."""
     form = _project_form("project-categories")

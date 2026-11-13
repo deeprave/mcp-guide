@@ -1,6 +1,7 @@
 ---
 type: agent/instruction
 description: Instructions for sending {{workflow.file}} content to the mcp server
+requires-workflow: true
 ---
 Read the exact configured path `{{workflow.file}}` directly; do not use a glob,
 repository search, or tracked-file listing. If it exists, send its COMPLETE

@@ -144,6 +144,11 @@ async def test_linked_worktree_processes_its_initial_workflow_file_when_workflow
     session = create_unbound_test_session(runtime)
     await bind_session_project(session, "/client/project", worktree="/client/linked-checkout")
 
+    from mcp_guide.feature_flags.types import to_raw_feature_value
+    from mcp_guide.models import resolve_all_flags
+
+    assert to_raw_feature_value((await resolve_all_flags(session))["workflow"]) == ["discussion", "implementation"]
+
     response = await internal_send_file_content(
         SendFileContentArgs(path=".guide.yaml", content="phase: discussion\nworktree: calm-otter\n"),
         await request_context_for(session),

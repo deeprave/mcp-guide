@@ -622,8 +622,8 @@ class TemplateContextCache(SessionListener):
             "worktree": {
                 "path": str(session.worktree_path) if session and session.worktree_path is not None else "",
                 "name": session.worktree_name if session and session.worktree_name is not None else "",
-                "root": bool(session and session.worktree_path == session.bound_root_path),
-                "linked": bool(session and session.worktree_path != session.bound_root_path),
+                "root": bool(session and session.project_is_bound and not session.is_worktree()),
+                "linked": bool(session and session.is_worktree()),
                 "inventory": worktree_inventory,
             },
             "handoff_context": handoff_context,
