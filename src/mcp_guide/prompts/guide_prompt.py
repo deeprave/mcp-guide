@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Annotated,
     Any,
     Awaitable,
@@ -52,11 +51,9 @@ from mcp_guide.result_constants import (
     USER_ERROR,
 )
 from mcp_guide.runtime import RequestContext
+from mcp_guide.session import Session
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.uri_parser import parse_query_kwargs
-
-if TYPE_CHECKING:
-    from mcp_guide.session import Session
 
 logger = get_logger(__name__)
 
@@ -446,15 +443,16 @@ async def _execute_command(
             )
             return result
 
-        # Check minimum required positional arguments
-        minargs = frontmatter.get("minargs", 0)
-        if isinstance(minargs, int) and minargs > 0 and len(args) < minargs:
-            usage = frontmatter.get("usage", "")
-            msg = f"Missing required argument\n\nUsage: {usage}" if usage else "Missing required argument"
-            result = Result.failure(msg, error_type=ERROR_VALIDATION, disposition=AGENT_ERROR)
-            return result
-
     kwargs = _merge_alias_kwargs(default_kwargs=alias_implied_kwargs, override_kwargs=kwargs)
+
+    # Positional arguments supplied by either an agent prompt or a guide://
+    # URI must meet the same frontmatter contract. `_worktree/use` instead
+    # elicits a linked-worktree path when its optional label is omitted.
+    minargs = frontmatter.get("minargs", 0)
+    if command_path != "worktree/use" and isinstance(minargs, int) and minargs > 0 and len(args) < minargs:
+        usage = frontmatter.get("usage", "")
+        msg = f"Missing required argument\n\nUsage: {usage}" if usage else "Missing required argument"
+        return Result.failure(msg, error_type=ERROR_VALIDATION, disposition=AGENT_ERROR)
 
     if command_path == "worktree/new" and args and "branch" not in kwargs:
         kwargs = {**kwargs, "branch": args[0]}
@@ -482,6 +480,11 @@ async def _execute_command(
         from mcp_guide.worktree_names import allocate_worktree_name
         from mcp_guide.worktree_task import WorktreeTask
 
+        if session.is_worktree():
+            return Result.failure(
+                "Linked worktrees cannot initialise a worktree handoff. Use a root-bound Guide session.",
+                error_type=ERROR_VALIDATION,
+            )
         worktree_task = session.task_manager.get_task_by_type(WorktreeTask)
         if worktree_task is not None and not worktree_task.is_inventory_current():
             return Result.failure(
@@ -490,6 +493,30 @@ async def _execute_command(
             )
         if command_path == "worktree/new":
             kwargs = {**kwargs, "worktree_name": allocate_worktree_name()}
+        elif command_path == "worktree/use":
+            if args:
+                try:
+                    Session.validate_worktree_name(args[0])
+                except ValueError as error:
+                    return Result.failure(str(error), error_type=ERROR_VALIDATION, disposition=AGENT_ERROR)
+                # An explicitly named handoff is resumed under its established
+                # label; do not allocate a replacement.
+                kwargs = {**kwargs, "worktree_name": args[0]}
+            else:
+                if worktree_task is None:
+                    return Result.failure(
+                        "Run guide://_worktree/list to report a fresh Git worktree inventory before this worktree command.",
+                        error_type=ERROR_VALIDATION,
+                    )
+                linked_paths = worktree_task.active_worktree_paths() - {str(session.worktree_path)}
+                if not linked_paths:
+                    return Result.failure(
+                        "The fresh Git worktree inventory has no linked worktree to use.",
+                        error_type=ERROR_VALIDATION,
+                    )
+                # The parent uses this candidate only if the selected checkout
+                # has no label in its effective workflow file.
+                kwargs = {**kwargs, "worktree_name": allocate_worktree_name()}
 
     # Refresh the base context after command-specific state changes, then add
     # resolved elicitation keywords for rendering.

@@ -53,6 +53,18 @@ async def test_minargs_rejects_too_few_args(cmd_docroot, minargs, args):
 
 
 @pytest.mark.anyio
+async def test_minargs_rejects_direct_command_arguments(cmd_docroot):
+    """Prompt arguments honour frontmatter even without a parsed argv."""
+    session, docroot = cmd_docroot
+    _write_template(docroot, 1)
+
+    result = await _execute_command("test", {}, [], await request_context_for(session))
+
+    assert not result.success
+    assert "Missing required argument" in (result.error or "")
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "minargs, args",
     [(0, []), (1, ["expr"]), (2, ["a", "b"]), ("bad", [])],

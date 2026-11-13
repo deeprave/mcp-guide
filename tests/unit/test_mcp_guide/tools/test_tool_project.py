@@ -120,13 +120,13 @@ async def test_set_project_accepts_an_explicit_worktree(runtime):
     assert result.success
     assert session.bound_root_path is not None
     assert str(session.worktree_path) == "/client/project_languid-lizard"
+    assert session.is_worktree()
     assert result.value["worktree"]["path"] == "/client/project_languid-lizard"
     assert result.value["worktree"]["name"] != "root"
 
 
 @pytest.mark.anyio
-async def test_set_project_allocates_a_label_for_an_existing_worktree(runtime, monkeypatch):
-    monkeypatch.setattr("mcp_guide.worktree_names.secrets.choice", lambda names: "calm-otter")
+async def test_set_project_leaves_an_existing_linked_worktree_label_unresolved(runtime):
     session = create_unbound_test_session(runtime)
     context = await request_context_for(session)
 
@@ -137,14 +137,14 @@ async def test_set_project_allocates_a_label_for_an_existing_worktree(runtime, m
     assert result.success
     assert result.value["worktree"] == {
         "path": "/client/existing-checkout",
-        "name": "calm-otter",
+        "name": None,
     }
-    assert session.worktree_name == "calm-otter"
+    assert session.worktree_name is None
+    assert session.is_worktree()
 
 
 @pytest.mark.anyio
-async def test_set_project_never_derives_a_worktree_label_from_its_directory(runtime, monkeypatch):
-    monkeypatch.setattr("mcp_guide.worktree_names.secrets.choice", lambda names: "calm-otter")
+async def test_set_project_never_derives_a_worktree_label_from_its_directory(runtime):
     session = create_unbound_test_session(runtime)
     context = await request_context_for(session)
 
@@ -153,7 +153,7 @@ async def test_set_project_never_derives_a_worktree_label_from_its_directory(run
     )
 
     assert result.success
-    assert session.worktree_name == "calm-otter"
+    assert session.worktree_name is None
 
 
 @pytest.mark.anyio

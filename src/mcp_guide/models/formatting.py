@@ -12,6 +12,26 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+def _normalise_effective_flags(session: "Session | None", flags: dict[str, Any]) -> dict[str, Any]:
+    """Apply session-bound normalisation after ordinary flag resolution."""
+    from mcp_guide.feature_flags.constants import FLAG_WORKFLOW
+    from mcp_guide.feature_flags.types import FeatureValue, to_raw_feature_value
+    from mcp_guide.workflow.flags import parse_workflow_phases
+
+    # A linked checkout must be able to receive its local workflow file, even
+    # when the root agent has disabled workflow for the project. This is an
+    # effective value only; it never changes persisted flags.
+    if session is not None and session.is_worktree():
+        workflow_value = flags.get(FLAG_WORKFLOW)
+        workflow_raw = to_raw_feature_value(workflow_value) if workflow_value is not None else False
+        workflow_enabled = (
+            parse_workflow_phases(workflow_raw).enabled if isinstance(workflow_raw, bool | list) else False
+        )
+        if not workflow_enabled:
+            return {**flags, FLAG_WORKFLOW: FeatureValue(["discussion", "implementation"])}
+    return flags
+
+
 def _format_categories_and_collections(project: "Project", verbose: bool) -> tuple[Any, Any]:
     """Format categories and collections for tool responses.
 
@@ -103,7 +123,7 @@ async def resolve_all_flags(session: "Session | None") -> dict[str, Any]:
         # frontmatter requirement evaluation.
         resolved.setdefault(FLAG_HANDOFF_CONTEXT, True)
 
-        return resolved
+        return _normalise_effective_flags(session, resolved)
     except Exception as e:
         # Log unexpected errors for debugging, but continue with empty flags
         # since flags are supplementary data

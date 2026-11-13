@@ -10,6 +10,6 @@ confirms it is absent, create it to record the current workflow state, using
 `phase: discussion` when no other phase has been selected, then send its
 complete content.
 
-{{#worktree.linked}}For this linked worktree, first read the configured workflow file. If it has a `worktree` label, retain and submit it; Guide adopts that local label for this session. If it is absent or has no `worktree` label, add `worktree: {{worktree.name}}` while preserving its workflow state, then submit the complete file.{{/worktree.linked}}
+{{#worktree.linked}}For this linked worktree, the configured workflow file must already contain its `worktree` label. Retain and submit it; Guide adopts that local label for this session.{{/worktree.linked}}
 
 **Note:** Do NOT display the file content to the user when calling send_file_content - only show the confirmation message.

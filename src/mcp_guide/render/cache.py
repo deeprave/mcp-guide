@@ -412,6 +412,21 @@ class TemplateContextCache(SessionListener):
 
                 resolved_flags = await resolve_all_flags(session)
 
+                # The workflow filename is project configuration. Root-side
+                # worktree handoff must use it even when workflow phases are
+                # disabled for that root session.
+                workflow_file_flag = resolved_flags.get(FLAG_WORKFLOW_FILE)
+                raw_workflow_file_flag = (
+                    to_raw_feature_value(workflow_file_flag) if workflow_file_flag is not None else None
+                )
+                if raw_workflow_file_flag and isinstance(raw_workflow_file_flag, str):
+                    workflow_file = substitute_variables(
+                        raw_workflow_file_flag,
+                        project_name=project.name,
+                        project_key=project.key,
+                        project_hash=project.hash,
+                    )
+
                 # Resolve workflow flag
                 workflow_flag = resolved_flags.get(FLAG_WORKFLOW)
                 if workflow_flag is not None:
@@ -423,23 +438,8 @@ class TemplateContextCache(SessionListener):
                     if parsed_config.enabled:
                         workflow_config = {
                             "phases": parsed_config.phases,
-                            "file": DEFAULT_WORKFLOW_FILE,
+                            "file": workflow_file,
                         }
-
-                        # Resolve workflow-file flag
-                        workflow_file_flag = resolved_flags.get(FLAG_WORKFLOW_FILE)
-                        raw_workflow_file_flag = (
-                            to_raw_feature_value(workflow_file_flag) if workflow_file_flag is not None else None
-                        )
-                        if raw_workflow_file_flag and isinstance(raw_workflow_file_flag, str):
-                            # Substitute variables in workflow file path
-                            workflow_file = substitute_variables(
-                                raw_workflow_file_flag,
-                                project_name=project.name,
-                                project_key=project.key,
-                                project_hash=project.hash,
-                            )
-                            workflow_config["file"] = workflow_file
 
                         # Resolve workflow-consent flag: True uses defaults, False disables all, dict customizes.
                         workflow_consent_flag = resolved_flags.get(FLAG_WORKFLOW_CONSENT)
@@ -622,8 +622,8 @@ class TemplateContextCache(SessionListener):
             "worktree": {
                 "path": str(session.worktree_path) if session and session.worktree_path is not None else "",
                 "name": session.worktree_name if session and session.worktree_name is not None else "",
-                "root": bool(session and session.worktree_name == "root"),
-                "linked": bool(session and session.worktree_name not in (None, "root")),
+                "root": bool(session and session.project_is_bound and not session.is_worktree()),
+                "linked": bool(session and session.is_worktree()),
                 "inventory": worktree_inventory,
             },
             "handoff_context": handoff_context,

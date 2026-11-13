@@ -90,9 +90,7 @@ class WorkflowMonitorTask(InitialisableMixin):
             return EventResult(result=False, message="Workflow task is not attached to a Session")
         if self.activation is None:
             return EventResult(result=False, message="Workflow task has no activation")
-        workflow_enabled = await self.activation.requires_flag(FLAG_WORKFLOW)
-
-        if not workflow_enabled:
+        if not await self.activation.requires_flag(FLAG_WORKFLOW):
             await self.activation.unsubscribe()
             logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
             return EventResult(result=True)
@@ -164,8 +162,15 @@ class WorkflowMonitorTask(InitialisableMixin):
 
             expected_worktree = self._session.worktree_name if self._session is not None else None
             if expected_worktree is None:
-                raise WorkflowStateValidationError("Invalid workflow file: worktree binding is unavailable")
-            if expected_worktree == "root":
+                if new_state.worktree is None:
+                    raise WorkflowStateValidationError(
+                        "Invalid workflow file: linked worktree must provide a `worktree` label"
+                    )
+                try:
+                    self._session.adopt_worktree_name(new_state.worktree)
+                except ValueError as error:
+                    raise WorkflowStateValidationError(str(error)) from error
+            elif expected_worktree == "root":
                 if new_state.worktree not in (None, "root"):
                     raise WorkflowStateValidationError(
                         f"Invalid workflow file: worktree `{new_state.worktree}` does not match `root`"

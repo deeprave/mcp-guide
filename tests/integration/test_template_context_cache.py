@@ -327,6 +327,16 @@ async def test_workflow_file_template_value_defaults_without_workflow_enabled(se
 
 
 @pytest.mark.anyio
+async def test_workflow_file_template_value_uses_override_without_workflow_enabled(session):
+    """Root handoff templates use the configured workflow file without workflow phases."""
+    await session.project_flags().set("workflow-file", ".guide-123.yaml")
+
+    context = await get_template_contexts(session)
+
+    assert context["workflow-file"] == str(session.worktree_path / ".guide-123.yaml")
+
+
+@pytest.mark.anyio
 async def test_workflow_file_template_value_uses_the_enabled_workflow_override(session):
     """Workflow-file templates must use an enabled workflow's configured override."""
     await session.project_flags().set("workflow", True)

@@ -9,7 +9,7 @@ See [proposal.md](proposal.md) for motivation. A linked worktree shares the repo
 **Goals:**
 
 - Establish one durable label handshake: the `worktree` key in the linked checkout's effective configured workflow file.
-- Let a child session process that file even when its shared project does not enable workflow.
+- Let a child session process that file even when the root agent's persisted workflow setting is disabled.
 - Preserve the shared project's configuration and workflow settings.
 - Make root-originated `_worktree/new` and `_worktree/use` initialise the child before handoff.
 
@@ -30,13 +30,13 @@ This replaces a process-local label map, which cannot reliably cross a fresh chi
 
 ### Root handoff initialises all labels
 
-Only a root-bound session may use `_worktree/new`. It allocates a label, creates the sibling checkout, and writes the parent's effective configured workflow file there with that label before directing a child to bind it. `_worktree/use` follows the same initialisation path for a discovered existing checkout that lacks that configured file or label.
+Only a root-bound session may use `_worktree/new`. It allocates a label, creates the sibling checkout, and writes the parent's effective configured workflow file there with that label before directing a child to bind it. `_worktree/use` can either resume an explicit label or show the fresh linked-worktree inventory for the root agent to select. For a selected external checkout, the root agent preserves a valid existing file label or allocates one when the configured file has none.
 
 The child instruction includes the path, label, and an immediate read of its effective configured workflow file. The file confirms the label used to select `worktrees.<label>` from the client-owned handover document.
 
 ### Linked sessions use an effective minimum workflow configuration
 
-When the shared project's workflow setting is disabled, a linked-worktree session gets a local effective workflow configuration containing `discussion` and `implementation` (normalised using the existing workflow rules). This activates its monitor solely to receive and process its local workflow file. The override remains on the session/task; it does not call configuration persistence or publish a project flag update.
+When the root agent's persisted workflow setting is disabled, linked-worktree flag resolution returns an effective workflow configuration containing `discussion` and `implementation` (normalised using the existing workflow rules). This activates its monitor solely to receive and process its local workflow file. It does not call configuration persistence or publish a project flag update.
 
 When the project already enables workflow, the linked session continues using the shared configured sequence.
 
