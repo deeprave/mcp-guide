@@ -18,10 +18,13 @@ If either check fails, do not allocate a replacement name or hand off a child;
 refresh or repair the handoff entry first. Use its recorded resumable information
 as the child handoff.
 
-Give the child the worktree name `{{args.0.value}}`, its absolute recorded path,
-and the complete handoff entry. Do not forward this session ID. The child must
-work from that path, create a fresh Guide interaction, bind the shared project
-root and that worktree, submit its local workflow file, then read the shared
-handoff context before proceeding. The local workflow file is authoritative for
-the label; if it is absent or unlabelled, add `worktree: {{args.0.value}}` while
-preserving the workflow state before submitting it.
+Before assigning the child, create or initialise the target worktree's effective
+configured workflow file with `worktree: {{kwargs.worktree_name}}`, preserving
+its workflow state. Retain the existing handoff entry under
+`projects.{{project.name}}.worktrees.{{kwargs.worktree_name}}`.
+
+Give the child the worktree name `{{kwargs.worktree_name}}`, its absolute
+recorded path, and the complete handoff entry. Do not forward this session
+ID. The child must work from that path, create a fresh Guide interaction, bind
+the shared project root and that worktree, then read its local workflow file
+before workflow or handoff-context operations.

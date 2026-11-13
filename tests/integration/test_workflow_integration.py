@@ -128,3 +128,26 @@ async def test_linked_worktree_rejects_root_as_a_local_workflow_label(runtime, t
 
     assert not response.success
     assert response.error == "Only the primary checkout may use the `root` worktree label"
+
+
+@pytest.mark.anyio
+async def test_linked_worktree_processes_its_initial_workflow_file_when_workflow_is_disabled(runtime, tmp_path):
+    templates = tmp_path / "docs" / "_workflow"
+    templates.mkdir(parents=True)
+    (templates / "state-format.mustache").write_text("Workflow received")
+    runtime.configuration_service().config_file.write_text(
+        yaml.safe_dump({"docroot": str(templates.parent), "projects": {}, "feature_flags": {"workflow": False}})
+    )
+    from mcp_guide.session import bind_session_project
+    from tests.helpers import create_unbound_test_session
+
+    session = create_unbound_test_session(runtime)
+    await bind_session_project(session, "/client/project", worktree="/client/linked-checkout")
+
+    response = await internal_send_file_content(
+        SendFileContentArgs(path=".guide.yaml", content="phase: discussion\nworktree: calm-otter\n"),
+        await request_context_for(session),
+    )
+
+    assert response.success, response.error
+    assert session.worktree_name == "calm-otter"

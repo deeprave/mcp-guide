@@ -38,17 +38,19 @@ Guide allocated the worktree name `{{kwargs.worktree_name}}`.
    git worktree add {{#shell_quote}}{{project.root}}_{{kwargs.worktree_name}}{{/shell_quote}} -b {{#shell_quote}}{{#args.0.value}}{{args.0.value}}{{/args.0.value}}{{^args.0.value}}{{kwargs.branch}}{{/args.0.value}}{{/shell_quote}} main
    ```
    For an existing branch, use `git worktree add {{#shell_quote}}{{project.root}}_{{kwargs.worktree_name}}{{/shell_quote}} {{#shell_quote}}{{#args.0.value}}{{args.0.value}}{{/args.0.value}}{{^args.0.value}}{{kwargs.branch}}{{/args.0.value}}{{/shell_quote}}` instead.
-3. Add the new entry at
+3. Create or initialise the new worktree's effective configured workflow file
+   with `worktree: {{kwargs.worktree_name}}` before assigning the child. Preserve
+   its workflow state and use the configured basename-only workflow filename.
+4. Add the new entry at
    `projects.{{project.name}}.worktrees.{{kwargs.worktree_name}}`, including
    the required `timestamp` and `path`, the selected branch, and instructions
    for the child. If worktree creation fails, release the lock without changing
    the handoff.
-4. Hand the child the allocated worktree name `{{kwargs.worktree_name}}`, the
+5. Hand the child the allocated worktree name `{{kwargs.worktree_name}}`, the
    absolute path `{{project.root}}_{{kwargs.worktree_name}}`, and the complete
    handoff entry. Do not forward this session ID. Before binding Guide, the child
-   must work from that path and create or update its local configured workflow
-   file so it contains `worktree: {{kwargs.worktree_name}}`, preserving its
-   workflow state. It must then create a fresh Guide interaction, bind
+   must work from that path and read its local configured workflow file before
+   any workflow or handoff-context operation. It must then create a fresh Guide interaction, bind
    `path: {{project.root}}` and
    `worktree: {{project.root}}_{{kwargs.worktree_name}}`, submit that local
    workflow file, and read its own handoff entry before continuing.

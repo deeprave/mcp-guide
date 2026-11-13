@@ -52,6 +52,7 @@ class WorkflowMonitorTask(InitialisableMixin):
         self._cached_content: Optional[str] = None
         self._cached_mtime: Optional[float] = None
         self._setup_done = False
+        self._uses_linked_worktree_minimum = False
 
         # Instruction tracking IDs
         self._setup_instruction_id: Optional[str] = None
@@ -61,7 +62,11 @@ class WorkflowMonitorTask(InitialisableMixin):
         """Start workflow monitoring if workflow is enabled for the current project."""
         self.activation = activation
         self._session = activation.session
-        if not await activation.requires_flag(FLAG_WORKFLOW):
+        if await activation.requires_flag(FLAG_WORKFLOW):
+            self._uses_linked_worktree_minimum = False
+        elif self._is_linked_worktree_session():
+            self._uses_linked_worktree_minimum = True
+        else:
             logger.debug(f"WorkflowMonitorTask disabled - {FLAG_WORKFLOW} flag not set")
             return False
 
@@ -90,7 +95,7 @@ class WorkflowMonitorTask(InitialisableMixin):
             return EventResult(result=False, message="Workflow task is not attached to a Session")
         if self.activation is None:
             return EventResult(result=False, message="Workflow task has no activation")
-        workflow_enabled = await self.activation.requires_flag(FLAG_WORKFLOW)
+        workflow_enabled = await self._workflow_enabled_for_session()
 
         if not workflow_enabled:
             await self.activation.unsubscribe()
@@ -104,6 +109,19 @@ class WorkflowMonitorTask(InitialisableMixin):
             self._setup_done = True
             logger.debug("WorkflowMonitorTask initialized")
         return EventResult(result=True)
+
+    async def _workflow_enabled_for_session(self) -> bool:
+        """Allow a linked session to receive its initial local workflow file."""
+        if self.activation is None:
+            return False
+        return await self.activation.requires_flag(FLAG_WORKFLOW) or self._uses_linked_worktree_minimum
+
+    def _is_linked_worktree_session(self) -> bool:
+        """Return whether the bound session targets a linked worktree."""
+        if self.activation is None:
+            return False
+        session = self.activation.session
+        return session.worktree_path is not None and session.worktree_path != session.bound_root_path
 
     async def handle_event(self, event_type: "EventType", data: dict[str, Any]) -> "EventResult | None":
         """Handle task manager events."""
@@ -164,8 +182,15 @@ class WorkflowMonitorTask(InitialisableMixin):
 
             expected_worktree = self._session.worktree_name if self._session is not None else None
             if expected_worktree is None:
-                raise WorkflowStateValidationError("Invalid workflow file: worktree binding is unavailable")
-            if expected_worktree == "root":
+                if new_state.worktree is None:
+                    raise WorkflowStateValidationError(
+                        "Invalid workflow file: linked worktree must provide a `worktree` label"
+                    )
+                try:
+                    self._session.adopt_worktree_name(new_state.worktree)
+                except ValueError as error:
+                    raise WorkflowStateValidationError(str(error)) from error
+            elif expected_worktree == "root":
                 if new_state.worktree not in (None, "root"):
                     raise WorkflowStateValidationError(
                         f"Invalid workflow file: worktree `{new_state.worktree}` does not match `root`"

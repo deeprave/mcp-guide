@@ -482,6 +482,11 @@ async def _execute_command(
         from mcp_guide.worktree_names import allocate_worktree_name
         from mcp_guide.worktree_task import WorktreeTask
 
+        if command_path in {"worktree/new", "worktree/use"} and session.worktree_path != session.bound_root_path:
+            return Result.failure(
+                "Linked worktrees cannot initialise a worktree handoff. Use a root-bound Guide session.",
+                error_type=ERROR_VALIDATION,
+            )
         worktree_task = session.task_manager.get_task_by_type(WorktreeTask)
         if worktree_task is not None and not worktree_task.is_inventory_current():
             return Result.failure(
@@ -490,6 +495,11 @@ async def _execute_command(
             )
         if command_path == "worktree/new":
             kwargs = {**kwargs, "worktree_name": allocate_worktree_name()}
+        elif command_path == "worktree/use":
+            # An existing handoff is identified by its established label.
+            # Its workflow file may need initialisation, but its handoff key
+            # must not be replaced.
+            kwargs = {**kwargs, "worktree_name": args[0]}
 
     # Refresh the base context after command-specific state changes, then add
     # resolved elicitation keywords for rendering.

@@ -331,9 +331,7 @@ class Session:
         elif worktree_name is not None:
             self.__worktree_name = worktree_name
         else:
-            from mcp_guide.worktree_names import allocate_worktree_name
-
-            self.__worktree_name = allocate_worktree_name()
+            self.__worktree_name = None
         self.__delegate.bind(project)
         self._project_dirty = False
 

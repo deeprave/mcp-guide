@@ -8,7 +8,7 @@ import yaml
 from mcp_guide.models import Category
 from mcp_guide.prompts.guide_prompt import guide, handle_command
 from mcp_guide.tools.tool_filesystem import SendFileContentArgs, internal_send_file_content
-from tests.helpers import create_bound_test_session, request_context_for
+from tests.helpers import create_bound_test_session, create_unbound_test_session, request_context_for
 
 
 @pytest.fixture
@@ -138,6 +138,48 @@ async def test_worktree_command_reports_incompatible_workflow_file(command_proje
     assert not unavailable.success
     assert unavailable.error_type == "validation_error"
     assert "workflow-file to be a basename" in unavailable.error
+
+
+@pytest.mark.anyio
+async def test_worktree_use_retains_the_existing_handoff_label(command_project, runtime):
+    commands, _ = command_project
+    worktree = commands / "worktree"
+    worktree.mkdir()
+    (worktree / "use.mustache").write_text(
+        "---\nrequires-worktree-support: true\nminargs: 1\n---\nUse {{kwargs.worktree_name}} for {{args.0.value}}"
+    )
+    session = await create_bound_test_session(runtime, "worktree-use")
+    inventory = await internal_send_file_content(
+        SendFileContentArgs(path=".git-worktrees.json", content=json.dumps([str(session.bound_root_path)])),
+        await request_context_for(session),
+    )
+    assert inventory.success
+
+    result = await handle_command(
+        "worktree/use", args=["existing-label"], request_context=await request_context_for(session), middleware=[]
+    )
+
+    assert result.success
+    assert result.value == "Use existing-label for existing-label"
+
+
+@pytest.mark.anyio
+async def test_linked_worktree_cannot_start_a_new_handoff(runtime, tmp_path):
+    docroot = tmp_path / "docs"
+    command_path = docroot / "_commands" / "worktree"
+    command_path.mkdir(parents=True)
+    (command_path / "new.mustache").write_text("Create a worktree")
+    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
+    from mcp_guide.session import bind_session_project
+
+    session = create_unbound_test_session(runtime)
+    await bind_session_project(session, "/client/project", worktree="/client/project-linked")
+
+    result = await handle_command("worktree/new", request_context=await request_context_for(session), middleware=[])
+
+    assert not result.success
+    assert result.error_type == "validation_error"
+    assert "root-bound Guide session" in result.error
 
 
 @pytest.mark.anyio
