@@ -54,12 +54,13 @@ Guide SHALL allocate a readable name for a new linked-worktree handoff and recor
 - **THEN** the session SHALL adopt `existing-label`
 - **AND** SHALL not use the checkout directory name to determine the label
 
-#### Scenario: Unlabelled linked worktree receives a minted label
+#### Scenario: Root initialises an unlabelled linked worktree
 
 - **GIVEN** a linked worktree has no local workflow file or its workflow file has no `worktree` value
-- **WHEN** Guide initialises workflow guidance for that session
-- **THEN** Guide SHALL mint a readable non-`root` label
-- **AND** SHALL instruct the agent to write that label to the local workflow file
+- **WHEN** a root-bound session prepares that worktree through `guide://_worktree/use`
+- **THEN** Guide SHALL allocate a readable non-`root` label
+- **AND** SHALL instruct the root agent to write that label to the target local workflow file before child handoff
+- **AND** the child session SHALL retain and submit the prepared label
 
 ### Requirement: Handoff context remains client-owned
 

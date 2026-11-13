@@ -23,9 +23,9 @@ def prepare_form_sources(
     """Fill dynamic choices before generic elicitation resolution.
 
     A property marked with ``source`` receives an ``enum`` built from project state and the marker
-    is removed before delivery. A form is omitted when its value was already supplied (positional
-    argument or keyword) or when its source has no choices, so the entrypoint's own validation
-    reports the missing value. Skills have no positional arguments and pass none.
+    is removed before delivery. A form is omitted for positional command arguments or when its
+    source has no choices. Supplied keywords retain the generated enum so generic URI validation
+    can reject values outside the dynamic source. Skills have no positional arguments and pass none.
     """
     prepared = deepcopy(dict(forms))
     for identifier, form in list(prepared.items()):
@@ -36,15 +36,12 @@ def prepare_form_sources(
         sourced = {name: source for name, source in sourced.items() if source is not None}
         if not sourced:
             continue
-        supplied = bool(args) or (kwargs is not None and any(_is_supplied(kwargs.get(name)) for name in sourced))
-        if supplied or not all([_apply_choices(properties[name], source, context) for name, source in sourced.items()]):
+        if not all([_apply_choices(properties[name], source, context) for name, source in sourced.items()]):
+            prepared.pop(identifier, None)
+            continue
+        if args:
             prepared.pop(identifier, None)
     return prepared
-
-
-def _is_supplied(value: object) -> bool:
-    """Return whether a keyword carries a value; ``0`` and ``False`` count, ``None`` and blank text do not."""
-    return value is not None and not (isinstance(value, str) and not value.strip())
 
 
 def _apply_choices(definition: dict[str, Any], source: str, context: Mapping[str, Any] | None) -> bool:

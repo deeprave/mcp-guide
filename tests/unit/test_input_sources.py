@@ -51,7 +51,7 @@ def test_phase_choices_omit_the_active_phase_and_explicit_inputs():
         [],
         {"phase": "planning"},
     )
-    assert explicit_keyword == {}
+    assert explicit_keyword["workflow-phase"]["schema"]["properties"]["phase"]["enum"] == ["discussion"]
 
 
 def test_phase_form_is_omitted_when_no_other_phase_is_enabled():
@@ -121,26 +121,27 @@ def test_worktree_inventory_offers_linked_paths_only():
     }
 
 
-def test_project_source_form_is_omitted_when_supplied_or_without_choices():
-    """A supplied value or an empty project leaves the command's own validation to respond."""
+def test_project_source_form_retains_choices_for_supplied_keywords():
+    """A supplied keyword retains dynamic choices for generic URI validation."""
     form = _project_form("project-categories")
 
     assert prepare_form_sources(form, _project_context(), ["docs"]) == {}
-    assert prepare_form_sources(form, _project_context(), [], {"name": "docs"}) == {}
+    supplied = prepare_form_sources(form, _project_context(), [], {"name": "docs"})
+    assert supplied["choose"]["schema"]["properties"]["name"]["enum"] == ["docs", "code"]
     assert prepare_form_sources(form, TemplateContext({"project": {"categories": []}})) == {}
     assert prepare_form_sources(form, TemplateContext({})) == {}
 
 
 @pytest.mark.parametrize(
-    ("keyword", "asked"),
-    [(None, True), ("", True), ("   ", True), ("docs", False), (0, False), (False, False)],
+    "keyword",
+    [None, "", "   ", "docs", 0, False],
     ids=["null", "empty", "blank", "text", "zero", "false"],
 )
-def test_only_a_keyword_with_a_value_suppresses_the_sourced_form(keyword, asked):
-    """A blank keyword is unresolved, so the user is still asked; 0 and False are values."""
+def test_keywords_retain_sourced_forms_for_validation(keyword):
+    """Supplied keywords retain source choices for generic validation."""
     prepared = prepare_form_sources(_project_form("project-categories"), _project_context(), [], {"name": keyword})
 
-    assert bool(prepared) is asked
+    assert bool(prepared)
 
 
 def test_skill_forms_resolve_sources_without_positional_arguments():
@@ -159,8 +160,8 @@ def test_unknown_source_is_left_as_free_text():
     assert prepared["choose"]["schema"]["properties"]["name"] == {"type": "string"}
 
 
-def test_supplied_value_does_not_resolve_its_choices(monkeypatch):
-    """A form discarded because its value was supplied never queries its source."""
+def test_supplied_value_resolves_its_choices_for_validation(monkeypatch):
+    """A supplied value resolves its source choices for generic validation."""
     lookups = []
     monkeypatch.setitem(_SOURCES, "counting", lambda context: lookups.append(context) or ["a"])
     form = {
@@ -174,7 +175,7 @@ def test_supplied_value_does_not_resolve_its_choices(monkeypatch):
         }
     }
 
-    assert prepare_form_sources(form, {}, [], {"name": "a"}) == {}
-    assert lookups == []
-    assert "choose" in prepare_form_sources(form, {})
+    assert "choose" in prepare_form_sources(form, {}, [], {"name": "a"})
     assert len(lookups) == 1
+    assert "choose" in prepare_form_sources(form, {})
+    assert len(lookups) == 2
