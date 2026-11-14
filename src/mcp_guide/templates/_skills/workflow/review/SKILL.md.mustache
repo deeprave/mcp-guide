@@ -58,7 +58,7 @@ elicitation:
   `issue` field is authoritative for the review key and scope; do not infer the
   issue from recent conversation, branch names, pull-request text, or earlier
   review runs.
-- Update `{{workflow-file}}` to `phase: review` when changing phase, then send its complete content using `send_file_content`
+- If `{{workflow-file}}` is not already in `review`, change only its phase to `review` and send its complete content using `send_file_content`; otherwise do not alter it. Do not update handoff context during review.
 {{/workflow}}
 
 - Obtain two fresh, independent reviews of the selected target, using the heavier available model at medium or high effort for one review and a different lighter available model at its highest supported effort for the other

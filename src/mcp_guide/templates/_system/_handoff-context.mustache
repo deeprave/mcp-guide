@@ -6,9 +6,11 @@ includes:
 {{#handoff_context.target}}
 Keep the shared handoff context updated at milestones in {{>handoff-context-target}}.
 
-Update only `projects.{{project.name}}.worktrees.{{worktree.name}}`. The entry MUST include `timestamp` and `path`; `issue` and `phase` are optional. Include the information another agent or session needs to resume the work.
+Update only `projects.{{project.name}}.worktrees.{{worktree.name}}`. The entry MUST include `timestamp` and `path`; `issue` and `phase` are optional. Use any current valid structured data another agent or session needs to resume the work, and remove information once it is no longer relevant. Projects sharing this context require distinct configured project names.
 
 Before updating, acquire `{{handoff-context-path}}.lock`. Replace only an inactive lock, identify the lock as `{{project.name}}/{{worktree.name}}`, then reread the context and merge only this project/worktree entry. Preserve every other entry, atomically replace the context, and remove only the lock you acquired.
+
+For a legacy context, preserve `worktrees` while merging this project's applicable entries into `projects.{{project.name}}.worktrees`; where entries overlap, retain the state with the newer `timestamp`; move current-project root context into `projects.{{project.name}}.worktrees.root`, preserve genuinely global root data and other projects, then use the namespaced entries.
 {{/handoff_context.target}}
 {{^handoff_context.target}}
 Handoff context is explicitly disabled for the current project.

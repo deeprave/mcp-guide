@@ -22,11 +22,12 @@ elicitation:
 
 {{#args.0.value}}
 Using the current Git worktree inventory, read {{>handoff-context-target}}.
-Locate `projects.{{project.name}}.worktrees.{{args.0.value}}`. It must exist,
-and its recorded absolute `path` must appear in the fresh Git worktree inventory.
-If either check fails, do not allocate a replacement name or hand off a child;
-refresh or repair the handoff entry first. Use its recorded resumable information
-as the child handoff.
+Locate `projects.{{project.name}}.worktrees.{{args.0.value}}`; if it is absent,
+acquire the shared lock and migrate applicable legacy context as instructed above.
+The entry must then exist, and its recorded absolute `path` must appear in the
+fresh Git worktree inventory. If either check fails, do not allocate a
+replacement name or hand off a child; refresh or repair the handoff entry first.
+Use its recorded resumable information as the child handoff.
 
 Before assigning the child, create or initialise the target worktree's effective
 configured workflow file with `worktree: {{kwargs.worktree_name}}`, preserving

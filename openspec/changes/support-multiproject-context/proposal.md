@@ -7,9 +7,11 @@ The default handoff context can be deliberately shared by separate projects, for
 ## What Changes
 
 - **BREAKING** Namespace structured handoff entries by Guide project name before their worktree label: `projects.<project-name>.worktrees.<worktree-name>`.
+- Support a shared handoff document only where each participating Guide project has a distinct configured project name; projects with the same name are not supported as separate namespaces.
 - Keep `root` as the primary checkout's worktree label only; it is no longer the top-level identity for a handoff entry.
-- Update handoff guidance, locking and merge instructions so an agent updates only its own project/worktree entry and preserves sibling projects plus global top-level data.
-- Provide migration guidance for existing JSON and YAML handoff documents using the legacy `worktrees.<name>` layout.
+- Update handoff guidance, locking and merge instructions so an agent updates only its own project/worktree entry, preserves sibling projects and genuine global top-level data, and can supply complete agent-agnostic handoff context beyond bookkeeping fields.
+- Preserve legacy `worktrees.<name>` data while merging applicable current-project entries into its project namespace, retaining the state with the newer timestamp on conflict. Treat legacy root-level handoff state as the current project's `root` context, except for genuinely global data such as shared todo items or instructions. Keep this temporary migration guidance to one concise, complete paragraph without examples or embellishment.
+- Ensure review requests do not update handoff context. They may only change workflow state when its phase is not already `review`.
 
 ## Capabilities
 

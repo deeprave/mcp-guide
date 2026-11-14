@@ -40,16 +40,17 @@ Guide SHALL allocate a readable name for a new linked-worktree handoff and recor
 - **THEN** the session SHALL adopt `existing-label`
 - **AND** SHALL not use the checkout directory name to determine the label
 
-#### Scenario: Unlabelled linked worktree receives a minted label
+#### Scenario: Root initialises an unlabelled linked worktree
 
 - **GIVEN** a linked worktree has no local workflow file or its workflow file has no `worktree` value
-- **WHEN** Guide initialises workflow guidance for that session
-- **THEN** Guide SHALL mint a readable non-`root` label
-- **AND** SHALL instruct the agent to write that label to the local workflow file
+- **WHEN** a root-bound session prepares that worktree through `guide://_worktree/use`
+- **THEN** Guide SHALL allocate a readable non-`root` label
+- **AND** SHALL instruct the root agent to write that label to the target local workflow file before child handoff
+- **AND** the child session SHALL retain and submit the prepared label
 
 ### Requirement: Shared handover context is worktree-keyed
 
-Worktree-specific handover data SHALL be stored at `projects.<project-name>.worktrees.<worktree-name>` in the shared context object. Every worktree entry SHALL include a `timestamp` recording the entry's date and time, and a `path` recording the worktree path. `issue` and `phase` MAY be included but are not required because workflow state is tracked separately. Entries MAY include other information needed for another agent or session to resume the work, such as a plan, task metadata, milestone, next action, blockers, or handoff instructions. Reserved top-level sections MAY contain global todo notes or ancillary information and SHALL be preserved. The primary checkout SHALL use the `root` worktree label within its own project namespace.
+Worktree-specific handover data SHALL be stored at `projects.<project-name>.worktrees.<worktree-name>` in the shared context object. Every worktree entry SHALL include a `timestamp` recording the entry's date and time, and a `path` recording the worktree path. `issue` and `phase` MAY be included but are not required because workflow state is tracked separately. Beyond the required bookkeeping fields, an entry MAY contain any valid JSON necessary for a complete, agent-agnostic handoff, including nested objects and lists; agents SHALL remove information once it is no longer relevant. Reserved top-level sections MAY contain genuinely global todo notes or instructions and SHALL be preserved. The primary checkout SHALL use the `root` worktree label within its own project namespace. Projects sharing one context object SHALL use distinct configured Guide project names.
 
 #### Scenario: Worktree handover records resumable state
 - **GIVEN** a client updates its worktree handover entry
@@ -76,6 +77,18 @@ Worktree-specific handover data SHALL be stored at `projects.<project-name>.work
 - **THEN** Guide SHALL preserve the global sections
 - **AND** SHALL not replace another project or worktree entry
 
+#### Scenario: Worktree handover contains complete current context
+- **GIVEN** a client updates its worktree handover entry
+- **WHEN** it records current handover context beyond `timestamp` and `path`
+- **THEN** it MAY use any valid JSON structure needed for another agent or session to resume work
+- **AND** it SHALL remove information that is no longer relevant
+
+#### Scenario: Shared projects have distinct names
+- **GIVEN** separate Guide projects share one structured handover document
+- **WHEN** they update their project namespaces
+- **THEN** each project SHALL have a distinct configured project name
+- **AND** projects with the same configured name SHALL NOT be treated as separate namespaces
+
 ### Requirement: Client context updates are locked and atomic
 
 The client SHALL create an adjacent context lock, reread and validate the document, merge only the caller's project/worktree entry, atomically replace the document, and remove the lock.
@@ -94,3 +107,41 @@ A context lock SHALL identify the holding project and worktree. Its modification
 - **GIVEN** an adjacent context lock is older than 90 seconds
 - **WHEN** a client needs to update context
 - **THEN** it SHALL replace the inactive lock
+
+## ADDED Requirements
+
+### Requirement: Legacy handover context is migrated without loss
+
+Guide SHALL preserve legacy `worktrees` entries while merging an applicable current-project entry into the current project namespace under the context lock. Where a legacy and namespaced entry overlap, it SHALL retain the entry with the newer timestamp. It SHALL treat legacy root-level handover state as the current project's `root` worktree context, except for genuinely global root data. Migration guidance SHALL be one concise, complete paragraph without examples or embellishment.
+
+#### Scenario: Legacy worktree entry is retained during migration
+- **GIVEN** a shared handover document contains a legacy `worktrees.<label>` entry for the current project
+- **WHEN** the client migrates that entry
+- **THEN** it SHALL write the entry to `projects.<project-name>.worktrees.<label>`
+- **AND** SHALL preserve the legacy `worktrees` mapping and unrelated entries
+
+#### Scenario: Legacy root context is migrated
+- **GIVEN** a shared handover document contains current-project handover state at its root
+- **WHEN** the client migrates that state
+- **THEN** it SHALL write the state to `projects.<project-name>.worktrees.root`
+- **AND** SHALL preserve genuinely global root data
+
+#### Scenario: Legacy and namespaced entries overlap
+- **GIVEN** a legacy worktree entry and its namespaced entry both exist
+- **WHEN** the client migrates the legacy entry
+- **THEN** it SHALL retain the entry with the newer timestamp
+
+### Requirement: Review requests preserve handover context
+
+A review request SHALL NOT update handover context. It SHALL change workflow state only when the workflow phase is not already `review`.
+
+#### Scenario: Review starts outside the review phase
+- **GIVEN** a review request arrives while workflow phase is not `review`
+- **WHEN** the review begins
+- **THEN** the client SHALL set workflow phase to `review`
+- **AND** SHALL not otherwise alter workflow state or handover context
+
+#### Scenario: Review starts in the review phase
+- **GIVEN** a review request arrives while workflow phase is `review`
+- **WHEN** the review begins
+- **THEN** the client SHALL not alter workflow state or handover context

@@ -19,9 +19,6 @@ cache: short, private
 - The triage decision may be pending, accepted, declined, deferred, or varied. A matching deferred finding keeps its deferred decision even when a newer source report mentions the same underlying issue.
 - When the reviewed work is a pull request, inspect existing pull-request comments only after collation. Mark matching combined findings as already flagged or add useful context in the combined inventory; do not modify source reports
 - Report the created or updated canonical inventory path, then use {{#recommend}}skill:triage-items{{/recommend}} to walk through every unique finding. Do not implement, format, commit, push, discard changes, or take external action during triage unless the user later explicitly authorises the specific follow-up.
-{{#flags.handoff-context}}
-- If any findings are deferred, add a concise note to the handoff context naming each deferred finding and its rationale before ending triage.
-{{/flags.handoff-context}}
 
 ## Combined inventory format
 

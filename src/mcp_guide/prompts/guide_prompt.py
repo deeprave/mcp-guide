@@ -596,7 +596,7 @@ async def _execute_command(
                 message = (
                     "Worktree support requires a JSON or YAML handoff context. Change handoff-context to an "
                     "eligible .json, .yaml, or .yml target, then migrate the shared handoff data to the "
-                    "worktrees.<name> structure."
+                    "projects.<project-name>.worktrees.<worktree-name> structure."
                 )
             else:
                 message = "Worktree support requires workflow-file to be a basename, not an absolute or directory path."
