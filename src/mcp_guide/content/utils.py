@@ -297,7 +297,7 @@ async def gather_policy_partials(
                 rendered = await render_template(
                     session,
                     file_info=policy_file,
-                    base_dir=policy_base_dir,
+                    base_dir=policy_file.path.parent,
                     project_flags=project_flags,
                     context=policy_context,
                     resolver=request_context.get_docroot_resolver(),

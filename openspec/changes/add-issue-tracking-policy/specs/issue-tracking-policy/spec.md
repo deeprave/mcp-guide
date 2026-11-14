@@ -2,23 +2,39 @@
 
 ## Purpose
 
-Defines an optional policy for linking tracked project work to the commits that deliver it.
+Defines the policy for linking tracked project work to the commits that deliver it.
 
 ## ADDED Requirements
 
-### Requirement: Optional issue-tracking requirement selection
-When onboarding a project with a recognised issue tracker, the system SHALL offer a policy that requires issue tracking for commits.
+### Requirement: Selected issue tracker enables required issue tracking
+When a project selects a recognised issue tracker, the system SHALL require issue tracking for eligible changes without an additional project flag or onboarding choice.
 
-#### Scenario: User enables the policy during onboarding
-- **WHEN** the user selects an issue tracker and enables required issue tracking during onboarding
-- **THEN** the system configures the policy using the existing policy-selection mechanisms
+#### Scenario: User selects a recognised tracker
+- **WHEN** the user selects a recognised issue tracker during onboarding
+- **THEN** the system configures required issue tracking through the selected provider policy
 
-#### Scenario: User does not enable the policy
-- **WHEN** the user selects an issue tracker but declines required issue tracking during onboarding
-- **THEN** the system retains the tracker policy that permits proceeding without an issue
+#### Scenario: User selects no tracker
+- **WHEN** the user selects `None` during onboarding
+- **THEN** the system does not require issue tracking
 
 ### Requirement: Required issue reference before commit
-When the required issue-tracking policy is active, the system SHALL require an applicable issue identifier before committing a change unless the user explicitly states that no issue is needed.
+When a recognised issue-tracking provider is selected and the active change is tracked, the system SHALL require an applicable issue identifier before committing.
+
+#### Scenario: Small bug fix defaults to untracked
+- **WHEN** the active change is a small bug fix
+- **THEN** the system treats it as untracked by default
+
+#### Scenario: Change not tracked in OpenSpec defaults to untracked
+- **WHEN** OpenSpec is active and the active change is not tracked in OpenSpec
+- **THEN** the system treats it as untracked by default
+
+#### Scenario: OpenSpec-tracked non-bug-fix change defaults to tracked
+- **WHEN** OpenSpec is active and the active change is tracked in OpenSpec and is more than a bug fix
+- **THEN** the system treats it as tracked by default
+
+#### Scenario: Tracking status is unclear
+- **WHEN** the agent cannot determine whether the active change requires tracking
+- **THEN** it asks the user before creating or linking an issue
 
 #### Scenario: Commit has an applicable issue
 - **WHEN** the agent prepares to commit work under the active policy and an issue identifier is available
@@ -29,7 +45,7 @@ When the required issue-tracking policy is active, the system SHALL require an a
 - **THEN** the agent may proceed without an issue identifier
 
 ### Requirement: Create and allocate a missing issue
-When the required issue-tracking policy is active and no applicable issue exists, the system SHALL instruct the agent to create a corresponding issue through an available tracker integration and allocate it to the active change or commit before committing.
+When a recognised issue-tracking provider is selected, the active change is tracked, and no applicable issue exists, the system SHALL instruct the agent to create a corresponding issue through an available tracker integration and allocate it to the active change or commit before committing.
 
 #### Scenario: Tracker integration is available
 - **WHEN** the agent needs an issue for a commit and an integration for the selected tracker is available

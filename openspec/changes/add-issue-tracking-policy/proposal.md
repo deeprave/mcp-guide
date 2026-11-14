@@ -2,12 +2,13 @@
 
 ## Why
 
-Projects that select an issue tracker can still commit work without an issue identifier, which weakens traceability between delivered changes and their planning records. Teams that require issue-backed commits need an optional policy that makes the expectation explicit while retaining a user-directed exception.
+Projects that select an issue tracker can still commit work without an issue identifier, which weakens traceability between delivered changes and their planning records. The selected tracker policy must make the expectation explicit while retaining scope-based defaults and a user-directed exception for a specific change.
 
 ## What Changes
 
-- Add an optional issue-tracking policy that onboarding can offer when a recognised issue tracker is selected.
-- Update the selected-tracker policy guidance so commits require a tracking identifier unless the user explicitly says one is unnecessary.
+- Make the selected issue-tracking provider policy require an issue identifier for eligible changes.
+- Update the selected-tracker policy guidance so small bug fixes and non-OpenSpec-tracked changes default to untracked, OpenSpec-tracked non-bug-fix changes default to tracked, and unclear cases ask the user.
+- Allow the user to waive tracking for a specific change without changing the project policy.
 - Instruct agents to create a corresponding issue when needed and supported, and allocate the issue to the active change or commit.
 - Place the new commit-flow guidance before the branch-format instruction in the commit template.
 
@@ -15,7 +16,7 @@ Projects that select an issue tracker can still commit work without an issue ide
 
 ### New Capabilities
 
-- `issue-tracking-policy`: Optional configuration and commit-time guidance for requiring an issue identifier when a project has a known tracker.
+- `issue-tracking-policy`: Commit-time guidance for requiring an issue identifier when a project has a known tracker.
 
 ### Modified Capabilities
 
@@ -23,7 +24,5 @@ None.
 
 ## Impact
 
-- `src/mcp_guide/templates/_commands/onboard.mustache`
-- `src/mcp_guide/templates/_commands/git/commit.mustache`
+- The `git-commit` skill
 - Issue-tracking policy templates and their shared content
-- Behaviour-focused tests for rendered guidance and policy selection
