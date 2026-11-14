@@ -14,6 +14,8 @@ Guide does not receive or retain the handoff document. Its responsibility is the
 - Retain independently named linked worktrees within each project.
 - Preserve top-level global data, other projects, and other worktrees during locked updates.
 - Give agents a comprehensible, deterministic migration path from the legacy layout.
+- Allow a worktree entry to contain any current, valid JSON needed for another agent or session to resume work.
+- Keep review activity from replacing or appending handoff context.
 
 **Non-Goals:**
 
@@ -50,13 +52,25 @@ The effective Guide project name is the namespace key. `root` remains the primar
 
 Using a repository directory name was rejected: independently created worktrees can have arbitrary locations and names. Using a hash or path was rejected because the requested, human-readable project name is the intended shared-document identity.
 
+Sharing a handoff document is supported only among Guide projects with distinct configured project names. A same-name pair has the same intended identity and therefore cannot safely use separate namespaces in one document; that configuration is unsupported.
+
 ### Merge one leaf while holding the shared lock
 
 The rendered handoff instructions will acquire the existing adjacent lock, identify the holder as `<project-name>/<worktree-name>`, reread the JSON or YAML mapping, and replace only `projects.<project-name>.worktrees.<worktree-name>`. They preserve all other keys at every level before atomically replacing the file. The 90-second mtime stale-lock rule remains unchanged.
 
 ### Preserve legacy entries; do not infer ownership
 
-Guide cannot safely associate a legacy `worktrees.root` entry with a project: it does not receive the document and the entry may have been written by any project. Guidance will therefore preserve legacy `worktrees` data and tell the agent to move the relevant entry into its `projects.<project-name>.worktrees` namespace before relying on it. New writes always use the canonical layout.
+Guide cannot safely associate another project's legacy `worktrees.root` entry with the current project. Guidance will therefore preserve the legacy `worktrees` mapping while merging only the relevant current-project entry into `projects.<project-name>.worktrees` before relying on it. When the legacy and namespaced entries overlap, the entry with the newer timestamp wins. Existing root-level handoff state belongs to the current project's `root` worktree and is moved into that entry, except for genuinely global data such as a shared todo list or instructions for all agents. New writes always use the canonical layout.
+
+Migration guidance is temporary and must be one concise, complete paragraph, with no examples or embellishment.
+
+### Keep handoff context complete and agent-agnostic
+
+`timestamp` and `path` are bookkeeping fields. Beyond them, a worktree entry may use any valid JSON structure, including nested objects and lists, to describe the current focus, completed work, remaining work, decisions, blockers, and next action. OpenSpec may provide supporting detail when active, but it does not limit this context. Agents remove historical information when it is no longer relevant.
+
+### Review does not update handoff context
+
+Review is observational. A review request changes the workflow phase to `review` only when needed; it otherwise leaves the workflow file unchanged and never updates handoff context. This prevents a reviewer from replacing the implementer's resumable state.
 
 ## Risks / Trade-offs
 
@@ -66,7 +80,9 @@ Guide cannot safely associate a legacy `worktrees.root` entry with a project: it
 
 ## Migration Plan
 
-1. Update the handoff template and worktree command guidance to use project namespaces for JSON and YAML.
-2. When a legacy `worktrees` mapping is encountered, preserve it and instruct the client to move the applicable entries into `projects.<project-name>.worktrees` under the adjacent lock.
+1. Update the handoff template and worktree command guidance to use project namespaces for JSON and YAML, with distinct configured project names as the sharing requirement.
+2. Preserve a legacy `worktrees` mapping while moving applicable current-project entries into `projects.<project-name>.worktrees` under the adjacent lock; move legacy root-level handoff state into the current project's `root` entry while retaining genuinely global root data.
 3. Update worktree allocation and resume guidance to look only in the current project's namespace.
-4. Existing non-worktree handoff formats remain unchanged; worktree support continues to require JSON or YAML.
+4. Permit complete, agent-agnostic, non-historical JSON handoff context beyond `timestamp` and `path`.
+5. Update review guidance so review requests do not write handoff context.
+6. Existing non-worktree handoff formats remain unchanged; worktree support continues to require JSON or YAML.

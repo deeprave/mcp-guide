@@ -115,7 +115,7 @@ Ask the user to choose one target before reviewing. Do not infer a target.
 {{#workflow}}
 {{h2}}Guide Workflow Add-in
 
-You MUST transition to REVIEW phase and read `{{workflow.file}}` to understand the current issue context.
+Read `{{workflow.file}}` to understand the current issue context. If its phase is not `review`, update only the phase to `review`; otherwise do not alter it. Do not update handoff context during review.
 
 {{#agent.class}}
 {{#agent.has_handoff}}

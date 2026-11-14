@@ -4,7 +4,7 @@ description: "Enter review phase for user review and code adjustments"
 usage: "guide://_workflow/review or guide://_workflow/phase/review"
 category: "workflow"
 instruction: >
-  You MUST transition to REVIEW phase - you have explicit consent to do so.
+  Ensure the workflow is in REVIEW phase; entering it when already in review makes no workflow-file change.
   Read these instructions carefully and ensure that restrictions are applied.
 ---
 {{h1}}Review Phase
@@ -17,6 +17,7 @@ Enable user review and adjust code based on review feedback. All quality standar
 {{h2}}Phase Rules
 - ✅ {{b}}Allowed:{{b}} Code changes based on review feedback, quality improvements
 - ❌ {{b}}Not Allowed:{{b}} Changes that break tests or quality standards
+- ❌ Do not update handoff context during review.
 
 {{h2}}Quality Maintenance
 - {{b}}Tests must continue to pass{{b}} after any changes
