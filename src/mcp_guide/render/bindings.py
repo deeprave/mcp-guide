@@ -98,6 +98,7 @@ def _build_lambda_registry(
         "notequals": safe(functions.notequals, chevron.section),
         "time_ago": safe(functions.time_ago, chevron.compat),
         "resource": safe(functions.resource, chevron.section),
+        "skill": safe(functions.skill, chevron.section),
         "command": safe(functions.command, chevron.section),
         "command-args": safe(functions.command_args, chevron.compat),
         "command-flags": safe(functions.command_flags, chevron.compat),

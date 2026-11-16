@@ -4,7 +4,7 @@
 
 - [ ] 1.1 Replace the private negotiated skills extension with the SEP-2640 `io.modelcontextprotocol/skills` capability and metadata-only `skills/list` and `skills/get` operations for modern clients, retiring the `mcp-skills` feature flag.
 - [ ] 1.2 Serve effective Guide skill entrypoints and package members through stable dynamic `skill://` resource URIs by delegating selected reads to the shared Guide skill resolver without retaining rendered skill content.
-- [ ] 1.3 Add the capability-aware `skill` template section, retain Guide URI delivery for legacy or non-negotiating clients, and remove the private opaque-session request contract while retaining the post-binding refresh notification.
+- [ ] 1.3 Add the capability-aware `skill` template section, retain Guide URI delivery for legacy or non-negotiating clients, and emit one refresh notification when rebuilding detects an effective catalogue change.
 
 ## 2. Binding-aware discovery
 

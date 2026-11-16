@@ -354,6 +354,14 @@ class TemplateFunctions:
             return f'{get_tool_prefix()}get_content("{expression}")'
         return f"guide://{expression}"
 
+    @chevron.section
+    def skill(self, text: str) -> str:
+        """Render a canonical standard skill entrypoint."""
+        identity = text.strip()
+        if not identity:
+            return ""
+        return f"skill://{identity}/SKILL.md"
+
     def _get_prompt_reference_prefix(self) -> str:
         prompt_prefix = self.context.get("@", "")
         prompt_name = get_prompt_name()

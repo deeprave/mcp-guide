@@ -2,7 +2,12 @@
 
 from typing import TYPE_CHECKING, Any
 
+from mcp_guide.config_paths import get_cache_dir
 from mcp_guide.core.mcp_log import get_logger
+from mcp_guide.feature_flags.constants import DEFAULT_DOCUMENTS_PATH, FLAG_PATH_DOCUMENTS
+from mcp_guide.feature_flags.types import to_raw_feature_value
+from mcp_guide.feature_flags.validators import validate_path_flag
+from mcp_guide.models.constants import DEFAULT_ALLOWED_WRITE_PATHS
 
 if TYPE_CHECKING:
     from mcp_guide.session import Session
@@ -35,10 +40,6 @@ async def get_resolved_flag_value(session: "Session", flag_name: str, default: A
 
 async def resolve_documents_path(session: "Session") -> str:
     """Resolve the validated documents path shared by rendering and startup tasks."""
-    from mcp_guide.feature_flags.constants import DEFAULT_DOCUMENTS_PATH, FLAG_PATH_DOCUMENTS
-    from mcp_guide.feature_flags.types import to_raw_feature_value
-    from mcp_guide.feature_flags.validators import validate_path_flag
-
     value = await get_resolved_flag_value(session, FLAG_PATH_DOCUMENTS)
     if value is None:
         return DEFAULT_DOCUMENTS_PATH
@@ -49,29 +50,27 @@ async def resolve_documents_path(session: "Session") -> str:
 
 async def resolve_runtime_default_read_paths(session: "Session") -> list[str]:
     """Return session-derived read roots without persisting them on Project."""
-    from mcp_guide.feature_flags.constants import DEFAULT_DOCUMENTS_PATH
-    from mcp_guide.models.constants import DEFAULT_ALLOWED_WRITE_PATHS
-
     root = session.bound_root_path
     worktree = session.worktree_path
+    cache_path = str(get_cache_dir())
     if root is None or worktree is None:
-        return []
+        return [cache_path]
 
     documents_path = await resolve_documents_path(session)
     root_defaults = {
         str(root / documents_path),
         *(str(root / path) for path in DEFAULT_ALLOWED_WRITE_PATHS if path != DEFAULT_DOCUMENTS_PATH),
     }
-    return [str(worktree), *sorted(root_defaults)]
+    return [str(worktree), *sorted(root_defaults), cache_path]
 
 
 async def resolve_runtime_default_write_paths(session: "Session") -> list[str]:
     """Return unpersisted default write paths for the bound project session."""
-    from mcp_guide.feature_flags.constants import DEFAULT_DOCUMENTS_PATH
-    from mcp_guide.models.constants import DEFAULT_ALLOWED_WRITE_PATHS
-
     documents_path = await resolve_documents_path(session)
-    return [documents_path if path == DEFAULT_DOCUMENTS_PATH else path for path in DEFAULT_ALLOWED_WRITE_PATHS]
+    return [
+        *(documents_path if path == DEFAULT_DOCUMENTS_PATH else path for path in DEFAULT_ALLOWED_WRITE_PATHS),
+        str(get_cache_dir()),
+    ]
 
 
 async def resolve_effective_write_paths(session: "Session") -> list[str]:

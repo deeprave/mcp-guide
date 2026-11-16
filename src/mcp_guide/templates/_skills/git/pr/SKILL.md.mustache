@@ -9,10 +9,15 @@ policies: [git/ops, git/delivery, pr]
 
 ## Directives
 
+{{#unbound}}
+- Inspect the current branch and repository conventions, then reuse or create the requested pull request. Ask for any repository or target details that are not available.
+{{/unbound}}
+{{^unbound}}
 - Use {{#recommend}}skill:git-commit{{/recommend}}, then {{#recommend}}skill:git-push{{/recommend}}.
 - For branch delivery, reuse an existing pull request or create one using the
   selected pull-request policy and any repository template.
 - Direct and multi-branch delivery do not require a pull request.
+{{/unbound}}
 
 ## Selected Policies
 

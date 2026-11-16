@@ -8,12 +8,16 @@ cache: short, private
 
 ## Directives
 
-- Use a pull request supplied by the user first. Otherwise use a pull request
+{{#unbound}}
+- Require an explicit provider, repository, and pull-request identifier from the user. Do not infer them from a local branch or project context.
+{{/unbound}}
+{{^unbound}}- Use a pull request supplied by the user first. Otherwise use a pull request
   already established in the active context, then the current branch's pull
   request. If none can be identified for the current repository, ask the user
   to provide one and do not create review state. Verify that contextual pull
   requests belong to the current repository; if one does not, ask the user to
   provide the intended pull request and do not create review state.
+{{/unbound}}
 - Retrieve and collate inline review threads, review summaries, and
   review-related issue comments. Prefer GitHub MCP thread-aware data; if it is
   unavailable or insufficient, use `gh` and disclose the fallback and missing
@@ -21,7 +25,7 @@ cache: short, private
 - Inspect the current pull-request diff and source before deciding whether a
   comment still applies.
 - Read and update the durable seen-comment state at
-  `{{path.documents}}review-comments/<owner>-<repo>-pr-<number>.json`. Use
+  `{{path.cache}}reviews/<provider>/<repository-id>/<pr-number>.json`. Use
   provider identifiers where available, deterministic fallback keys otherwise,
   and concern fingerprints to recognise repeat concerns. For new or repeated
   feedback, retain identity, source, location, timing, normalised summary, and

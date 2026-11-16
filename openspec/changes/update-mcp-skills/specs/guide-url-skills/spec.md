@@ -58,12 +58,12 @@ It SHALL be catalogue metadata rather than a project feature flag or a
 - **AND** SHALL continue to include packages already discoverable before
   binding
 
-#### Scenario: Notify after binding expands availability
-- **WHEN** a session binding or effective skill availability changes
+#### Scenario: Notify after a catalogue change
+- **WHEN** rebuilding detects an effective skill catalogue change
 - **THEN** Guide SHALL make the updated catalogue available to the next
   `skills/list` request
-- **AND** after binding, SHALL emit `notifications/skills/list_changed` to a
-  client that negotiated the skills extension
+- **AND** SHALL emit `notifications/skills/list_changed` to the requesting
+  client when it negotiated the skills extension
 
 ### Requirement: Safe unbound skill rendering
 A package available without binding SHALL render either complete
@@ -115,6 +115,12 @@ declare dynamically generated resources rather than a static integrity manifest.
   same selected-skill resolver as `guide://$`
 - **AND** a package member URI below the same `skill://` package root SHALL
   resolve using the same rendering and containment rules as `guide://$`
+
+#### Scenario: Read a bound skill through stateless transport
+- **WHEN** a client that received a Guide `session_id` reads a known
+  `skill://` resource with that value as its `session_id` query argument
+- **THEN** Guide SHALL resolve the bound session for the resource read
+- **AND** SHALL retain the canonical session-free URI in `skills/list`
 
 #### Scenario: Reject an unavailable standard skill
 - **WHEN** an unbound or bound client requests a standard skill URI that is not

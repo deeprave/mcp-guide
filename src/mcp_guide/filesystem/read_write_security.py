@@ -170,16 +170,32 @@ class ReadWriteSecurityPolicy:
         """
         path_obj = LazyPath(path).expand()
 
-        # Handle absolute paths - not allowed for write unless temp
+        # Handle absolute paths - allow only safe temporary paths or configured absolute roots.
         if path_obj.is_absolute():
             # Check if it's a safe temporary directory
             if is_safe_temp_path(path_obj):
                 logger.debug(f"Write allowed to temporary directory: {path}")
                 return str(path_obj)
-            else:
-                self._violation_count += 1
-                logger.warning(f"Security violation #{self._violation_count}: write denied for absolute path {path}")
-                raise SecurityError(f"Write to absolute path not allowed: {path}")
+            try:
+                resolved_path = path_obj.resolve()
+            except OSError:
+                resolved_path = path_obj
+            for allowed in self.write_allowed_paths:
+                allowed_path = LazyPath(allowed).expand()
+                if not allowed_path.is_absolute():
+                    continue
+                try:
+                    resolved_allowed_path = allowed_path.resolve()
+                    resolved_path.relative_to(resolved_allowed_path)
+                except (OSError, ValueError):
+                    continue
+                if is_system_directory(str(resolved_path)):
+                    break
+                logger.debug(f"Write allowed below configured absolute root: {path}")
+                return str(resolved_path)
+            self._violation_count += 1
+            logger.warning(f"Security violation #{self._violation_count}: write denied for absolute path {path}")
+            raise SecurityError(f"Write to absolute path not allowed: {path}")
 
         # Handle relative paths - must be in allowed write paths
         normalized = str(PurePath(path).as_posix())

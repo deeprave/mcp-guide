@@ -49,7 +49,7 @@ async def list_tools(args: ListToolsArgs, request_context: RequestContext) -> To
         if args.include_args and registration.metadata.args_class:
             # Get schema from Pydantic model
             if hasattr(registration.metadata.args_class, "model_json_schema"):
-                tool_info["args_schema"] = registration.metadata.args_class.model_json_schema()  # ty: ignore[call-non-callable]
+                tool_info["args_schema"] = registration.metadata.args_class.model_json_schema()  # ty: ignore[not-callable]
 
         tools.append(tool_info)
 

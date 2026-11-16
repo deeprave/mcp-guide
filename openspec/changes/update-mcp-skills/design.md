@@ -163,7 +163,12 @@ containment, and rendering have one implementation. The protocol adapters may
 format the result differently, but they do not duplicate skill resolution or
 retain rendered skill bytes between requests.
 
-### Refresh after binding
+Catalogue URIs remain canonical and session-free. A client that has bound a
+Guide session may append its returned `session_id` as a query argument when
+reading a known `skill://` resource, allowing modern stateless transport to
+resolve that bound Guide session without changing the catalogue entry.
+
+### Refresh after catalogue changes
 
 The interaction's active session supplies binding state implicitly; standard
 calls do not accept Guide's opaque `session_id`. Before binding, `skills/list`
@@ -171,12 +176,11 @@ returns every package with no prerequisite beyond project binding. After
 binding, a subsequent `skills/list` sees packages whose additional
 requirements are now satisfied.
 
-Guide also emits its existing `notifications/skills/list_changed` notification
-after binding when the standard Skills extension is negotiated. This preserves an
-immediate refresh signal for clients that already understand it, without
-claiming that generic SEP-2640 clients are required to act on it. A generic
-resource notification was rejected because it would not establish a
-skills-refresh contract.
+When rebuilding detects that the effective metadata catalogue changed, Guide
+emits its existing `notifications/skills/list_changed` notification to the
+requesting client when the standard Skills extension is negotiated. This does
+not retain per-session catalogue state or require generic SEP-2640 clients to
+act on a non-standard refresh signal.
 
 ## Risks / Trade-offs
 

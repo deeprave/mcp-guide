@@ -9,7 +9,7 @@ from glob import has_magic
 from pathlib import Path, PurePosixPath
 from types import MappingProxyType
 from typing import Any
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 
 from anyio import Path as AsyncPath
 from fastmcp import Context
@@ -20,13 +20,11 @@ from mcp_guide.config_constants import COMMANDS_DIR, SKILLS_DIR
 from mcp_guide.content.utils import gather_policy_partials
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
-from mcp_guide.core.tool_decorator import toolfunc
+from mcp_guide.core.tool_decorator import get_tool_prefix, toolfunc
 from mcp_guide.core.validation import validate_content_name
 from mcp_guide.discovery.commands import discover_commands, normalise_alias_metadata
 from mcp_guide.discovery.files import discover_document_files
 from mcp_guide.elicitation import ElicitationInterrupted, ElicitationRuntime
-from mcp_guide.feature_flags.constants import FLAG_GUIDE_DEVELOPMENT
-from mcp_guide.feature_flags.validators import is_value_true
 from mcp_guide.models import resolve_all_flags
 from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.render.cache import get_template_contexts
@@ -42,11 +40,12 @@ from mcp_guide.result_constants import (
     INSTRUCTION_AGENT_INFORMATION,
     INSTRUCTION_DISPLAY_ONLY,
     USER_INFO,
+    make_no_project_result,
 )
 from mcp_guide.runtime import RequestContext, get_runtime
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
 from mcp_guide.tools.tool_result import ToolResult, tool_result
-from mcp_guide.uri_parser import parse_guide_uri
+from mcp_guide.uri_parser import parse_guide_uri, parse_query_kwargs
 
 logger = get_logger(__name__)
 
@@ -61,6 +60,11 @@ class GuideSkill:
     frontmatter: Mapping[str, object]
     requirements: Mapping[str, object]
     package_root: PurePosixPath
+
+    @property
+    def project_bind(self) -> bool:
+        """Whether this package requires a project only for its full guidance."""
+        return self.frontmatter.get("project-bind") is True
 
     @property
     def uri(self) -> str:
@@ -80,6 +84,13 @@ def _visible_guide_skills(discovered: Mapping[str, GuideSkill], flags: Mapping[s
     }
 
 
+def _catalogue_description(skill: GuideSkill, *, bound: bool) -> str:
+    """Return the description appropriate to the current binding state."""
+    if skill.project_bind and not bound:
+        return f"{skill.description} Bind a project first with `{get_tool_prefix()}set_project`."
+    return skill.description
+
+
 async def _discover_guide_skills(session: Any, resolver: Any) -> dict[str, GuideSkill]:
     """Discover effective skills from one session and document resolver."""
     skills_dir = resolver(SKILLS_DIR)
@@ -96,82 +107,68 @@ async def _discover_guide_skills(session: Any, resolver: Any) -> dict[str, Guide
 
     flags = await resolve_all_flags(session)
     runtime = get_runtime()
-    development_mode = is_value_true(flags.get(FLAG_GUIDE_DEVELOPMENT))
-
     async with runtime.skill_discovery_lock:
         cached = runtime.skill_discovery_cache
-        if not development_mode and cached is not None and time.monotonic() < cached[1] + 300:
-            discovered = cached[2]
-        else:
+        try:
+            root_mtime = (await AsyncPath(skills_dir).stat()).st_mtime
+            effective_mtime = await _max_file_mtime(skills_dir, root_mtime)
+            files = await discover_document_files(skills_dir, ["**/SKILL.md"])
+        except OSError as error:
+            logger.warning("Retaining cached Guide skill discovery after refresh failure: %s", error)
+            return {} if cached is None else _visible_guide_skills(cached[2], flags)
+
+        if files.truncation_reasons:
+            logger.warning("Guide skill discovery truncated by %s", ", ".join(sorted(files.truncation_reasons)))
+
+        discovered = {}
+        duplicate_names: set[str] = set()
+        for file_info in files:
             try:
-                root_mtime = (await AsyncPath(skills_dir).stat()).st_mtime
-                effective_mtime = await _max_file_mtime(skills_dir, root_mtime)
-            except OSError as error:
-                logger.warning("Retaining cached Guide skill discovery after validation failure: %s", error)
-                return {} if cached is None else _visible_guide_skills(cached[2], flags)
-            if not development_mode and cached is not None and cached[0] >= effective_mtime:
-                discovered = cached[2]
-            else:
-                try:
-                    files = await discover_document_files(skills_dir, ["**/SKILL.md"])
-                except OSError as error:
-                    logger.warning("Retaining cached Guide skill discovery after refresh failure: %s", error)
-                    return {} if cached is None else _visible_guide_skills(cached[2], flags)
-
-                if files.truncation_reasons:
-                    logger.warning("Guide skill discovery truncated by %s", ", ".join(sorted(files.truncation_reasons)))
-
-                discovered = {}
-                duplicate_names: set[str] = set()
-                for file_info in files:
-                    try:
-                        file_info.resolve(resolver, SKILLS_DIR)
-                        frontmatter = parse_content_with_frontmatter(await file_info.read_raw()).frontmatter
-                    except (OSError, UnicodeError) as error:
-                        logger.warning("Ignoring unreadable Guide skill package %s: %s", file_info.path, error)
-                        continue
-                    package_root = PurePosixPath(file_info.name).parent
-                    name = frontmatter.get("name")
-                    description = frontmatter.get("description")
-                    usage = frontmatter.get("usage")
-                    if package_root == PurePosixPath(".") or not all(
-                        isinstance(value, str) and value for value in (name, description, usage)
-                    ):
-                        logger.warning("Ignoring Guide skill %s without valid catalogue frontmatter", file_info.path)
-                        continue
-                    assert isinstance(name, str)
-                    assert isinstance(description, str)
-                    assert isinstance(usage, str)
-                    try:
-                        validate_content_name(name, "Guide skill")
-                    except ValueError as error:
-                        logger.warning("Ignoring Guide skill package %s: %s", file_info.path, error)
-                        continue
-                    skill = GuideSkill(
-                        name=name,
-                        description=description,
-                        usage=usage,
-                        frontmatter=MappingProxyType(
-                            {key: value for key, value in frontmatter.items() if key != "name"}
-                        ),
-                        requirements=MappingProxyType(
-                            {key: value for key, value in frontmatter.items() if key.startswith("requires-")}
-                        ),
-                        package_root=package_root,
-                    )
-                    if name in duplicate_names:
-                        continue
-                    if existing := discovered.pop(name, None):
-                        logger.warning(
-                            "Ignoring duplicate Guide skill name %s at %s and %s",
-                            name,
-                            existing.package_root,
-                            skill.package_root,
-                        )
-                        duplicate_names.add(name)
-                        continue
-                    discovered[name] = skill
-                runtime.cache_skill_discovery(effective_mtime, time.monotonic(), discovered)
+                file_info.resolve(resolver, SKILLS_DIR)
+                frontmatter = parse_content_with_frontmatter(await file_info.read_raw()).frontmatter
+            except (OSError, UnicodeError) as error:
+                logger.warning("Ignoring unreadable Guide skill package %s: %s", file_info.path, error)
+                continue
+            package_root = PurePosixPath(file_info.name).parent
+            name = frontmatter.get("name")
+            description = frontmatter.get("description")
+            usage = frontmatter.get("usage")
+            if package_root == PurePosixPath(".") or not all(
+                isinstance(value, str) and value for value in (name, description, usage)
+            ):
+                logger.warning("Ignoring Guide skill %s without valid catalogue frontmatter", file_info.path)
+                continue
+            assert isinstance(name, str)
+            assert isinstance(description, str)
+            assert isinstance(usage, str)
+            try:
+                validate_content_name(name, "Guide skill")
+            except ValueError as error:
+                logger.warning("Ignoring Guide skill package %s: %s", file_info.path, error)
+                continue
+            skill = GuideSkill(
+                name=name,
+                description=description,
+                usage=usage,
+                frontmatter=MappingProxyType({key: value for key, value in frontmatter.items() if key != "name"}),
+                requirements=MappingProxyType(
+                    {key: value for key, value in frontmatter.items() if key.startswith("requires-")}
+                ),
+                package_root=package_root,
+            )
+            if name in duplicate_names:
+                continue
+            if existing := discovered.pop(name, None):
+                logger.warning(
+                    "Ignoring duplicate Guide skill name %s at %s and %s",
+                    name,
+                    existing.package_root,
+                    skill.package_root,
+                )
+                duplicate_names.add(name)
+                continue
+            discovered[name] = skill
+        runtime.cache_skill_discovery(effective_mtime, time.monotonic(), discovered)
 
     return _visible_guide_skills(discovered, flags)
 
@@ -193,7 +190,7 @@ def _catalogue_table_cell(value: str) -> str:
     return " ".join(value.split()).replace("|", r"\|")
 
 
-def _skill_catalogue_content(skills: list[GuideSkill], *, table: bool = False) -> str:
+def _skill_catalogue_content(skills: list[GuideSkill], *, bound: bool, table: bool = False) -> str:
     """Present one separately addressable catalogue item for each skill."""
     if not skills:
         return "No Guide skills are currently available."
@@ -202,14 +199,14 @@ def _skill_catalogue_content(skills: list[GuideSkill], *, table: bool = False) -
         rows.extend(
             "| "
             f"`{_catalogue_table_cell(skill.name)}` | "
-            f"{_catalogue_table_cell(skill.description)} | "
+            f"{_catalogue_table_cell(_catalogue_description(skill, bound=bound))} | "
             f"{_catalogue_table_cell(skill.usage)} | "
             f"`{skill.uri}` |"
             for skill in skills
         )
         return "\n".join(rows)
     return "\n\n".join(
-        f"### {skill.name}\n\n{skill.description}\n\nUse when: {skill.usage}\n\nEntrypoint: `{skill.uri}`"
+        f"### {skill.name}\n\n{_catalogue_description(skill, bound=bound)}\n\nUse when: {skill.usage}\n\nEntrypoint: `{skill.uri}`"
         for skill in skills
     )
 
@@ -233,13 +230,15 @@ async def internal_list_skills(args: ListSkillsArgs, request_context: RequestCon
     disposition = USER_INFO if user_facing else AGENT_INFO
     instruction = INSTRUCTION_DISPLAY_ONLY if user_facing else INSTRUCTION_AGENT_INFORMATION
     return Result.ok(
-        _skill_catalogue_content(await discover_guide_skills(request_context), table=args.table),
+        _skill_catalogue_content(
+            await discover_guide_skills(request_context), bound=request_context.is_bound, table=args.table
+        ),
         instruction=instruction,
         disposition=disposition,
     )
 
 
-@toolfunc(ListSkillsArgs)
+@toolfunc(ListSkillsArgs, requires_project=False)
 async def list_skills(args: ListSkillsArgs, request_context: RequestContext) -> ToolResult:
     """List Guide-provided skills and their explicit entrypoint URIs.
 
@@ -269,7 +268,9 @@ def _skill_member_path(skill_path: str, skills: Mapping[str, GuideSkill]) -> tup
     return skill, PurePosixPath(*member_parts).as_posix() if member_parts else "SKILL.md"
 
 
-def _skill_template_context(skill: GuideSkill, kwargs: Mapping[str, Any]) -> TemplateContext:
+def _skill_template_context(
+    skill: GuideSkill, kwargs: Mapping[str, Any], *, standard_skills: bool = False
+) -> TemplateContext:
     """Build public package references for every rendered skill file."""
     defaulted_forms = getattr(kwargs, "defaulted_forms", frozenset())
     return TemplateContext(
@@ -282,6 +283,7 @@ def _skill_template_context(skill: GuideSkill, kwargs: Mapping[str, Any]) -> Tem
                 "scripts_uri": f"{skill.uri}/scripts",
                 "agents_uri": f"{skill.uri}/agents",
             },
+            "standard-skills": standard_skills,
             "elicitation": {"defaulted_forms": {form: True for form in defaulted_forms}},
         },
         keyword_context(kwargs),
@@ -294,6 +296,7 @@ async def _read_guide_skill(
     *,
     kwargs: Mapping[str, Any] | None = None,
     mcp_context: Context | None = None,
+    standard_skills: bool = False,
 ) -> Result[Any] | InputRequiredResult:
     """Render one contained member of a server-owned skill package."""
     try:
@@ -306,10 +309,12 @@ async def _read_guide_skill(
     if selected is None:
         return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
     skill, member_path = selected
+    if skill.project_bind and not request_context.is_bound:
+        return await make_no_project_result()
 
     rendered_kwargs = dict(kwargs or {})
     template_context = (await get_template_contexts(request_context.session)).new_child(
-        _skill_template_context(skill, rendered_kwargs)
+        _skill_template_context(skill, rendered_kwargs, standard_skills=standard_skills)
     )
     elicitation_runtime = ElicitationRuntime(
         kwargs=rendered_kwargs,
@@ -394,7 +399,7 @@ class UseSkillArgs(ToolArguments):
     )
 
 
-@toolfunc(UseSkillArgs)
+@toolfunc(UseSkillArgs, requires_project=False)
 async def use_skill(
     args: UseSkillArgs,
     request_context: RequestContext,
@@ -430,16 +435,38 @@ def session_id_from_guide_uri(uri: str) -> str | None:
     return values[0]
 
 
+def parse_standard_skill_uri(uri: str) -> tuple[str, str | None, dict[str, str | bool]] | None:
+    """Parse a canonical skill resource URI through Guide's query semantics."""
+    parsed = urlsplit(uri)
+    if parsed.scheme != "skill" or not parsed.netloc:
+        return None
+    parts = [unquote(part) for part in parsed.path.split("/") if part]
+    if not parts or any(part in {".", ".."} for part in parts):
+        return None
+    query = parse_qs(parsed.query, keep_blank_values=True)
+    session_ids = query.pop("session_id", [])
+    if len(session_ids) > 1 or (session_ids and not session_ids[0]):
+        return None
+    try:
+        kwargs = parse_query_kwargs(urlencode(query, doseq=True))
+    except ValueError:
+        return None
+    if "session_id" in kwargs:
+        return None
+    return "/".join((parsed.netloc, *parts)), session_ids[0] if session_ids else None, kwargs
+
+
 class ReadResourceArgs(ToolArguments):
     """Arguments for read_resource tool."""
 
     uri: str = Field(
         ...,
         description=(
-            "A guide:// URI to resolve. "
+            "A guide:// or skill:// URI to resolve. "
             "Content URIs (guide://expression/pattern) return category or collection content. "
             "Command URIs (guide://_command/args?kwargs) execute server commands. "
-            "Skill URIs (guide://$ or guide://$skill/path) return the skills catalogue or a skill instruction. "
+            "Guide skill URIs (guide://$ or guide://$skill/path) return the skills catalogue or a skill instruction. "
+            "Standard skill URIs (skill://skill-name/SKILL.md) use the same skill resolver. "
             "A unique ?session_id= query value is copied onto the session_id argument when "
             "that argument is omitted."
         ),
@@ -460,7 +487,7 @@ class ReadResourceArgs(ToolArguments):
 async def internal_read_resource(
     args: ReadResourceArgs, request_context: RequestContext, *, mcp_context: Context | None = None
 ) -> Result[Any] | InputRequiredResult:
-    """Resolve a guide:// URI and return its content or command output.
+    """Resolve a Guide or standard skill URI and return its content or command output.
 
     Args:
         args: Tool arguments with URI
@@ -469,6 +496,19 @@ async def internal_read_resource(
     Returns:
         Result containing resolved content or command output
     """
+    standard_skill = parse_standard_skill_uri(args.uri)
+    if urlsplit(args.uri).scheme == "skill":
+        if standard_skill is None:
+            return Result.failure("Invalid skill:// URI", error_type=ERROR_VALIDATION)
+        skill_path, _session_id, kwargs = standard_skill
+        return await _read_guide_skill(
+            skill_path,
+            request_context,
+            kwargs=kwargs,
+            mcp_context=mcp_context,
+            standard_skills=True,
+        )
+
     try:
         parsed = parse_guide_uri(args.uri)
     except ValueError as e:
@@ -527,12 +567,12 @@ async def read_resource(
     request_context: RequestContext,
     mcp_context: Context | None = None,
 ) -> ToolResult | InputRequiredResult:
-    """Resolve a guide:// URI and return its content or command output.
+    """Resolve a Guide or standard skill URI and return its content or command output.
 
     Accepts content URIs (guide://expression/pattern) to retrieve category or collection
-    content, command URIs (guide://_command) to execute server commands, and skill URIs
-    (guide://$ or guide://$skill/path) to retrieve Guide-provided skills. A unique
-    session_id on the URI query is used when the sibling session_id argument is omitted.
+    content, command URIs (guide://_command) to execute server commands, Guide skill URIs
+    (guide://$ or guide://$skill/path), and standard skill URIs (skill://skill-name/SKILL.md). A unique
+    session_id on either URI query is used when the sibling session_id argument is omitted.
     """
     result = await internal_read_resource(args, request_context, mcp_context=mcp_context)
     if isinstance(result, InputRequiredResult):

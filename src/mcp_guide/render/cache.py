@@ -100,6 +100,7 @@ class TemplateContextCache(SessionListener):
                 "python_version": platform.python_version(),
                 "version": __version__,
             },
+            "session_id": self._session.session_id if self._session is not None else "",
             "INSTRUCTION_NO_DISPLAY": INSTRUCTION_NO_DISPLAY,
         }
 
@@ -392,7 +393,9 @@ class TemplateContextCache(SessionListener):
             logger.debug(f"Failed to get client working directory: {e}")
 
         # Resolve path flags for template context with validation
-        path_config = {"documents": ""}
+        from mcp_guide.config_paths import get_cache_dir
+
+        path_config = {"documents": "", "cache": f"{str(get_cache_dir()).rstrip('/')}/"}
         try:
             if session and project_root:
                 from mcp_guide.feature_flags.utils import resolve_documents_path
@@ -636,6 +639,7 @@ class TemplateContextCache(SessionListener):
             "projects": projects_data,
             "projects_count": projects_count,
             "workflow-file": workflow_file,
+            "unbound": not bool(session and session.project_is_bound),
         }
 
         # Create base context and add workflow configuration as child if enabled
@@ -799,6 +803,7 @@ async def get_template_context_if_needed(
     Returns:
         TemplateContext if templates found, None otherwise
     """
+    # Deferred to avoid the cache/renderer import cycle.
     from mcp_guide.render.renderer import is_template_file
 
     if any(is_template_file(file_info) for file_info in files):

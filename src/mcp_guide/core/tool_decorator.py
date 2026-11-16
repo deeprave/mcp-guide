@@ -14,7 +14,7 @@ from fastmcp.tools.base import ToolResult
 from mcp_types import InputRequiredResult, TextContent
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.mcp_result_adapter import add_session_continuation, tool_response
+from mcp_guide.mcp_result_adapter import add_session_id, tool_response
 from mcp_guide.result import Result
 from mcp_guide.result_constants import (
     ERROR_AUTHENTICATION_UNAVAILABLE,
@@ -189,7 +189,7 @@ async def _normalize_tool_output(
     if isinstance(result, ToolResult):
         payload = result.structured_content
         if session_id is not None and not result.is_error and isinstance(payload, dict):
-            payload = add_session_continuation(payload, session_id)
+            payload = add_session_id(payload, session_id)
             return ToolResult(
                 content=[TextContent(type="text", text=json.dumps(payload))],
                 structured_content=payload,
@@ -230,16 +230,16 @@ def toolfunc(
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         if not inspect.iscoroutinefunction(func):
-            raise TypeError(f"Tool {func.__name__} must be async")  # ty: ignore[unresolved-attribute]
+            raise TypeError(f"Tool {func.__name__} must be async")  # ty: ignore[missing-attribute]
 
         # Auto-generate description
         final_description = description
         if description is None and hasattr(args_class, "build_description"):
-            final_description = args_class.build_description(func)  # ty: ignore[call-non-callable]
+            final_description = args_class.build_description(func)  # ty: ignore[not-callable]
 
         # Determine prefix and tool name
         tool_prefix = prefix if prefix is not None else get_tool_prefix().rstrip("_")
-        tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__  # ty: ignore[unresolved-attribute]
+        tool_name = f"{tool_prefix}_{func.__name__}" if tool_prefix else func.__name__  # ty: ignore[missing-attribute]
 
         @wraps(func)
         async def async_wrapper(args: Any, ctx: Optional[Any] = None) -> object:

@@ -259,7 +259,7 @@ logging.setLoggerClass(LoggerWithTrace)
 
 def get_logger(name: str) -> LoggerWithTrace:
     """Get a logger with trace method support."""
-    return logging.getLogger(name)  # ty: ignore[invalid-return-type]
+    return logging.getLogger(name)  # ty: ignore[invalid-explicit-return]
 
 
 def create_console_handler() -> logging.Handler:
@@ -386,6 +386,6 @@ def add_trace_to_context() -> None:
             sanitized = _sanitize_log_message(message)
             await self.log(level="debug", message=f"[TRACE] {sanitized}")
 
-        Context.trace = trace  # ty: ignore[unresolved-attribute]
+        Context.trace = trace  # ty: ignore[missing-attribute]
     except ImportError:
         pass

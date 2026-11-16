@@ -1,6 +1,5 @@
 """Resource URI routing through real project content and command templates."""
 
-import os
 import time
 from types import SimpleNamespace
 
@@ -635,18 +634,16 @@ async def test_skill_requirements_are_filtered_after_shared_discovery(resource_p
 
 
 @pytest.mark.anyio
-async def test_runtime_skill_cache_refreshes_and_development_mode_bypasses_reuse(resource_project, runtime):
-    """The runtime cache refreshes by mtime and development mode always rebuilds it."""
+async def test_runtime_skill_cache_detects_tree_changes(resource_project, runtime):
+    """Skill discovery observes newly added packages on the next request."""
     initial = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
     assert initial.success, initial.error
     cached = runtime.skill_discovery_cache
     assert cached is not None
-    cached_mtime, _, cached_skills = cached
+    _, _, cached_skills = cached
     cached_skill = cached_skills["workflow-status"]
     with pytest.raises(TypeError):
         cached_skill.requirements["requires-workflow"] = True
-    runtime.cache_skill_discovery(cached_mtime, time.monotonic() - 301, cached_skills)
-
     refreshed = resource_project.resolve_document_path("_skills/refreshed/SKILL.md.mustache")
     refreshed.parent.mkdir(parents=True)
     refreshed.write_text(
@@ -664,15 +661,9 @@ async def test_runtime_skill_cache_refreshes_and_development_mode_bypasses_reuse
         "usage: Use to test development discovery.\n---\nDevelopment.",
         encoding="utf-8",
     )
-    os.utime(development_only, (cached_mtime, cached_mtime))
-    before_development = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
-    assert before_development.success, before_development.error
-    assert "development-only" not in before_development.value
-
-    await runtime.feature_flags().set("guide-development", True)
-    in_development = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
-    assert in_development.success, in_development.error
-    assert "development-only" in in_development.value
+    after_second_refresh = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
+    assert after_second_refresh.success, after_second_refresh.error
+    assert "development-only" in after_second_refresh.value
 
 
 @pytest.mark.anyio

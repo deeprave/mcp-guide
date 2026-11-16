@@ -31,6 +31,10 @@ class _MockSession:
     def runtime(self):
         return self
 
+    @property
+    def project_is_bound(self):
+        return self._project is not None
+
     async def get_docroot(self):
         return self._docroot
 
@@ -280,7 +284,7 @@ async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
 
 @pytest.mark.anyio
 async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
-    """An explicit unbound session returns no policy partials."""
+    """An explicit unbound session supplies inert policy partials."""
     policy_file = tmp_path / "doc.md.mustache"
     policy_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
 
@@ -295,7 +299,7 @@ async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
     result = await gather_policy_partials(
         await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
     )
-    assert result == ({}, {})
+    assert result == ({"git/ops": ""}, {})
 
 
 @pytest.mark.anyio
