@@ -58,12 +58,12 @@ It SHALL be catalogue metadata rather than a project feature flag or a
 - **AND** SHALL continue to include packages already discoverable before
   binding
 
-#### Scenario: Notify after binding expands availability
-- **WHEN** a session binding or effective skill availability changes
+#### Scenario: Notify after a catalogue change
+- **WHEN** rebuilding detects an effective skill catalogue change
 - **THEN** Guide SHALL make the updated catalogue available to the next
   `skills/list` request
-- **AND** after binding, SHALL emit `notifications/skills/list_changed` to a
-  client that negotiated the skills extension
+- **AND** SHALL emit `notifications/skills/list_changed` to the requesting
+  client when it negotiated the skills extension
 
 ### Requirement: Safe unbound skill rendering
 A package available without binding SHALL render either complete

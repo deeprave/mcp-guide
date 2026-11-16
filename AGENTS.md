@@ -30,7 +30,7 @@ These rules are critical for MCP operations to work correctly.
 
 ## Transient Documentation
 
-- NEVER create execution plans, agent ledgers, reviews, or other transient documentation in the worktree unless they belong there. The configured or default `{{path.documents}}` directory is the ONLY allowed location for transient documentation without a governing worktree location. OpenSpec artefacts are transient documentation that belong at the paths returned by the OpenSpec CLI and follow the OpenSpec archive lifecycle.
+- NEVER create execution plans, agent ledgers, reviews, or other transient documentation in the worktree unless they belong there. OpenSpec artefacts are transient documentation that belong at the paths returned by the OpenSpec CLI and follow the OpenSpec archive lifecycle.
 
 ## Workflow Handover
 

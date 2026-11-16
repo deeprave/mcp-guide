@@ -39,8 +39,8 @@ preserving Guide's project-aware delivery.
 - Preserve `guide://$` retrieval, `list_skills`, and `use_skill` as Guide
   compatibility surfaces.
 - Retain Guide's `notifications/skills/list_changed` refresh notification and
-  emit it after a client binds, so clients that support it can refresh the
-  newly expanded catalogue. Standard clients can also refresh explicitly.
+  emit it when rebuilding detects an effective catalogue change. Standard
+  clients can also refresh explicitly.
 
 ## Capabilities
 

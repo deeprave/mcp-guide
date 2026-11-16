@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, Literal, cast
-from urllib.parse import parse_qs, unquote, urlsplit
+from typing import Any, Literal, cast
 
 from fastmcp.resources.base import InputRequiredResourceResult, Resource
 from fastmcp.server.dependencies import get_context
@@ -17,17 +16,16 @@ from mcp_types import INVALID_PARAMS, InputRequiredResult, Notification
 from pydantic import AnyUrl, JsonValue
 
 from mcp_guide.core.mcp_log import get_logger
-from mcp_guide.prompts.command_parser import parse_command_arguments
 from mcp_guide.result import Result
 from mcp_guide.runtime import RequestContext
 from mcp_guide.session import request_context_scope
-from mcp_guide.session_listener import SessionListener, SessionListenerScope
-from mcp_guide.tools.tool_resource import GuideSkill, _catalogue_description, _discover_guide_skills, _read_guide_skill
-
-if TYPE_CHECKING:
-    from mcp_guide.runtime import GuideRuntime
-    from mcp_guide.session import Session
-
+from mcp_guide.tools.tool_resource import (
+    GuideSkill,
+    _catalogue_description,
+    _discover_guide_skills,
+    _read_guide_skill,
+    parse_standard_skill_uri,
+)
 
 logger = get_logger(__name__)
 SKILLS_LIST_CHANGED_METHOD = "notifications/skills/list_changed"
@@ -44,33 +42,12 @@ def _skill_uri(name: str) -> str:
     return f"skill://{name}/SKILL.md"
 
 
-def _skill_request(uri: str) -> tuple[str, str | None, dict[str, str | bool | int]] | None:
-    parsed = urlsplit(uri)
-    if parsed.scheme != "skill" or not parsed.netloc:
-        return None
-    parts = [unquote(part) for part in parsed.path.split("/") if part]
-    if not parts or any(part in {".", ".."} for part in parts):
-        return None
-    query = parse_qs(parsed.query, keep_blank_values=True)
-    session_ids = query.pop("session_id", [])
-    if len(session_ids) > 1 or (session_ids and not session_ids[0]):
-        return None
-    if any(len(values) != 1 or not values[0] for values in query.values()):
-        return None
-    kwargs, _args, errors = parse_command_arguments(
-        ["skill", *(f"{key}={values[0]}" for key, values in query.items())], bare_tokens_are_flags=True
-    )
-    if errors:
-        return None
-    return "/".join((parsed.netloc, *parts)), session_ids[0] if session_ids else None, kwargs
-
-
 class GuideSkillResource(Resource):
     """Render one standard skill member through Guide's shared resolver."""
 
     skill_path: str
     guide_session_id: str | None = None
-    skill_kwargs: Mapping[str, str | bool | int] = {}
+    skill_kwargs: Mapping[str, str | bool] = {}
 
     async def read(self) -> str | InputRequiredResourceResult:
         context = get_context()
@@ -92,14 +69,12 @@ class GuideSkillResource(Resource):
         return cast(str, result.value)
 
 
-class GuideSkillsProvider(Provider, SessionListener):
+class GuideSkillsProvider(Provider):
     """Publish metadata-only Skills entries and render resources only on read."""
 
-    scope = SessionListenerScope.INTERACTION
-
-    def __init__(self, runtime: "GuideRuntime[Session]") -> None:
+    def __init__(self) -> None:
         super().__init__()
-        self._runtime = runtime
+        self._catalogue_signature: tuple[tuple[str, str, str, tuple[tuple[str, str], ...]], ...] | None = None
 
     def required_extensions(self) -> Sequence[SkillsExtension]:
         return (SkillsExtension(providers=[self]),)
@@ -107,9 +82,37 @@ class GuideSkillsProvider(Provider, SessionListener):
     async def _catalogue(self, session_id: str | None = None) -> tuple[RequestContext, dict[str, GuideSkill]]:
         context = get_context()
         async with request_context_scope(context, session_id, allow_pwd_bootstrap=True) as request_context:
-            request_context.session.add_listener(self)
             skills = await _discover_guide_skills(request_context.session, request_context.resolve_document_path)
             return request_context, skills
+
+    @staticmethod
+    def _signature(skills: Mapping[str, GuideSkill]) -> tuple[tuple[str, str, str, tuple[tuple[str, str], ...]], ...]:
+        """Return stable metadata for detecting an effective catalogue change."""
+        return tuple(
+            (
+                name,
+                skill.description,
+                skill.usage,
+                tuple(sorted((key, repr(value)) for key, value in skill.frontmatter.items())),
+            )
+            for name, skill in sorted(skills.items())
+        )
+
+    async def _notify_catalogue_change(self, skills: Mapping[str, GuideSkill]) -> None:
+        """Notify the requesting client when rebuilding finds a changed catalogue."""
+        signature = self._signature(skills)
+        previous = self._catalogue_signature
+        self._catalogue_signature = signature
+        if previous is None or signature == previous:
+            return
+        try:
+            context = get_context()
+            if context.client_supports_extension("io.modelcontextprotocol/skills"):
+                await context.send_notification(cast(Any, SkillsListChangedNotification()))
+        except RuntimeError:
+            return
+        except Exception as error:
+            logger.debug("Could not send skills catalogue refresh notification: %s", error)
 
     @staticmethod
     def _entry(skill: GuideSkill, *, bound: bool) -> MCPSkill:
@@ -129,6 +132,7 @@ class GuideSkillsProvider(Provider, SessionListener):
 
     async def _entries(self) -> list[MCPSkill]:
         request_context, skills = await self._catalogue()
+        await self._notify_catalogue_change(skills)
         return [self._entry(skill, bound=request_context.is_bound) for skill in skills.values()]
 
     async def _skill_uris(self, uri: str | None = None) -> Sequence[str]:
@@ -144,7 +148,7 @@ class GuideSkillsProvider(Provider, SessionListener):
         return uri.startswith("skill://")
 
     async def _get_resource(self, uri: str, version: object | None = None) -> Resource | None:
-        request = _skill_request(uri)
+        request = parse_standard_skill_uri(uri)
         if request is None:
             return None
         skill_path, session_id, kwargs = request
@@ -159,13 +163,3 @@ class GuideSkillsProvider(Provider, SessionListener):
             guide_session_id=session_id,
             skill_kwargs=kwargs,
         )
-
-    async def on_project_changed(self, session: object, old_project: str, new_project: str) -> None:
-        try:
-            context = get_context()
-            if context.client_supports_extension("io.modelcontextprotocol/skills"):
-                await context.send_notification(cast(Any, SkillsListChangedNotification()))
-        except RuntimeError:
-            return
-        except Exception as error:
-            logger.debug("Could not send skills catalogue refresh notification: %s", error)

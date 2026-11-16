@@ -198,7 +198,7 @@ def create_application(config: "ServerConfig") -> GuideApplication:
         name=server_name,
         instructions="MCP server for project documentation and development guidance",
         lifespan=lambda _server: runtime.lifespan(),
-        providers=[GuideSkillsProvider(runtime)],
+        providers=[GuideSkillsProvider()],
     )
     # Deferred because notification delivery depends on the constructed FastMCP server.
     from mcp_guide.mcp_instruction_notifications import (
