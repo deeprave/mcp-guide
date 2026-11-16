@@ -20,12 +20,19 @@ preserving Guide's project-aware delivery.
   their rendered entrypoints and accessible package members.
 - Add a `{{#skill}}` template section that renders a canonical skill URI for a
   negotiated Skills client and a `guide://$` reference otherwise.
-- Make unbound delivery an explicit skill-availability opt-in:
-  `allow-unbound: true` packages are discoverable before binding; all other
-  packages remain project-dependent and are added once a session is bound and
-  satisfies their requirements.
+- Make skill discovery available before binding: skills requiring only project
+  binding remain discoverable with a concise binding notice, while skills with
+  additional requirements appear only after binding satisfies them.
+- Use `project-bind: true` in skill frontmatter to declare that binding-only
+  prerequisite without treating it as a project feature flag.
 - Revise Git skills so their generic delivery guidance is available unbound and
   their configured policy instructions are rendered only after project binding.
+- Add `depth` selection to workflow review: quick uses one lighter reviewer,
+  standard uses one heavier reviewer, and thorough uses both before the
+  orchestrator returns one combined review.
+- Store review and pull-request triage records in Guide's shared user cache,
+  using project-and-issue keys when bound and canonical provider/repository/PR
+  keys when unbound, without migrating temporary existing review artefacts.
 - Return the standard skill catalogue for the current interaction without
   requiring Guide's opaque `session_id`; a client can refresh `skills/list`
   after binding to obtain the expanded catalogue.

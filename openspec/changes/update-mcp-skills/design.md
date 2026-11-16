@@ -26,7 +26,7 @@ honestly be described by one static resource manifest.
 
 **Non-Goals:**
 
-- Change the content or delivery semantics of existing `guide://$` skills.
+- Remove existing `guide://$` skill compatibility surfaces.
 - Implement the optional SEP-2640 `resources/directory/read` operation or
   expose a template-filesystem-derived public resource tree.
 - Require generic clients to act on a Guide refresh notification; the standard
@@ -64,27 +64,69 @@ canonical.
 ### Separate discovery from project requirement evaluation
 
 Refactor package discovery into a metadata catalogue that is safe to build
-without a bound project. Add `allow-unbound` frontmatter: only an explicit
-`true` allows an unbound catalogue entry; omitted and false values require a
-bound project. Once bound, apply the existing `requires-*` frontmatter checks
-against the project's effective flags.
+without rendering a template. Discovery loads each package's `FileInfo` and
+frontmatter only; it never loads partials, evaluates template sections, or
+resolves policies. Before binding, publish every package with no
+requirement beyond project binding: packages that need binding identify that
+briefly in their description and direct the agent to `{{tool_prefix}}set_project`.
+Packages with additional requirements remain unavailable until a project is
+bound and those requirements are satisfied. The same effective catalogue
+applies to standard Skills, `guide://$`, and `list_skills`.
 
-This deny-by-default opt-in protects packages that interpolate project
-paths, policies, or workflow state. Inferring unbound safety from a package's
-current template content would be brittle and could change as a template
-evolves.
+Use `project-bind: true` in package frontmatter to declare the binding-only
+prerequisite. It is catalogue metadata, not a project feature flag and not a
+`requires-*` condition. A package with this marker and no other unmet
+requirements remains discoverable before binding; its unbound branch provides
+binding guidance unless it has a deliberate unbound variant.
+
+### Render the exceptional unbound variant explicitly
+
+Expose `unbound` as a boolean template-context value when the interaction has
+no bound project. Templates use `{{#unbound}}` only for exceptional
+unbound-safe or binding-guidance instructions; ordinary bound instructions
+remain outside that section. During selected-skill rendering, unbound policy
+partials resolve blank automatically, while a bound session resolves its
+selected policies through the shared rendering path. Do not infer binding from
+an empty project object, paths, or feature flags, and do not use a `session`
+section because an interaction session may exist before project binding.
 
 ### Give eligible Git skills an unbound rendering branch
 
-Mark the Git package entrypoints as `allow-unbound: true` after separating
-their generic delivery directives from selected project policies. The unbound
-branch provides safe Git guidance without tracker, delivery, or policy
-assumptions; the bound branch adds those project-selected partials.
+Give the Git package entrypoints an unbound branch after separating their
+generic delivery directives from selected project policies. The unbound branch
+provides safe Git guidance without tracker or delivery assumptions; policy
+inclusions remain ordinary shared template inclusions because unbound policy
+resolution supplies blank content. A bound session adds its selected policies
+through the same shared rendering path.
 
 This makes useful generic Git guidance discoverable during initial connection
 without presenting empty policy partials or claiming a repository's configured
-delivery rules before Guide has bound that repository. Other project-aware
-skills remain hidden until a concrete unbound use case is designed.
+delivery rules before Guide has bound that repository.
+
+### Select workflow-review depth explicitly
+
+Give workflow review one `depth` selection for both bound and unbound
+rendering. `quick` runs one lighter reviewer, `standard` runs one heavier
+reviewer, and `thorough` runs both independently. `thorough` remains the
+default. After the independent reviews finish, the orchestrating agent SHALL
+combine their outcomes into one review for the user; bound rendering retains
+the workflow-aware handling around that result.
+
+### Store review records in shared cache
+
+Add `get_cache_dir()` alongside the existing configuration-path helpers, using
+the XDG user-cache location. The cache directory SHALL be an implied runtime
+read/write root for every session and exposed as `{{path.cache}}` in both bound
+and unbound template contexts. Bound workflow reviews use the Guide project
+identity and active issue as their cache key. An unbound pull-request review
+uses provider host, immutable repository identity, and pull-request number;
+its combined record is stored at
+`{{path.cache}}reviews/<provider>/<repository-id>/<pr-number>.json`. This key
+also stores pull-request triage state so later bound or unbound triage sees
+only new threads. Unbound branch or working-tree reviews have no stable
+cross-session identity and return their result directly unless the user names
+an output destination. Existing project review and triage documents are
+temporary artefacts; do not migrate them into this cache.
 
 ### Give standard skills a virtual, stable resource namespace
 
@@ -111,12 +153,23 @@ the server's template tree can contain Mustache sources, partials, and future
 helpers that are not public skill resources. A future directory feature needs
 an explicit virtual public-resource inventory rather than a filesystem walk.
 
+### Keep catalogue and rendering separate
+
+`skills/list` and `skills/get` use the metadata catalogue only and never
+render skill templates. They return dynamic-resource entries describing the
+currently eligible skills. A `skill://` resource read delegates to the same
+selected-skill/member resolver as `guide://$`, so elicitation, policy handling,
+containment, and rendering have one implementation. The protocol adapters may
+format the result differently, but they do not duplicate skill resolution or
+retain rendered skill bytes between requests.
+
 ### Refresh after binding
 
 The interaction's active session supplies binding state implicitly; standard
 calls do not accept Guide's opaque `session_id`. Before binding, `skills/list`
-returns only explicitly unbound-safe skills. After binding, a subsequent
-`skills/list` sees the expanded effective set immediately.
+returns every package with no prerequisite beyond project binding. After
+binding, a subsequent `skills/list` sees packages whose additional
+requirements are now satisfied.
 
 Guide also emits its existing `notifications/skills/list_changed` notification
 after binding when the standard Skills extension is negotiated. This preserves an
@@ -128,11 +181,11 @@ skills-refresh contract.
 ## Risks / Trade-offs
 
 - [Clients do not support Guide's refresh notification] → They retain the
-  unbound-safe view until they choose to call `skills/list` again; Guide keeps
+  pre-binding view until they choose to call `skills/list` again; Guide keeps
   its own `guide://$` discovery guidance for clients that need it.
-- [Existing packages unexpectedly appear before binding] → Default
-  `allow-unbound` to false and explicitly mark only packages whose rendered
-  instructions are safe and useful unbound.
+- [A listed skill needs project context] → Its description states that binding
+  is required and directs the agent to `{{tool_prefix}}set_project`; templates
+  use their `unbound` branch rather than rendering project-derived values.
 - [A client attempts a known `skill://` URI before it is eligible] → Enforce
   the effective catalogue for both `skills/get` and resource reads.
 - [The standard evolves while its extension is beta] → Keep the protocol
