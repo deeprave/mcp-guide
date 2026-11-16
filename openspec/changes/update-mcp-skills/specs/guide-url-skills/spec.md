@@ -116,6 +116,12 @@ declare dynamically generated resources rather than a static integrity manifest.
 - **AND** a package member URI below the same `skill://` package root SHALL
   resolve using the same rendering and containment rules as `guide://$`
 
+#### Scenario: Read a bound skill through stateless transport
+- **WHEN** a client that received a Guide `session_id` reads a known
+  `skill://` resource with that value as its `session_id` query argument
+- **THEN** Guide SHALL resolve the bound session for the resource read
+- **AND** SHALL retain the canonical session-free URI in `skills/list`
+
 #### Scenario: Reject an unavailable standard skill
 - **WHEN** an unbound or bound client requests a standard skill URI that is not
   in its effective catalogue

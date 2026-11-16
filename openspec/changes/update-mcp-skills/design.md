@@ -163,6 +163,11 @@ containment, and rendering have one implementation. The protocol adapters may
 format the result differently, but they do not duplicate skill resolution or
 retain rendered skill bytes between requests.
 
+Catalogue URIs remain canonical and session-free. A client that has bound a
+Guide session may append its returned `session_id` as a query argument when
+reading a known `skill://` resource, allowing modern stateless transport to
+resolve that bound Guide session without changing the catalogue entry.
+
 ### Refresh after binding
 
 The interaction's active session supplies binding state implicitly; standard

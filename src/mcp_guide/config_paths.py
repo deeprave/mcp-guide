@@ -85,6 +85,24 @@ def get_config_file(config_dir: Optional[str] = None) -> Path:
     return get_config_dir(config_dir) / "config.yaml"
 
 
+def get_cache_dir() -> Path:
+    """Return Guide's user-writable cache directory.
+
+    Unix follows ``XDG_CACHE_HOME`` and defaults to ``~/.cache``.  Windows
+    keeps transient application data below the local application-data root.
+    """
+    if os.name != "nt":
+        cache_home = os.environ.get("XDG_CACHE_HOME")
+        if cache_home:
+            return Path(cache_home) / "mcp-guide"
+        return Path("~") / ".cache" / "mcp-guide"
+
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        return Path(local_appdata) / "mcp-guide" / "cache"
+    return Path.home() / "AppData" / "Local" / "mcp-guide" / "cache"
+
+
 def get_docroot(config_dir: Optional[str] = None) -> Path:
     """Get document root directory.
 
@@ -94,6 +112,7 @@ def get_docroot(config_dir: Optional[str] = None) -> Path:
     Returns:
         Path to docs directory
     """
+    # Deferred to avoid the LazyPath/configuration import cycle during startup.
     from mcp_guide.lazy_path import LazyPath
 
     if __docroot:

@@ -9,11 +9,16 @@ policies: [git/ops]
 
 ## Directives
 
+{{#unbound}}
+- Inspect the current branch and remote default branch, preserve unrelated uncommitted work, then fetch and fast-forward only when that is safe.
+{{/unbound}}
+{{^unbound}}
 - Treat uncommitted work as an abnormal handover condition. Ask the user whether
   to preserve it while switching, handle it as existing branch work, or stop.
 - Otherwise, switch to the default branch, fetch remote updates, and
   fast-forward only.
 - Do not delete branches.
+{{/unbound}}
 
 ## Selected Policies
 

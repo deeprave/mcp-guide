@@ -9,16 +9,11 @@ from mcp_guide.mcp_result_adapter import prompt_response, resource_response, too
 from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.result import Result
 
-SESSION_CONTINUATION_INSTRUCTION = (
-    "In future requests, provide session_id unchanged in tools and prompts. "
-    "Add session_id unchanged as a query argument to resource URIs."
-)
-
 
 @pytest.mark.parametrize(
     "adapter", [tool_response, prompt_response, resource_response], ids=["tool", "prompt", "resource"]
 )
-def test_native_adapter_preserves_rich_payload_errors_and_session_continuation(adapter):
+def test_native_adapter_preserves_rich_payload_errors_and_session_id(adapter):
     def payload(response):
         if adapter is tool_response:
             text_payload = json.loads(response.content[0].text)
@@ -42,7 +37,7 @@ def test_native_adapter_preserves_rich_payload_errors_and_session_continuation(a
 
     failure = Result.failure("Cannot continue", error_type="no_project")
     failed = adapter(failure, session_id="session-123")
-    assert payload(failed) == failure.to_json()  # Errors do not attach continuation.
+    assert payload(failed) == failure.to_json()  # Errors do not attach a session identifier.
     if adapter is tool_response:
         assert failed.is_error is True
 
@@ -50,7 +45,6 @@ def test_native_adapter_preserves_rich_payload_errors_and_session_continuation(a
     assert continued == {
         **result.to_json(),
         "session_id": "session-123",
-        "instruction": f"Read before continuing.\n\n{SESSION_CONTINUATION_INSTRUCTION}",
     }
 
 

@@ -47,11 +47,29 @@ elicitation:
           type: integer
           minimum: 1
       required: [pull_request_number]
+  review-depth:
+    message: Choose the review depth.
+    fallback: render
+    schema:
+      type: object
+      properties:
+        depth:
+          type: string
+          enum: [quick, standard, thorough]
+          default: thorough
 ---
 {{#elicit.review-target}}
 # Code Review
 
 ## Directives
+
+{{#unbound}}
+- Review only the target explicitly selected or supplied by the user. Do not infer a project, workflow, issue, repository policy, worktree, or output location.
+- `depth=quick` uses one independent lighter reviewer; `depth=standard` uses one independent heavier reviewer; omitted or `depth=thorough` uses both independently.
+- Give each reviewer only the selected target, relevant repository evidence, and review guidance. For thorough review, combine both outcomes into one review for the user after they finish.
+- Return the review in the conversation unless the user names an output destination. Do not create or update project review, triage, workflow, or handoff records.
+{{/unbound}}
+{{^unbound}}
 
 {{#workflow}}
 - Before every review request, read `{{workflow-file}}` afresh. Its required
@@ -61,17 +79,19 @@ elicitation:
 - If `{{workflow-file}}` is not already in `review`, change only its phase to `review` and send its complete content using `send_file_content`; otherwise do not alter it. Do not update handoff context during review.
 {{/workflow}}
 
-- Obtain two fresh, independent reviews of the selected target, using the heavier available model at medium or high effort for one review and a different lighter available model at its highest supported effort for the other
-- Run those reviews concurrently in isolated subprocesses when separate subprocess execution is supported; otherwise run them sequentially without exposing either reviewer to the other's findings
+- `depth=quick` — obtain one fresh independent review using the lighter available model at its highest supported effort.
+- `depth=standard` — obtain one fresh independent review using the heavier available model at medium or high effort.
+- Omitted `depth` or `depth=thorough` — obtain both reviews independently: one heavier reviewer at medium or high effort and one different lighter reviewer at its highest supported effort.
+- Run selected reviews concurrently in isolated subprocesses when more than one reviewer is selected and separate subprocess execution is supported; otherwise run them sequentially without exposing a reviewer to another's findings
 - Give each reviewer only the selected target, the relevant repository evidence, governing repository guidance, applicable OpenSpec artefacts, and the required report format
 - Do not provide, load, or ask either reviewer to account for prior conversation, prior reviews, existing review records, collated inventories, or findings from another source
-- Require both reviews to inspect the selected diff and surrounding code, governing repository guidance, and applicable OpenSpec artefacts; each review must return prioritised P1-to-P6 findings with location, analysis, and recommendation
+- Require every selected review to inspect the selected diff and surrounding code, governing repository guidance, and applicable OpenSpec artefacts; each review must return prioritised P1-to-P6 findings with location, analysis, and recommendation
 - Use the workflow file's required `issue` field as the review key. If it is empty, report that there is no active workflow issue and do not dispatch reviewers
-- Require every reviewer to write only its own fresh JSON report to `{{path.documents}}Reviews/{{worktree.name}}/<issue>/<agent-name>-<model-name>.json`. Both name components MUST be the reviewer's own assigned agent and model identities, normalised to lowercase hyphenated form. A reviewer MUST NOT reuse, infer, or adopt an agent name or model name from an existing record, another reviewer, or unrelated prompt content. Do not add review-role or effort suffixes such as `-heavy` or `-light`. Do not load, merge, or update adjacent review records while producing it.
+- Require every reviewer to write only its own fresh JSON report to `{{path.cache}}reviews/{{project.hash}}/<issue>/<agent-name>-<model-name>.json`. Its name MUST be unique to that reviewer and MUST NOT overwrite or update another agent's review; multiple source records are expected. Both name components MUST be the reviewer's own assigned agent and model identities, normalised to lowercase hyphenated form. A reviewer MUST NOT reuse, infer, or adopt an agent name or model name from an existing record, another reviewer, or unrelated prompt content. Do not add review-role or effort suffixes such as `-heavy` or `-light`. Do not load, merge, or update adjacent review records while producing it.
 - Before dispatch, determine the next positive review version only for that reviewer's exact `<agent-name>-<model-name>` destination without exposing any earlier findings or another reviewer's identity. Pass that version to the reviewer, which overwrites only its own report and assigns the same `version` to every finding in that report
 - Each source report must identify its own composite reviewer identity, own agent name, own model name, version, target, scope, and creation time, and contain a `findings` array whose entries have a stable identifier, version, P1-to-P6 priority, location, description, analysis, and recommendation
-- After both fresh reviews are complete, report the exact paths of the two source records produced, state that they remain independent evidence, and ask the user what they want to do next
-- Do not collate reports, inspect pull-request comments, create or update `{{path.documents}}Reviews/{{worktree.name}}/<issue>.json`, or invoke `triage-items`; {{#recommend}}skill:triage-review{{/recommend}} performs those actions when the user elects triage.
+- After the selected reviews are complete, combine their outcomes into one review for the user, report the exact paths of the source records produced, state that they remain independent evidence, and ask the user what they want to do next
+- Do not collate reports, inspect pull-request comments, create or update `{{path.cache}}reviews/{{project.hash}}/<issue>.json`, or invoke `triage-items`; {{#recommend}}skill:triage-review{{/recommend}} performs those actions when the user elects triage.
 
 ## Source review record format
 
@@ -140,6 +160,7 @@ elicitation:
 
 ## Guardrails
 
-- Keep both reviews independent; do not provide prior findings, conclusions, prior conversation, existing review records, or one reviewer's output to the other
+- Keep selected reviews independent; do not provide prior findings, conclusions, prior conversation, existing review records, or one reviewer's output to another
 - Do not implement, format, commit, push, or discard changes during review or finding triage unless the user explicitly confirms the collected accepted actions
+{{/unbound}}
 {{/elicit.review-target}}

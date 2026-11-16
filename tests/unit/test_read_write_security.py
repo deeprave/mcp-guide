@@ -70,6 +70,14 @@ class TestReadWriteSecurityPolicy:
         with pytest.raises(SecurityError, match="Write to absolute path not allowed"):
             policy.validate_write_path("/home/user/file.txt")
 
+    def test_write_allows_nested_path_below_configured_absolute_root(self, tmp_path):
+        """A runtime-owned absolute cache root permits its descendant records."""
+        cache_root = tmp_path / "cache"
+        policy = ReadWriteSecurityPolicy(write_allowed_paths=[str(cache_root)])
+
+        target = cache_root / "reviews" / "record.json"
+        assert policy.validate_write_path(str(target)) == str(target)
+
     def test_write_user_anchored_path_is_treated_as_absolute(self, monkeypatch):
         """A user-anchored write path cannot bypass absolute-path policy."""
         monkeypatch.setenv("HOME", "/home/test-user")

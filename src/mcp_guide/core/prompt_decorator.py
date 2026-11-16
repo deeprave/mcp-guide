@@ -60,7 +60,7 @@ def promptfunc(description: Optional[str] = None) -> Callable[[Callable[..., Any
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        prompt_name = func.__name__  # ty: ignore[unresolved-attribute]
+        prompt_name = func.__name__  # ty: ignore[missing-attribute]
         prompt_description = description or inspect.cleandoc(func.__doc__ or "") or None
 
         @wraps(func)

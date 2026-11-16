@@ -61,7 +61,7 @@ def resourcefunc(
     """
 
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
-        resource_name = func.__name__  # ty: ignore[unresolved-attribute]
+        resource_name = func.__name__  # ty: ignore[missing-attribute]
 
         @wraps(func)
         async def wrapped(*args: Any, **kwargs: Any) -> object:

@@ -109,6 +109,13 @@ _.SkillsListChangedNotification
 _.SessionListenerTarget
 _.methods
 _.method
+# Skills provider callbacks are dispatched by FastMCP's provider registry.
+_.required_extensions
+_._skill_uris
+_._list_skill_entries
+_._get_skill_entry
+_._owns_skill_resource
+_._get_resource
 # Module-level names
 _.__getattr__  # Python module protocol for lazy render_template compatibility export
 _.__all__

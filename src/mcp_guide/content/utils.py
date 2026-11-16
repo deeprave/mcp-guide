@@ -145,6 +145,7 @@ def combine_instructions(instructions_with_importance: list[tuple[str, bool]]) -
         Combined instruction string or None if no instructions.
         Important instructions (starting with "^") override regular instructions.
     """
+    # Deferred to avoid the render/content import cycle.
     from mcp_guide.render.deduplicate import deduplicate_sentences
 
     regular_instructions = []
@@ -200,6 +201,7 @@ async def gather_policy_partials(
     from mcp_guide.content.gathering import gather_category_fileinfos
 
     if limits is None:
+        # Deferred because limits imports content rendering utilities.
         from mcp_guide.content_limits import get_content_limits
 
         limits = await get_content_limits()
@@ -220,6 +222,11 @@ async def gather_policy_partials(
         return {}, {}
 
     logger.trace("_gather_policy_partials: %r declares topics %s", file_info.name, policy_topics)
+
+    if not session.project_is_bound:
+        # Unbound skill rendering deliberately retains ordinary policy partial
+        # references while making them inert; no project policy may be inferred.
+        return ({topic: "" for topic in policy_topics if isinstance(topic, str)}, {})
 
     try:
         project = await session.get_project()

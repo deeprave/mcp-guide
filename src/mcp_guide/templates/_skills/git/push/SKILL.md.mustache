@@ -9,11 +9,16 @@ policies: [git/ops, git/delivery]
 
 ## Directives
 
+{{#unbound}}
+- Inspect the current branch and remote, confirm the intended commits and destination with the user when unclear, then push without rewriting published history.
+{{/unbound}}
+{{^unbound}}
 - Commit current-change work through {{#recommend}}skill:git-commit{{/recommend}} before pushing.
 - If other changed files may not belong to this change, consult the user before
   proceeding. Ask whether to include them or leave them uncommitted.
 - For approved additions, use {{#recommend}}skill:git-commit{{/recommend}} again before pushing.
 - Push only the resulting selected commits using the selected delivery policy.
+{{/unbound}}
 
 ## Selected Policies
 

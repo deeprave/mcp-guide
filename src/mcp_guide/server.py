@@ -1,11 +1,9 @@
 """MCP server creation and configuration."""
 
 import os
-from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
 
-import yaml
 from fastmcp import FastMCP
 
 if TYPE_CHECKING:
@@ -18,36 +16,6 @@ from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.runtime import GuideRuntime, create_runtime
 
 logger = get_logger(__name__)
-
-
-def _startup_feature_enabled(config: "ServerConfig", flag_name: str) -> bool:
-    """Read one process-level boolean flag without starting runtime services."""
-    from mcp_guide.config_paths import get_config_file
-    from mcp_guide.feature_flags.validators import coerce_boolean_like
-    from mcp_guide.lazy_path import LazyPath
-
-    config_file = LazyPath(get_config_file(config.configdir)).resolve()
-    try:
-        content = config_file.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return False
-    except OSError:
-        logger.warning("Unable to read startup feature flags from %s", config_file, exc_info=True)
-        return False
-
-    try:
-        config_data = yaml.safe_load(content) or {}
-    except yaml.YAMLError:
-        logger.warning("Unable to parse startup feature flags from %s", config_file, exc_info=True)
-        return False
-    if not isinstance(config_data, Mapping):
-        logger.warning("Ignoring non-mapping startup configuration in %s", config_file)
-        return False
-    feature_flags = config_data.get("feature_flags", {})
-    if not isinstance(feature_flags, Mapping):
-        logger.warning("Ignoring non-mapping feature_flags in %s", config_file)
-        return False
-    return coerce_boolean_like(feature_flags.get(flag_name)) is True
 
 
 @dataclass(frozen=True)
@@ -68,6 +36,7 @@ def _initialize_runtime_tasks() -> None:
     if os.environ.get("MCP_GUIDE_DISABLE_SERVER_TASKS", "").lower() in ("1", "true", "yes"):
         return
 
+    # Import for decorator registration only; doing so at module load would start task dependency cycles.
     from mcp_guide.context.tasks import ClientContextTask  # noqa: F401
     from mcp_guide.openspec.task import OpenSpecTask  # noqa: F401
     from mcp_guide.task_manager import TaskManager  # noqa: F401
@@ -90,6 +59,7 @@ def _configure_logging_after_fastmcp(config: "ServerConfig") -> None:
     Args:
         config: Server configuration with logging settings
     """
+    # Deferred until after FastMCP initialises because it reconfigures logging.
     import logging
 
     from mcp_guide.core.mcp_log import (
@@ -153,6 +123,7 @@ def _configure_logging_after_fastmcp(config: "ServerConfig") -> None:
     register_cleanup_handlers()
 
     # Replay any log records emitted before handlers were attached
+    # Deferred with logging setup so buffered startup records are flushed only after handlers exist.
     from mcp_guide.core.mcp_log import flush_startup_buffer
 
     flush_startup_buffer()
@@ -177,15 +148,18 @@ def create_application(config: "ServerConfig") -> GuideApplication:
 
     async def start_runtime() -> None:
         """Apply process-level Guide configuration before serving begins."""
+        # Deferred to runtime startup so construction remains side-effect free.
         from mcp_guide.lazy_path import LazyPath
         from mcp_guide.session import initial_filesystem_sharing
 
         LazyPath.client_filesystem_shared = initial_filesystem_sharing(config.transport_mode, config.use_pwd)
         if config.configdir:
+            # Deferred with startup configuration to avoid changing process defaults during construction.
             from mcp_guide.config_paths import set_config_dir
 
             set_config_dir(config.configdir)
         if config.docroot:
+            # Deferred with startup configuration to avoid changing process defaults during construction.
             from mcp_guide.config_paths import set_docroot
 
             set_docroot(config.docroot)
@@ -195,6 +169,7 @@ def create_application(config: "ServerConfig") -> GuideApplication:
         _configure_logging_after_fastmcp(config)
         _initialize_runtime_tasks()
 
+    # Deferred to avoid the server/session import cycle while defining GuideApplication.
     from mcp_guide.session import Session
 
     runtime: GuideRuntime[Session]
@@ -209,22 +184,23 @@ def create_application(config: "ServerConfig") -> GuideApplication:
         on_start=start_runtime,
     )
     if config.auth_provider is not None and config.transport_mode in {"http", "https"}:
+        # Deferred because authentication is optional and imports remote transport dependencies.
         from mcp_guide.auth import auth_service_for
 
         runtime.auth_service = auth_service_for(config.auth_provider)
 
     # Use MCP_GUIDE_NAME env var if set, otherwise use generic name
     server_name = os.getenv("MCP_GUIDE_NAME", "guide")
-    from mcp_guide.feature_flags.constants import FLAG_MCP_SKILLS
+    # Deferred because the Skills provider depends on request/session infrastructure initialised above.
+    from mcp_guide.mcp_skills_extension import GuideSkillsProvider
 
-    mcp_skills_enabled = _startup_feature_enabled(config, FLAG_MCP_SKILLS)
-    experimental_capabilities = {"skills": {}} if mcp_skills_enabled else None
     mcp = FastMCP(
         name=server_name,
         instructions="MCP server for project documentation and development guidance",
         lifespan=lambda _server: runtime.lifespan(),
-        experimental_capabilities=experimental_capabilities,
+        providers=[GuideSkillsProvider(runtime)],
     )
+    # Deferred because notification delivery depends on the constructed FastMCP server.
     from mcp_guide.mcp_instruction_notifications import (
         GuideInstructionExtension,
         limit_instruction_extension_to_modern_protocols,
@@ -232,23 +208,21 @@ def create_application(config: "ServerConfig") -> GuideApplication:
 
     mcp.add_extension(GuideInstructionExtension())
     limit_instruction_extension_to_modern_protocols(mcp._mcp_server)
-    if mcp_skills_enabled:
-        from mcp_guide.mcp_skills_extension import GuideSkillsExtension
-
-        mcp.add_extension(GuideSkillsExtension(runtime))
-
     # Set tool prefix from config
     os.environ["MCP_TOOL_PREFIX"] = config.tool_prefix
 
     # Register tools with MCP
+    # Deferred so tool modules register against the constructed server only.
     from mcp_guide.core.tool_decorator import register_tools
 
     register_tools(mcp)
 
     # Import prompt and resource modules
+    # Import for deferred resource registration after the server exists.
     from mcp_guide import resources as resource_module  # noqa: F401
 
     # Register prompts and resources with MCP
+    # Deferred so prompt and resource modules register against the constructed server only.
     from mcp_guide.core.prompt_decorator import register_prompts
     from mcp_guide.core.resource_decorator import register_resources
     from mcp_guide.prompts import guide_prompt  # noqa: F401

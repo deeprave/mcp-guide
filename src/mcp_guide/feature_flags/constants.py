@@ -16,7 +16,6 @@ FLAG_CONTENT_STYLE = "content-style"
 FLAG_RESOURCE = "format-resource"
 FLAG_COMMAND = "format-command"
 
-FLAG_MCP_SKILLS = "mcp-skills"
 FLAG_HANDOFF_CONTEXT = "handoff-context"
 
 # Path flags

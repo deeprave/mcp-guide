@@ -13,24 +13,12 @@ from mcp_types import TextContent
 from mcp_guide.core.result import Result
 from mcp_guide.mcp_context import SessionProtocolType
 
-SESSION_CONTINUATION_INSTRUCTION = (
-    "In future requests, provide session_id unchanged in tools and prompts. "
-    "Add session_id unchanged as a query argument to resource URIs."
-)
 
-
-def add_session_continuation(payload: dict[str, Any], session_id: str | None) -> dict[str, Any]:
-    """Attach modern-client session continuation details to a successful payload."""
+def add_session_id(payload: dict[str, Any], session_id: str | None) -> dict[str, Any]:
+    """Attach the resolved Guide session identifier to a successful payload."""
     if session_id is None or not payload.get("success", False):
         return payload
-
-    payload = {**payload, "session_id": session_id}
-    instruction = payload.get("instruction")
-    if not (isinstance(instruction, str) and instruction.endswith(SESSION_CONTINUATION_INSTRUCTION)):
-        payload["instruction"] = (
-            f"{instruction}\n\n{SESSION_CONTINUATION_INSTRUCTION}" if instruction else SESSION_CONTINUATION_INSTRUCTION
-        )
-    return payload
+    return {**payload, "session_id": session_id}
 
 
 def _response_payload_and_metadata(
@@ -41,7 +29,7 @@ def _response_payload_and_metadata(
     instruction_dispatched: bool = False,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]] | None]:
     """Adapt a Result according to the established Session response contract."""
-    payload = add_session_continuation(result.to_json(), session_id)
+    payload = add_session_id(result.to_json(), session_id)
     cache_metadata = result.cache_policy.metadata if result.cache_policy is not None else None
     if protocol_type is not SessionProtocolType.MCP_2026_07_28:
         return payload, {"mcp-guide": {"cache": cache_metadata}} if cache_metadata else None

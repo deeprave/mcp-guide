@@ -10,7 +10,7 @@ cache: short, private
 
 - Establish a complete, stable inventory before presenting the first item. Use the inventory the user explicitly identifies. Otherwise derive the clearly relevant inventory from the current context, such as recently collated reviews or pull-request feedback; ask only when the target is unclear.
 - Preserve the item's source references, target, scope, evidence, recommendation, and original wording where available. Order prioritised inventories by P1 through P6 and preserve source order within each priority; otherwise preserve source order.
-- When a canonical inventory already exists, record decisions in that inventory without modifying independent source records. When the user requests a durable decision record and no canonical inventory applies, create `{{path.documents}}Triage/<derived-key>.json`. Otherwise retain a clear in-conversation decision record.
+- When a canonical inventory already exists, record decisions in that inventory without modifying independent source records. {{#unbound}}Otherwise retain a clear in-conversation decision record unless the user requests a destination.{{/unbound}}{{^unbound}}When the user requests a durable decision record and no canonical inventory applies, create `{{path.documents}}Triage/<derived-key>.json`. Otherwise retain a clear in-conversation decision record.{{/unbound}}
 - Record each decision against its item: decision, variation, rationale, proposed follow-up, and completion state where applicable.
 - Present exactly one item at a time. Do not preview, summarise, or act on other items while the current item awaits a decision.
 - Use this form for every item:

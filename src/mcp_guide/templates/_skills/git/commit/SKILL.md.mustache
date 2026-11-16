@@ -9,12 +9,17 @@ policies: [git/ops, git/commit, git/delivery, issue-tracking]
 
 ## Directives
 
+{{#unbound}}
+- Inspect the requested change, stage only its intended files, write a concise conventional commit message, and create the commit using the repository's existing local conventions.
+{{/unbound}}
+{{^unbound}}
 - Inspect the change and commit only work belonging to it.
 - Apply the selected issue-tracking policy before choosing a branch or preparing
   the commit.
 {{> issue-tracking}}
 - Where a branch is required, use `<commit-type>/<issue-id>-<commit-slug>` when
   a tracked issue applies; otherwise use `<commit-type>/<commit-slug>`.
+{{/unbound}}
 
 ## Selected Policies
 

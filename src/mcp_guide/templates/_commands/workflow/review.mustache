@@ -44,6 +44,16 @@ elicitation:
           type: integer
           minimum: 1
       required: [pull_request_number]
+  review-depth:
+    message: Choose the review depth.
+    fallback: render
+    schema:
+      type: object
+      properties:
+        depth:
+          type: string
+          enum: [quick, standard, thorough]
+          default: thorough
 ---
 {{#elicit.review-target}}
 {{h1}}Code Review
@@ -111,6 +121,8 @@ Ask the user to choose one target before reviewing. Do not infer a target.
 - Check correctness, maintainability, security, and adequate behavioral coverage.
 - Report concrete, actionable findings with their impact and recommended resolution.
 - Do not modify production code or tests until the user confirms alignment on the required fixes.
+- `depth=quick` uses one lighter reviewer; `depth=standard` uses one heavier reviewer; omitted or `depth=thorough` uses both independently before you return one combined review.
+- Give each selected reviewer only the target, repository guidance, and applicable OpenSpec artefacts. Keep them independent and combine their outcomes into one review.
 
 {{#workflow}}
 {{h2}}Guide Workflow Add-in
@@ -132,7 +144,7 @@ Read `{{workflow.file}}` to understand the current issue context. If its phase i
     {{b}}This review must be done with a fresh look without consideration of previous work, including any fixes and tests.{{b}}
   — Use {{#resource}}code-review{{/resource}} to access code review guidelines.
   — Read {{workflow.file}} to understand the current issue context {{#workflow.issue}}(issue: {{workflow.issue}}).{{/workflow.issue}}
-  — Analyse the selected review target and create or update the review artifact in `{{#workflow.issue}}{{path.documents}}Reviews/{{worktree.name}}/{{workflow.issue}}-review.md{{/workflow.issue}}{{^workflow.issue}}{{path.documents}}Reviews/{{worktree.name}}/{{/workflow.issue}}`
+  — Analyse the selected review target and create or update the collated review record in `{{#workflow.issue}}{{path.cache}}reviews/{{project.hash}}/{{workflow.issue}}.json{{/workflow.issue}}`
 
 {{#openspec}}{{b}}NOTE{{b}} Review artifacts are NEVER to be created in the openspec changes directory{{/openspec}}
 {{/agent.class}}

@@ -2,7 +2,14 @@
 
 from pathlib import Path
 
-from mcp_guide.config_paths import clear_config_overrides, get_config_dir, get_docroot, get_documents_db, set_docroot
+from mcp_guide.config_paths import (
+    clear_config_overrides,
+    get_cache_dir,
+    get_config_dir,
+    get_docroot,
+    get_documents_db,
+    set_docroot,
+)
 
 
 def test_get_docroot_resolves_default_user_anchored_config_dir(tmp_path, monkeypatch):
@@ -12,12 +19,22 @@ def test_get_docroot_resolves_default_user_anchored_config_dir(tmp_path, monkeyp
     workspace.mkdir()
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.delenv("XDG_CACHE_HOME", raising=False)
     monkeypatch.chdir(workspace)
     clear_config_overrides()
 
     assert get_config_dir() == Path("~") / ".config" / "mcp-guide"
     assert get_docroot() == (home / ".config" / "mcp-guide" / "docs").resolve()
     assert get_documents_db() == Path("~") / ".config" / "mcp-guide" / "documents.db"
+    assert get_cache_dir() == Path("~") / ".cache" / "mcp-guide"
+
+
+def test_get_cache_dir_honours_xdg_cache_home(tmp_path, monkeypatch):
+    """Cache paths use the XDG cache root independently of configuration."""
+    cache_home = tmp_path / "cache"
+    monkeypatch.setenv("XDG_CACHE_HOME", str(cache_home))
+
+    assert get_cache_dir() == cache_home / "mcp-guide"
 
 
 def test_get_docroot_resolves_parent_references_in_override(tmp_path, monkeypatch):

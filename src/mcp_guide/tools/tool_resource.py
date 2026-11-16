@@ -20,7 +20,7 @@ from mcp_guide.config_constants import COMMANDS_DIR, SKILLS_DIR
 from mcp_guide.content.utils import gather_policy_partials
 from mcp_guide.core.mcp_log import get_logger
 from mcp_guide.core.tool_arguments import ToolArguments
-from mcp_guide.core.tool_decorator import toolfunc
+from mcp_guide.core.tool_decorator import get_tool_prefix, toolfunc
 from mcp_guide.core.validation import validate_content_name
 from mcp_guide.discovery.commands import discover_commands, normalise_alias_metadata
 from mcp_guide.discovery.files import discover_document_files
@@ -42,6 +42,7 @@ from mcp_guide.result_constants import (
     INSTRUCTION_AGENT_INFORMATION,
     INSTRUCTION_DISPLAY_ONLY,
     USER_INFO,
+    make_no_project_result,
 )
 from mcp_guide.runtime import RequestContext, get_runtime
 from mcp_guide.tools.tool_content import ContentArgs, internal_get_content
@@ -63,6 +64,11 @@ class GuideSkill:
     package_root: PurePosixPath
 
     @property
+    def project_bind(self) -> bool:
+        """Whether this package requires a project only for its full guidance."""
+        return self.frontmatter.get("project-bind") is True
+
+    @property
     def uri(self) -> str:
         """Return the package's stable Guide resource URI."""
         return f"guide://${self.name}"
@@ -78,6 +84,13 @@ def _visible_guide_skills(discovered: Mapping[str, GuideSkill], flags: Mapping[s
     return {
         name: skill for name, skill in discovered.items() if check_frontmatter_requirements(skill.requirements, flags)
     }
+
+
+def _catalogue_description(skill: GuideSkill, *, bound: bool) -> str:
+    """Return the description appropriate to the current binding state."""
+    if skill.project_bind and not bound:
+        return f"{skill.description} Bind a project first with `{get_tool_prefix()}set_project`."
+    return skill.description
 
 
 async def _discover_guide_skills(session: Any, resolver: Any) -> dict[str, GuideSkill]:
@@ -193,7 +206,7 @@ def _catalogue_table_cell(value: str) -> str:
     return " ".join(value.split()).replace("|", r"\|")
 
 
-def _skill_catalogue_content(skills: list[GuideSkill], *, table: bool = False) -> str:
+def _skill_catalogue_content(skills: list[GuideSkill], *, bound: bool, table: bool = False) -> str:
     """Present one separately addressable catalogue item for each skill."""
     if not skills:
         return "No Guide skills are currently available."
@@ -202,14 +215,14 @@ def _skill_catalogue_content(skills: list[GuideSkill], *, table: bool = False) -
         rows.extend(
             "| "
             f"`{_catalogue_table_cell(skill.name)}` | "
-            f"{_catalogue_table_cell(skill.description)} | "
+            f"{_catalogue_table_cell(_catalogue_description(skill, bound=bound))} | "
             f"{_catalogue_table_cell(skill.usage)} | "
             f"`{skill.uri}` |"
             for skill in skills
         )
         return "\n".join(rows)
     return "\n\n".join(
-        f"### {skill.name}\n\n{skill.description}\n\nUse when: {skill.usage}\n\nEntrypoint: `{skill.uri}`"
+        f"### {skill.name}\n\n{_catalogue_description(skill, bound=bound)}\n\nUse when: {skill.usage}\n\nEntrypoint: `{skill.uri}`"
         for skill in skills
     )
 
@@ -233,13 +246,15 @@ async def internal_list_skills(args: ListSkillsArgs, request_context: RequestCon
     disposition = USER_INFO if user_facing else AGENT_INFO
     instruction = INSTRUCTION_DISPLAY_ONLY if user_facing else INSTRUCTION_AGENT_INFORMATION
     return Result.ok(
-        _skill_catalogue_content(await discover_guide_skills(request_context), table=args.table),
+        _skill_catalogue_content(
+            await discover_guide_skills(request_context), bound=request_context.is_bound, table=args.table
+        ),
         instruction=instruction,
         disposition=disposition,
     )
 
 
-@toolfunc(ListSkillsArgs)
+@toolfunc(ListSkillsArgs, requires_project=False)
 async def list_skills(args: ListSkillsArgs, request_context: RequestContext) -> ToolResult:
     """List Guide-provided skills and their explicit entrypoint URIs.
 
@@ -269,7 +284,9 @@ def _skill_member_path(skill_path: str, skills: Mapping[str, GuideSkill]) -> tup
     return skill, PurePosixPath(*member_parts).as_posix() if member_parts else "SKILL.md"
 
 
-def _skill_template_context(skill: GuideSkill, kwargs: Mapping[str, Any]) -> TemplateContext:
+def _skill_template_context(
+    skill: GuideSkill, kwargs: Mapping[str, Any], *, standard_skills: bool = False
+) -> TemplateContext:
     """Build public package references for every rendered skill file."""
     defaulted_forms = getattr(kwargs, "defaulted_forms", frozenset())
     return TemplateContext(
@@ -282,6 +299,7 @@ def _skill_template_context(skill: GuideSkill, kwargs: Mapping[str, Any]) -> Tem
                 "scripts_uri": f"{skill.uri}/scripts",
                 "agents_uri": f"{skill.uri}/agents",
             },
+            "standard-skills": standard_skills,
             "elicitation": {"defaulted_forms": {form: True for form in defaulted_forms}},
         },
         keyword_context(kwargs),
@@ -294,6 +312,7 @@ async def _read_guide_skill(
     *,
     kwargs: Mapping[str, Any] | None = None,
     mcp_context: Context | None = None,
+    standard_skills: bool = False,
 ) -> Result[Any] | InputRequiredResult:
     """Render one contained member of a server-owned skill package."""
     try:
@@ -306,10 +325,12 @@ async def _read_guide_skill(
     if selected is None:
         return Result.failure(f"Guide skill '{skill_path}' was not found", error_type=ERROR_NOT_FOUND)
     skill, member_path = selected
+    if skill.project_bind and not request_context.is_bound:
+        return await make_no_project_result()
 
     rendered_kwargs = dict(kwargs or {})
     template_context = (await get_template_contexts(request_context.session)).new_child(
-        _skill_template_context(skill, rendered_kwargs)
+        _skill_template_context(skill, rendered_kwargs, standard_skills=standard_skills)
     )
     elicitation_runtime = ElicitationRuntime(
         kwargs=rendered_kwargs,
@@ -394,7 +415,7 @@ class UseSkillArgs(ToolArguments):
     )
 
 
-@toolfunc(UseSkillArgs)
+@toolfunc(UseSkillArgs, requires_project=False)
 async def use_skill(
     args: UseSkillArgs,
     request_context: RequestContext,
