@@ -20,13 +20,13 @@ process lifetime.
 - **THEN** Guide SHALL not require the client to use the standard skills methods
 - **AND** `guide://$`, `list_skills`, and `use_skill` SHALL remain available
 
-### Requirement: Project-aware standard skill availability
+### Requirement: Unbound standard skill availability
 The standard skills catalogue SHALL be available before project binding.
 Packages requiring no context or only project binding SHALL be discoverable
 before binding. A package requiring project binding SHALL identify that in its
 description and direct the agent to `{{tool_prefix}}set_project`. A package
-with requirements beyond project binding SHALL remain unavailable until a
-project is bound and those requirements are satisfied.
+with requirements beyond project binding SHALL remain unavailable from the
+standard unbound catalogue.
 
 #### Scenario: List skills before binding
 - **WHEN** an unbound client requests `skills/list`
@@ -51,12 +51,12 @@ It SHALL be catalogue metadata rather than a project feature flag or a
 - **AND** that package has no additional unmet requirements
 - **THEN** Guide SHALL include it in the catalogue with binding guidance
 
-#### Scenario: Expand the catalogue after binding
-- **WHEN** the same client binds a project and requests `skills/list` again
-- **THEN** Guide SHALL include packages whose additional requirements are
-  satisfied by that project
-- **AND** SHALL continue to include packages already discoverable before
-  binding
+#### Scenario: Retain an unbound standard catalogue after binding
+- **WHEN** a client binds a project and requests `skills/list`
+- **THEN** Guide SHALL continue to return the unbound metadata catalogue
+- **AND** SHALL NOT require the opaque Guide `session_id`
+- **AND** a known `skill://` resource read with that identifier SHALL use the
+  bound session for rendering
 
 #### Scenario: Notify after a catalogue change
 - **WHEN** rebuilding detects an effective skill catalogue change
@@ -66,10 +66,11 @@ It SHALL be catalogue metadata rather than a project feature flag or a
   client when it negotiated the skills extension
 
 ### Requirement: Safe unbound skill rendering
-A package available without binding SHALL render either complete
-project-independent guidance or concise binding guidance without a project
-path, configured policy, workflow state, or project-scoped storage location.
-A package MAY add project-specific guidance only when a project is bound.
+A package available without binding SHALL render complete project-independent
+guidance without a project path, configured policy, workflow state, or
+project-scoped storage location. A package requiring project binding SHALL
+return the shared no-project result until a project is bound. A package MAY add
+project-specific guidance only when a project is bound.
 
 #### Scenario: Render an unbound Git skill
 - **WHEN** an unbound client retrieves an eligible Git skill
@@ -90,8 +91,8 @@ A package MAY add project-specific guidance only when a project is bound.
 
 #### Scenario: Render a binding-required skill before binding
 - **WHEN** an unbound client retrieves a package requiring project binding
-- **THEN** Guide SHALL render concise binding guidance
-- **AND** SHALL direct the agent to `{{tool_prefix}}set_project`
+- **THEN** Guide SHALL return the shared no-project result
+- **AND** SHALL NOT render project-dependent package content
 
 ### Requirement: Standard skill resource delivery
 Each skill in the standard catalogue SHALL use a stable `skill://` entrypoint
@@ -136,20 +137,18 @@ declare dynamically generated resources rather than a static integrity manifest.
 - **AND** SHALL NOT derive a public skill-resource inventory by walking the
   package template filesystem
 
-### Requirement: Capability-aware skill template references
-The `skill` template section SHALL render a canonical skill entrypoint
-reference for the current client. Standard references SHALL identify
-`SKILL.md`; Guide fallback references SHALL retain the `guide://$` scheme.
+### Requirement: Canonical skill template references
+The `skill` template section SHALL render a canonical `skill://` entrypoint
+reference identifying `SKILL.md`. Guide's `read_resource` compatibility
+surface SHALL resolve that URI.
 
-#### Scenario: Render a negotiated skill reference
-- **WHEN** a template renders `{{#skill}}git-commit{{/skill}}` for a client
-  that negotiated the Skills extension
+#### Scenario: Render a skill reference
+- **WHEN** a template renders `{{#skill}}git-commit{{/skill}}`
 - **THEN** the section SHALL render `skill://git-commit/SKILL.md`
 
-#### Scenario: Render a compatibility skill reference
-- **WHEN** a template renders a skill reference for a legacy or non-negotiating
-  client
-- **THEN** the section SHALL render the corresponding `guide://$` URI
+#### Scenario: Resolve a compatibility skill reference
+- **WHEN** a client supplies a `skill://` URI to Guide's `read_resource`
+- **THEN** Guide SHALL resolve it through the standard skill resource resolver
 
 ### Requirement: Workflow review depth
 The workflow-review skill and its paired command SHALL accept a `depth`

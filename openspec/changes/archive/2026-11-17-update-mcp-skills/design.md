@@ -17,8 +17,9 @@ honestly be described by one static resource manifest.
 
 **Goals:**
 
-- Give standard MCP clients a catalogue before project binding and a
-  project-aware catalogue after it.
+- Give standard MCP clients an unbound metadata catalogue before or after
+  project binding, while allowing known resource reads to use a Guide session
+  identifier for bound rendering.
 - Reuse the existing discovery, requirement filtering, rendering, elicitation,
   and package-containment paths rather than create a second skill system.
 - Retain Guide's existing resource and tool interfaces while replacing the
@@ -48,18 +49,13 @@ that standard clients cannot use and duplicate lifecycle logic. Guide retains
 its existing refresh notification as supplementary compatibility behaviour;
 legacy and modern non-negotiating clients retain `guide://$` skills.
 
-### Render skill references for the negotiated capability
+### Render canonical skill references
 
 Add a `{{#skill}}` section lambda alongside `{{#resource}}`. It accepts a
-public skill identity and emits `skill://<identity>/SKILL.md` only when the
-current client negotiated `io.modelcontextprotocol/skills`; otherwise it emits
-`guide://$<identity>`.
-
-The capability decision must be available in the request's template context.
-Protocol revision alone is insufficient because a modern client can decline or
-not implement the extension. The lambda does not accept an entrypoint path:
-`SKILL.md` is appended exactly once, which keeps generated references
-canonical.
+public skill identity and always emits `skill://<identity>/SKILL.md`. Guide's
+`read_resource` compatibility surface resolves those URIs for clients that use
+it. The lambda does not accept an entrypoint path: `SKILL.md` is appended
+exactly once, which keeps generated references canonical.
 
 ### Separate discovery from project requirement evaluation
 
@@ -69,15 +65,16 @@ frontmatter only; it never loads partials, evaluates template sections, or
 resolves policies. Before binding, publish every package with no
 requirement beyond project binding: packages that need binding identify that
 briefly in their description and direct the agent to `{{tool_prefix}}set_project`.
-Packages with additional requirements remain unavailable until a project is
-bound and those requirements are satisfied. The same effective catalogue
-applies to standard Skills, `guide://$`, and `list_skills`.
+Packages with additional requirements remain unavailable from the standard
+unbound catalogue. Guide compatibility catalogue and selection paths continue
+to use their request context when resolving effective requirements.
 
 Use `project-bind: true` in package frontmatter to declare the binding-only
 prerequisite. It is catalogue metadata, not a project feature flag and not a
 `requires-*` condition. A package with this marker and no other unmet
-requirements remains discoverable before binding; its unbound branch provides
-binding guidance unless it has a deliberate unbound variant.
+requirements remains discoverable before binding with binding guidance; a
+direct unbound read returns the shared no-project result instead of rendering
+project-dependent content.
 
 ### Render the exceptional unbound variant explicitly
 
@@ -155,9 +152,9 @@ an explicit virtual public-resource inventory rather than a filesystem walk.
 
 ### Keep catalogue and rendering separate
 
-`skills/list` and `skills/get` use the metadata catalogue only and never
-render skill templates. They return dynamic-resource entries describing the
-currently eligible skills. A `skill://` resource read delegates to the same
+`skills/list` and `skills/get` use the unbound metadata catalogue only and
+never render skill templates. They return dynamic-resource entries describing
+the available skills. A `skill://` resource read delegates to the same
 selected-skill/member resolver as `guide://$`, so elicitation, policy handling,
 containment, and rendering have one implementation. The protocol adapters may
 format the result differently, but they do not duplicate skill resolution or
@@ -170,11 +167,10 @@ resolve that bound Guide session without changing the catalogue entry.
 
 ### Refresh after catalogue changes
 
-The interaction's active session supplies binding state implicitly; standard
-calls do not accept Guide's opaque `session_id`. Before binding, `skills/list`
-returns every package with no prerequisite beyond project binding. After
-binding, a subsequent `skills/list` sees packages whose additional
-requirements are now satisfied.
+Standard catalogue calls remain deliberately session-independent. They return
+every package with no prerequisite beyond project binding and omit packages
+with additional unmet requirements. A client that needs bound rendering adds
+its Guide `session_id` to a known `skill://` resource read.
 
 When rebuilding detects that the effective metadata catalogue changed, Guide
 emits its existing `notifications/skills/list_changed` notification to the

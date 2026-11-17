@@ -18,8 +18,9 @@ preserving Guide's project-aware delivery.
   clients retain the Guide URI surface.
 - Publish Guide skill packages through standard `skill://` resources, including
   their rendered entrypoints and accessible package members.
-- Add a `{{#skill}}` template section that renders a canonical skill URI for a
-  negotiated Skills client and a `guide://$` reference otherwise.
+- Add a `{{#skill}}` template section that renders canonical `skill://`
+  entrypoints; Guide's `read_resource` compatibility surface also resolves
+  those URIs.
 - Make skill discovery available before binding: skills requiring only project
   binding remain discoverable with a concise binding notice, while skills with
   additional requirements appear only after binding satisfies them.
@@ -33,9 +34,9 @@ preserving Guide's project-aware delivery.
 - Store review and pull-request triage records in Guide's shared user cache,
   using project-and-issue keys when bound and canonical provider/repository/PR
   keys when unbound, without migrating temporary existing review artefacts.
-- Return the standard skill catalogue for the current interaction without
-  requiring Guide's opaque `session_id`; a client can refresh `skills/list`
-  after binding to obtain the expanded catalogue.
+- Return an unbound, metadata-only standard skill catalogue without requiring
+  Guide's opaque `session_id`; a client supplies that identifier only when it
+  reads a known `skill://` resource that needs bound rendering.
 - Preserve `guide://$` retrieval, `list_skills`, and `use_skill` as Guide
   compatibility surfaces.
 - Retain Guide's `notifications/skills/list_changed` refresh notification and
