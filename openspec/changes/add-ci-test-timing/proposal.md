@@ -9,7 +9,7 @@ The Python 3.13 CI job took about twice as long as the 3.14 and 3.15 jobs, but o
 - Generate JUnit timing data for every Python version in the test matrix.
 - Upload each matrix entry's report as a clearly versioned CI artifact.
 - Retain the full, unfiltered CI test suite for every supported Python version.
-- Provide the evidence required for a subsequent, repeated-run investigation of cross-version timing differences.
+- Analyse comparable repeated-run reports to determine why Python 3.13 appears slower and whether particular tests account for the difference.
 
 ## Capabilities
 
@@ -24,4 +24,4 @@ None.
 ## Impact
 
 - `.github/workflows/python-mcp-test.yml`
-- CI artifact retention and test-duration diagnostics
+- CI artifact retention, test-duration diagnostics, and follow-on timing analysis

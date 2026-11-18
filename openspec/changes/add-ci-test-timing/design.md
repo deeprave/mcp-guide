@@ -11,13 +11,13 @@ The test workflow runs the full suite for Python 3.13, 3.14, and 3.15. It curren
 - Produce one duration report per test-matrix version.
 - Name artifacts so their Python version is evident without opening them.
 - Keep all version jobs running the same complete test selection.
-- Preserve sufficient per-test evidence to investigate reproducible cross-version differences after several CI runs.
+- Analyse repeated comparable reports to identify whether particular tests explain the Python 3.13 difference, or whether the difference is broadly distributed.
 
 **Non-Goals:**
 
 - Change which tests run in CI.
 - Gate CI or alter its pass/fail outcome based on timing data.
-- Analyse or optimise individual test durations in this change.
+- Optimise individual test durations in this change.
 
 ## Decisions
 
@@ -28,6 +28,10 @@ Each job will pass the same JUnit output and duration-report options to pytest. 
 ### Upload a versioned timing artifact from every job
 
 The upload step will run for every matrix entry and include the matrix Python version in its artifact name. Artifact data remains diagnostic only; test success remains the CI gate.
+
+### Analyse timing evidence after comparable runs
+
+After reports have been collected from repeated comparable CI runs, compare their overall and per-test call durations across Python versions. The analysis will identify materially affected tests where present and distinguish a concentrated difference from a broad slowdown or runner variation; it will not make performance claims from a single run.
 
 ## Risks / Trade-offs
 
