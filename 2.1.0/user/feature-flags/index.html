@@ -1322,7 +1322,7 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 </tr>
 <tr>
 <td><code>handoff-context</code></td>
-<td>Startup handoff guidance target. Unset or <code>true</code> uses <code>context.json</code> under resolved <code>path-documents</code> (<code>.todo/</code> by default); <code>false</code> explicitly disables it; a filename selects another target.</td>
+<td>Shared handover-context target. Unset or <code>true</code> uses <code>context.json</code> under resolved <code>path-documents</code> (<code>.todo/</code> by default); <code>false</code> explicitly disables it; a filename selects another target. Entries are namespaced by configured project and worktree.</td>
 <td><code>boolean</code> or <code>string</code></td>
 <td>Enabled</td>
 </tr>
@@ -1365,12 +1365,6 @@ guide://_flags/feature/remove/autoupdate    # Remove flag entirely
 <tr>
 <td><code>autoupdate</code></td>
 <td>Enables automatic update prompting at startup when new documentation versions are available. Prompts agent to run the <code>update_documents</code> tool. Global only (cannot be set per-project).</td>
-<td><code>boolean</code></td>
-<td><code>false</code></td>
-</tr>
-<tr>
-<td><code>mcp-skills</code></td>
-<td>Enables the experimental <code>io.uniquode/mcp-guide-skills</code> MCP extension for Guide skills. Global only; it is read at startup, so restart Guide after changing it. Negotiated modern clients can query their session's skill list and receive list-change notifications; the ordinary Guide catalogue remains available independently.</td>
 <td><code>boolean</code></td>
 <td><code>false</code></td>
 </tr>

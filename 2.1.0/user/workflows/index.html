@@ -637,6 +637,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#linked-worktrees-and-handover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linked Worktrees and Handover
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#workflow-template-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1247,6 +1258,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#linked-worktrees-and-handover" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Linked Worktrees and Handover
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#workflow-template-context" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1400,10 +1422,24 @@ If delegates are not supported by the agent, then <code>guide://code-review</cod
 Without a target it offers uncommitted work, the current branch, a named branch,
 or a pull request number in the current repository. A named branch is checked as
 a repository identifier before it is used.</p>
+<p>Review accepts <code>depth=quick</code>, <code>depth=standard</code>, or <code>depth=thorough</code>. Quick uses
+one lighter reviewer, standard uses one heavier reviewer, and thorough (the
+default) combines independent lighter and heavier reviews.</p>
 <p><strong><code>guide://_workflow/implement</code></strong> <em>(:implement)</em>
 Explicitly requests commencement of the implementation phase.</p>
 <p><strong><code>guide://_workflow/plan</code></strong> <em>(:plan)</em>
 Explicitly requests creating an implementation plan for the current change.</p>
+<h2 id="linked-worktrees-and-handover">Linked Worktrees and Handover<a class="headerlink" href="#linked-worktrees-and-handover" title="Permanent link">&para;</a></h2>
+<p>Guide can prepare a linked worktree through <code>guide://_worktree/new</code> and bind an
+existing one through <code>guide://_worktree/use</code>. The root-worktree agent allocates
+the label and writes it to the target workflow file before handing work to a
+new agent. The new agent starts a fresh Guide interaction bound to the shared
+project root and its own worktree.</p>
+<p>When handover context is enabled, worktrees share the configured context file
+without sharing state accidentally. Each entry lives at
+<code>projects.&lt;project-name&gt;.worktrees.&lt;worktree-label&gt;</code> and requires a timestamp
+and path. Agents preserve other projects and worktrees, retain only current
+handover information, and never update handover context for a review request.</p>
 <h2 id="workflow-template-context">Workflow Template Context<a class="headerlink" href="#workflow-template-context" title="Permanent link">&para;</a></h2>
 <p>If workflow is enabled, the current workflow state is available in content templates via <code>{{workflow.*}}</code> variables.
 Note that this relies on the agent updating the mcp of the current state via the internal <code>send_file_content</code> tool.</p>

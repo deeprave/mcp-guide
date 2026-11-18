@@ -755,6 +755,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#skill-uris" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill URIs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#practical-examples" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1214,6 +1225,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#skill-uris" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill URIs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#practical-examples" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1344,6 +1366,23 @@ read_resource("guide://_help/flags")
 </code></pre></div>
 
 <p>This is particularly useful for agents like Codex that interact primarily through tools. The content returned is identical — the tool is just a different way to reach it.</p>
+<h2 id="skill-uris">Skill URIs<a class="headerlink" href="#skill-uris" title="Permanent link">&para;</a></h2>
+<p>Guide native skills use stable <code>skill://</code> entrypoints. Compatible MCP clients
+discover them through the standard Skills extension and then read an entrypoint
+or public package member as a resource:</p>
+<div class="codehilite"><pre><span></span><code>skill://workflow-review/SKILL.md
+skill://git-commit/SKILL.md
+</code></pre></div>
+
+<p>The catalogue remains unbound and metadata-only. A skill that needs
+project-aware rendering can be read with the opaque <code>session_id</code> returned by
+<code>set_project</code>:</p>
+<div class="codehilite"><pre><span></span><code>skill://workflow-review/SKILL.md?session_id=&lt;session_id&gt;
+</code></pre></div>
+
+<p>For compatibility, <code>read_resource</code> also resolves <code>skill://</code> URIs. The existing
+<code>guide://$</code> catalogue and skill-selection surface remain available to clients
+that use Guide resources directly.</p>
 <h2 id="practical-examples">Practical Examples<a class="headerlink" href="#practical-examples" title="Permanent link">&para;</a></h2>
 <p><strong>Getting project context:</strong></p>
 <div class="codehilite"><pre><span></span><code>guide://guidelines          # Load all project guidelines
@@ -1368,6 +1407,8 @@ guide://_review             # Start a code review
 <ul>
 <li><strong><a href="../getting-started/">Getting Started</a></strong> — Basic concepts and first steps</li>
 <li><strong><a href="../commands/">Commands</a></strong> — Full command reference</li>
+<li><strong><a href="../protocol-and-sessions/">Protocol and Sessions</a></strong> — Binding a session for
+  project-aware skill rendering</li>
 <li><strong><a href="../stored-documents/">Stored Documents</a></strong> — Ingesting and managing documents</li>
 <li><strong><a href="../content-management/">Content Management</a></strong> — Categories, collections, and expressions</li>
 </ul>

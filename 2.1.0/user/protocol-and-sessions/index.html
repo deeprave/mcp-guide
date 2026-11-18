@@ -472,6 +472,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Client migration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#native-skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Native Skills
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1194,6 +1211,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Client migration">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#native-skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Native Skills
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1344,6 +1378,19 @@ syntax, not permission to retrieve content without a bound session.</p>
 <p>The <code>read_resource</code> tool accepts <code>session_id</code> as its normal tool argument. This is
 needed because rendered Guide resources can depend on the interaction's selected
 project, agent details, and feature configuration.</p>
+<h3 id="native-skills">Native Skills<a class="headerlink" href="#native-skills" title="Permanent link">&para;</a></h3>
+<p>Guide advertises native skills to compatible modern clients through
+<code>io.modelcontextprotocol/skills</code>. <code>skills/list</code> and <code>skills/get</code> provide an
+unbound metadata catalogue with canonical <code>skill://&lt;name&gt;/SKILL.md</code> URIs.
+They do not need a Guide <code>session_id</code>.</p>
+<p>When a known skill needs bound rendering, append the opaque identifier to its
+resource URI:</p>
+<div class="codehilite"><pre><span></span><code>skill://workflow-review/SKILL.md?session_id=&lt;session_id&gt;
+</code></pre></div>
+
+<p>Guide's <code>read_resource</code> tool accepts the same <code>skill://</code> URI for clients that
+need the compatibility surface. A missing identifier intentionally produces
+unbound behaviour, even if the client has bound a separate Guide interaction.</p>
 <h2 id="project-and-configuration-identity">Project and configuration identity<a class="headerlink" href="#project-and-configuration-identity" title="Permanent link">&para;</a></h2>
 <p><code>set_project</code> is an agent-facing operation, not a project-name selector. Its required
 <code>path</code> is the absolute path on the agent's filesystem. Guide derives the displayed

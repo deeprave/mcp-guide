@@ -866,6 +866,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#issue-tracking-issue-tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue Tracking (issue-tracking/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#style" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1418,6 +1429,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#issue-tracking-issue-tracking" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Issue Tracking (issue-tracking/)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#style" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1542,6 +1564,10 @@
 <td>Pull request description format</td>
 </tr>
 <tr>
+<td><code>issue-tracking</code></td>
+<td>Whether eligible changes need a tracked issue before commit</td>
+</tr>
+<tr>
 <td><code>style/&lt;language&gt;</code></td>
 <td>Language-specific style preferences</td>
 </tr>
@@ -1579,6 +1605,7 @@
 <li><code>git/ops</code> — pick one: no-git-ops, conservative, agent-assisted, or agent-autonomous</li>
 <li><code>git/commit</code> — pick one: imperative, conventional, or minimal</li>
 <li><code>pr</code> — pick one: github-standard, minimal, or no-prs</li>
+<li><code>issue-tracking</code> — pick one provider, or <code>none</code></li>
 <li><code>style/&lt;language&gt;</code> — each language slot is independent, but pick one per language</li>
 <li><code>toolchain/&lt;language&gt;</code> — each language slot is independent, but pick one per language</li>
 </ul>
@@ -1766,6 +1793,11 @@
 </tr>
 </tbody>
 </table>
+<h3 id="issue-tracking-issue-tracking">Issue Tracking (<code>issue-tracking/</code>)<a class="headerlink" href="#issue-tracking-issue-tracking" title="Permanent link">&para;</a></h3>
+<p>When a recognised issue-tracking provider is selected, Guide expects an issue
+for eligible tracked work before commit. Small bug fixes and changes not tracked
+in OpenSpec default to untracked. If tracking is unclear, the agent asks before
+creating or linking an issue; an explicit user waiver is always honoured.</p>
 <h3 id="style">Style<a class="headerlink" href="#style" title="Permanent link">&para;</a></h3>
 <p>Each language has its own style slot. Ask your agent what's available for your language:</p>
 <div class="codehilite"><pre><span></span><code><span class="nv">What</span><span class="w"> </span><span class="nv">Python</span><span class="w"> </span><span class="nv">style</span><span class="w"> </span><span class="nv">policies</span><span class="w"> </span><span class="nv">are</span><span class="w"> </span><span class="nv">available</span>?

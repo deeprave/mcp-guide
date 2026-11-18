@@ -1165,7 +1165,8 @@
 
 <p>The package directory may be nested for organisation. Its directory is private implementation detail;
 the public entrypoint is the required frontmatter <code>name</code>, so this example remains
-<code>guide://$workflow-review</code>. A skill package may include
+<code>skill://workflow-review/SKILL.md</code>; <code>guide://$workflow-review</code> remains the
+Guide compatibility entrypoint. A skill package may include
 <code>references/</code>, <code>scripts/</code>, or <code>agents/</code> members, which are retrieved individually through the same
 skill URI root. <code>SKILL.md</code> is the entrypoint and contains the instructions an agent follows.</p>
 <h2 id="skill-frontmatter">Skill Frontmatter<a class="headerlink" href="#skill-frontmatter" title="Permanent link">&para;</a></h2>
@@ -1184,6 +1185,13 @@ defaults to <code>agent/instruction</code>.</p>
 or duplicate names make the affected package unavailable and produce a server warning. A
 <code>requires-*</code> declaration controls availability for each session after Guide has discovered the
 shared package catalogue; it does not change the package's public identity.</p>
+<p>Use <code>project-bind: true</code> when a skill needs only an active project binding. It
+remains visible in the unbound standard catalogue with guidance to call
+<code>set_project</code>, but an unbound read returns Guide's shared no-project result
+instead of rendering project-dependent content. Skills with <code>requires-*</code>
+conditions beyond binding remain unavailable from that unbound catalogue.</p>
+<p>Catalogue construction reads frontmatter only. Do not rely on template body,
+partials, policies, or elicitation being rendered while a skill is discovered.</p>
 <h2 id="elicitation">Elicitation<a class="headerlink" href="#elicitation" title="Permanent link">&para;</a></h2>
 <p>Skills use the shared elicitation contract. See <a href="../authoring-elicitation/">Elicitation Authoring</a>
 for the complete declaration reference, branching behaviour, protocol differences, and examples.</p>
