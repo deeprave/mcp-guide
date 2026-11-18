@@ -127,11 +127,29 @@ Without a target it offers uncommitted work, the current branch, a named branch,
 or a pull request number in the current repository. A named branch is checked as
 a repository identifier before it is used.
 
+Review accepts `depth=quick`, `depth=standard`, or `depth=thorough`. Quick uses
+one lighter reviewer, standard uses one heavier reviewer, and thorough (the
+default) combines independent lighter and heavier reviews.
+
 **`guide://_workflow/implement`** _(:implement)_
 Explicitly requests commencement of the implementation phase.
 
 **`guide://_workflow/plan`** _(:plan)_
 Explicitly requests creating an implementation plan for the current change.
+
+## Linked Worktrees and Handover
+
+Guide can prepare a linked worktree through `guide://_worktree/new` and bind an
+existing one through `guide://_worktree/use`. The root-worktree agent allocates
+the label and writes it to the target workflow file before handing work to a
+new agent. The new agent starts a fresh Guide interaction bound to the shared
+project root and its own worktree.
+
+When handover context is enabled, worktrees share the configured context file
+without sharing state accidentally. Each entry lives at
+`projects.<project-name>.worktrees.<worktree-label>` and requires a timestamp
+and path. Agents preserve other projects and worktrees, retain only current
+handover information, and never update handover context for a review request.
 
 ## Workflow Template Context
 
