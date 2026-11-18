@@ -85,6 +85,24 @@ The `read_resource` tool accepts `session_id` as its normal tool argument. This 
 needed because rendered Guide resources can depend on the interaction's selected
 project, agent details, and feature configuration.
 
+### Native Skills
+
+Guide advertises native skills to compatible modern clients through
+`io.modelcontextprotocol/skills`. `skills/list` and `skills/get` provide an
+unbound metadata catalogue with canonical `skill://<name>/SKILL.md` URIs.
+They do not need a Guide `session_id`.
+
+When a known skill needs bound rendering, append the opaque identifier to its
+resource URI:
+
+```
+skill://workflow-review/SKILL.md?session_id=<session_id>
+```
+
+Guide's `read_resource` tool accepts the same `skill://` URI for clients that
+need the compatibility surface. A missing identifier intentionally produces
+unbound behaviour, even if the client has bound a separate Guide interaction.
+
 ## Project and configuration identity
 
 `set_project` is an agent-facing operation, not a project-name selector. Its required

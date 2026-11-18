@@ -11,7 +11,8 @@ _skills/
 
 The package directory may be nested for organisation. Its directory is private implementation detail;
 the public entrypoint is the required frontmatter `name`, so this example remains
-`guide://$workflow-review`. A skill package may include
+`skill://workflow-review/SKILL.md`; `guide://$workflow-review` remains the
+Guide compatibility entrypoint. A skill package may include
 `references/`, `scripts/`, or `agents/` members, which are retrieved individually through the same
 skill URI root. `SKILL.md` is the entrypoint and contains the instructions an agent follows.
 
@@ -35,6 +36,15 @@ Skill names are global identifiers within one Guide runtime and must be unique. 
 or duplicate names make the affected package unavailable and produce a server warning. A
 `requires-*` declaration controls availability for each session after Guide has discovered the
 shared package catalogue; it does not change the package's public identity.
+
+Use `project-bind: true` when a skill needs only an active project binding. It
+remains visible in the unbound standard catalogue with guidance to call
+`set_project`, but an unbound read returns Guide's shared no-project result
+instead of rendering project-dependent content. Skills with `requires-*`
+conditions beyond binding remain unavailable from that unbound catalogue.
+
+Catalogue construction reads frontmatter only. Do not rely on template body,
+partials, policies, or elicitation being rendered while a skill is discovered.
 
 ## Elicitation
 

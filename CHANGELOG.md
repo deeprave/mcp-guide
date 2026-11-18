@@ -2,6 +2,42 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
+## [2.1.0] - 2026-11-17
+
+### Added
+- Native Guide skills now use the standard `io.modelcontextprotocol/skills`
+  extension and dynamic `skill://` resources. Skills can be discovered without
+  binding a project, while a known skill resource can use a bound session for
+  project-aware rendering.
+- Workflow review supports `quick`, `standard`, and `thorough` depth selection.
+  Thorough review remains the default and combines independent lighter and
+  heavier reviews.
+- Review and pull-request triage state now uses the shared user cache, allowing
+  bound and unbound triage of the same pull request to retain its thread state.
+- Shared worktree handover context now namespaces entries by configured project
+  and worktree name, allowing independent projects to safely share one context
+  file.
+- Selected issue-tracking providers now guide agents to create or link eligible
+  tracked changes before committing, while allowing explicit user waivers and
+  leaving small bug fixes untracked by default.
+- Runtime logs now include the Guide process identifier.
+
+### Changed
+- `{{#skill}}` references now always render canonical `skill://` entrypoints;
+  Guide's `read_resource` compatibility surface resolves those URIs for clients
+  that use it.
+- The former opt-in `mcp-skills` flag and private skills extension have been
+  retired. Standard Skills delivery is available to compatible clients without
+  project configuration.
+- Guide now uses FastMCP 4.2.
+
+### Fixed
+- Linked worktree labels are created by the root-worktree agent and remain
+  consistent across workflow state, handover context, and spawned sessions.
+- Configured write roots are checked after path resolution, preventing `..` and
+  symlink escapes.
+- Skill discovery refreshes when packages change, including package removal.
+
 ## [2.0.0] - 2026-11-10
 
 ### Added

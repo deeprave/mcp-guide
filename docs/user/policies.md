@@ -23,6 +23,7 @@ Policies are organised into topics. Here are the available topics and what they 
 | `git/ops` | Which git operations the agent may perform |
 | `git/commit` | Commit message format |
 | `pr` | Pull request description format |
+| `issue-tracking` | Whether eligible changes need a tracked issue before commit |
 | `style/<language>` | Language-specific style preferences |
 | `toolchain/<language>` | Which build tools, test runners, and formatters to use |
 | `tooling/general` | Specific tools the agent should avoid |
@@ -59,6 +60,7 @@ Mutually exclusive topics include:
 - `git/ops` — pick one: no-git-ops, conservative, agent-assisted, or agent-autonomous
 - `git/commit` — pick one: imperative, conventional, or minimal
 - `pr` — pick one: github-standard, minimal, or no-prs
+- `issue-tracking` — pick one provider, or `none`
 - `style/<language>` — each language slot is independent, but pick one per language
 - `toolchain/<language>` — each language slot is independent, but pick one per language
 
@@ -138,6 +140,13 @@ Prohibit sed, awk, and perl for this project
 | `github-standard` | Structured four-section format: overview, changes, impact, notes |
 | `minimal` | Title and brief summary only |
 | `no-prs` | This team doesn't use pull requests — commit directly |
+
+### Issue Tracking (`issue-tracking/`)
+
+When a recognised issue-tracking provider is selected, Guide expects an issue
+for eligible tracked work before commit. Small bug fixes and changes not tracked
+in OpenSpec default to untracked. If tracking is unclear, the agent asks before
+creating or linking an issue; an explicit user waiver is always honoured.
 
 ### Style
 

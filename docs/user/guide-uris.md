@@ -65,6 +65,29 @@ read_resource("guide://_help/flags")
 
 This is particularly useful for agents like Codex that interact primarily through tools. The content returned is identical — the tool is just a different way to reach it.
 
+## Skill URIs
+
+Guide native skills use stable `skill://` entrypoints. Compatible MCP clients
+discover them through the standard Skills extension and then read an entrypoint
+or public package member as a resource:
+
+```
+skill://workflow-review/SKILL.md
+skill://git-commit/SKILL.md
+```
+
+The catalogue remains unbound and metadata-only. A skill that needs
+project-aware rendering can be read with the opaque `session_id` returned by
+`set_project`:
+
+```
+skill://workflow-review/SKILL.md?session_id=<session_id>
+```
+
+For compatibility, `read_resource` also resolves `skill://` URIs. The existing
+`guide://$` catalogue and skill-selection surface remain available to clients
+that use Guide resources directly.
+
 ## Practical Examples
 
 **Getting project context:**
@@ -93,5 +116,7 @@ guide://_flags              # View feature flag status
 
 - **[Getting Started](getting-started.md)** — Basic concepts and first steps
 - **[Commands](commands.md)** — Full command reference
+- **[Protocol and Sessions](protocol-and-sessions.md)** — Binding a session for
+  project-aware skill rendering
 - **[Stored Documents](stored-documents.md)** — Ingesting and managing documents
 - **[Content Management](content-management.md)** — Categories, collections, and expressions
