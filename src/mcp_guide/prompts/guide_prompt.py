@@ -467,8 +467,7 @@ async def _execute_command(
             return Result.failure(str(error), error_type=ERROR_SECURITY, disposition=AGENT_ERROR)
 
     is_skills_export = file_info.path.with_suffix("") == commands_dir / "skills/export"
-    is_skills_export_help = command_path in {"help", "h"} and bool(args) and args[0] == "skills/export"
-    if is_skills_export or is_skills_export_help:
+    if is_skills_export:
         if not request_context.is_bound:
             return await make_no_project_result()
         # Deferred to avoid the resource/command import cycle.
@@ -572,8 +571,8 @@ async def _execute_command(
     # Refresh the base context after command-specific state changes, then add
     # resolved elicitation keywords for rendering.
     base_context = await get_template_contexts(session)
-    if is_skills_export or is_skills_export_help:
-        # Keep dynamic help and command rendering on the same eligible catalogue.
+    if is_skills_export:
+        # Keep command rendering on the eligible catalogue used for validation.
         # See the import above: this remains local to avoid the resource/command cycle.
         base_context = base_context.new_child({"guide_skills": [{"name": skill.name} for skill in skills]})
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)

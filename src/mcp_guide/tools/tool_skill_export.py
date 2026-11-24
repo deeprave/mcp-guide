@@ -13,6 +13,7 @@ from pydantic import Field
 
 from mcp_guide.config_constants import SKILLS_DIR
 from mcp_guide.content.formatters.mime import MimeFormatter
+from mcp_guide.content_limits import ContentLimitExceeded, get_content_limits
 from mcp_guide.core.tool_arguments import ToolArguments
 from mcp_guide.core.tool_decorator import toolfunc
 from mcp_guide.discovery.files import TEMPLATE_EXTENSIONS, FileInfo
@@ -114,7 +115,19 @@ async def export_skill(
     if not files.success:
         return await tool_result("export_skill", files, session=request_context.session, session_id=args.session_id)
     assert files.value is not None
-    content = await MimeFormatter().format(files.value, request_context.resolve_document_path)
+    try:
+        content = await MimeFormatter().format(
+            files.value,
+            request_context.resolve_document_path,
+            max_content_limit=(await get_content_limits()).max_content_limit,
+        )
+    except ContentLimitExceeded as error:
+        return await tool_result(
+            "export_skill",
+            Result.failure(str(error), error_type="max_size_exceeded"),
+            session=request_context.session,
+            session_id=args.session_id,
+        )
     return await tool_result(
         "export_skill", Result.ok(content), session=request_context.session, session_id=args.session_id
     )

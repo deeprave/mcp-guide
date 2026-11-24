@@ -12,8 +12,8 @@ The system SHALL provide a rendered `skills/export` command that directs the
 agent to export a Guide skill only into the active bound project's filesystem.
 The command SHALL be addressable through the normal command surfaces, including
 `guide://_skills/export/<skill-name>?force=true`.
-It SHALL render its help and execution requirements from the active session's
-available Guide skills and parsed command arguments.
+It SHALL render its execution requirements from the active session's available
+Guide skills and parsed command arguments.
 
 #### Scenario: Export from a command URI
 - **WHEN** an agent reads `guide://_skills/export/workflow-review`
@@ -24,6 +24,16 @@ available Guide skills and parsed command arguments.
 - **WHEN** an agent invokes the command while a project is bound
 - **THEN** the command SHALL direct all export paths to be resolved beneath that project root
 - **AND** SHALL NOT direct the agent to write a global, server-owned, another project's, or alternative local skill directory
+
+### Requirement: Generic skill export help
+
+The command's help SHALL describe Guide skills generically without enumerating
+the active session's catalogue.
+
+#### Scenario: Read skill export help
+- **WHEN** an agent reads help for `skills/export`
+- **THEN** the help SHALL describe exporting a Guide skill
+- **AND** SHALL NOT enumerate the active session's available skill names
 
 ### Requirement: Canonical export location
 

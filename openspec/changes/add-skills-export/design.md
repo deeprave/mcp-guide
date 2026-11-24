@@ -12,8 +12,8 @@ client filesystem. See proposal.md for motivation.
 
 - Add one command that gives an agent a safe, explicit workflow for exporting
   current-project Guide skills as local `SKILL.md` packages
-- Build the command help from the active skill catalogue, selected name, and
-  overwrite state
+- Build execution guidance from the active skill catalogue, selected name, and
+  overwrite state while keeping command help generic
 - Prefer a client-native single-select skill picker when the agent can provide
   one, with an equivalent textual path when it cannot
 
