@@ -824,6 +824,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Export Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skill-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill export
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1472,6 +1489,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Export Commands">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#skill-export" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skill export
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1796,6 +1830,24 @@ exports or add permissions. The <code>export</code> alias remains available.</p>
 <p><code>force</code> requests client-side overwrite; otherwise the write is create-only.
 Listing and removing tracked exports are no longer supported. Manage the
 resulting files with the client's own filesystem tools.</p>
+<h3 id="skill-export">Skill export<a class="headerlink" href="#skill-export" title="Permanent link">&para;</a></h3>
+<p><strong><code>guide://_skills/export/&lt;skill-name&gt;[?force=true]</code></strong> exports one rendered
+Guide skill package as a user-owned snapshot at
+<code>.agents/skills/&lt;skill-name&gt;/SKILL.md</code> in the current project. Omitting the
+path name opens a single-skill picker where the client supports elicitation;
+otherwise Guide asks for one name before providing export instructions.</p>
+<p>Guide returns the rendered package as MIME documents. The local <code>SKILL.md</code>
+includes portable <code>name</code>, <code>description</code>, and <code>usage</code> frontmatter; package
+members retain their MIME types and permissions. Guide-only eligibility applies
+when exporting, not after a local client installs the snapshot.</p>
+<p>Existing exports are preserved unless the user explicitly requests
+<code>force=true</code>. A forced replacement uses a temporary sibling backup and restores
+it if the replacement cannot complete. Package members remain below the same
+skill directory; Guide never runs package scripts as part of export.</p>
+<p>When the project already has a <code>.claude</code> directory, Guide creates
+<code>.claude/skills</code> when needed and links a missing Claude skill entry to the
+canonical <code>.agents/skills</code> export. An existing non-matching Claude entry is
+preserved and reported because it takes precedence in Claude.</p>
 <h2 id="filesystem-permissions">Filesystem Permissions<a class="headerlink" href="#filesystem-permissions" title="Permanent link">&para;</a></h2>
 <p>mcp-guide implements built-in security controls to ensure agent instructions don't transgress security boundaries outside the project.</p>
 <h3 id="security-model">Security Model<a class="headerlink" href="#security-model" title="Permanent link">&para;</a></h3>
