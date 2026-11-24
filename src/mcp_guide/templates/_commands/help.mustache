@@ -25,6 +25,10 @@ examples:
 {{h3}}Examples
 - `{{.}}`
 {{/examples}}
+
+{{#skill_export}}
+Exports one selected Guide skill package through `{{tool_prefix}}export_skill`; the client writes the MIME documents only below `.agents/skills/<skill-name>`. Supplying or selecting a skill confirms a new export. `force=true` is required only to replace an existing export.
+{{/skill_export}}
 {{/command_help}}
 {{^command_help}}
 Command not found: {{.}}

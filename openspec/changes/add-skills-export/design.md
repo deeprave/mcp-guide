@@ -1,7 +1,7 @@
 ## Context
 
 Guide already serves package-shaped skills from the server document root and
-renders each selected `SKILL.md` for the active project. The command system can
+renders a selected `SKILL.md` for the active project. The command system can
 render instructions with parsed positional arguments, keyword arguments, current
 agent information, and project context, but it does not itself write to the
 client filesystem. See proposal.md for motivation.
@@ -12,20 +12,21 @@ client filesystem. See proposal.md for motivation.
 
 - Add one command that gives an agent a safe, explicit workflow for exporting
   current-project Guide skills as local `SKILL.md` packages
-- Build the command help from the active skill catalogue, selected names,
-  destination, and current agent
-- Prefer a client-native destination picker, multi-select skill picker, and
-  confirmation when the agent can provide them, with an equivalent textual path
-  when it cannot
+- Build execution guidance from the active skill catalogue, selected name, and
+  overwrite state while keeping command help generic
+- Prefer a client-native single-select skill picker when the agent can provide
+  one, with an equivalent textual path when it cannot
 
 **Non-Goals:**
 
 - A server-side file-writing tool, global skill installation, or exporting into
   another project's root
 - Automatically choosing, executing, trusting, or exporting a skill without
-  the user's explicit final confirmation
-- Defining a universal mapping for every agent; only recognised current-agent
-  skill locations are offered as optional destination choices
+  a supplied or selected skill name
+- Exporting to an alternative skill directory or maintaining links for clients
+  other than Claude Code
+- Synchronising, refreshing, or reconciling an exported local skill with its
+  Guide source
 
 ## Decisions
 
@@ -36,64 +37,85 @@ parser. The command is an agent instruction because only the connected agent
 knows and is authorised to mutate its local project filesystem.
 
 This preserves the client/server filesystem boundary and uses the standard
-`guide://_skills/export/<destination>?skills=...` interface. A dedicated MCP
-tool was rejected because it would imply the server can safely write the
-client's project files.
+`guide://_skills/export/<skill-name>?force=true` interface. The command obtains
+the rendered package through the bound `export_skill` tool, while the connected
+agent remains responsible for writing it to the client's project files.
 
-### Treat destinations as project-relative skill roots
+### Use one canonical project-local export root
 
-The optional first positional argument is a project-relative directory. It
-defaults to `.agents`; every skill is exported below it as a directory named
-for the selected public skill identifier and rooted at `SKILL.md`. The command
-rejects absolute and escaping destination values in its rendered requirements.
+Every export is rooted at `.agents/skills/<skill-name>`, where the named public
+skill is a directory rooted at `SKILL.md`. The name is the command's sole
+positional argument; there is no list-valued query argument, destination
+argument, or alternate export path. This is both project-local and directly
+discovered by the supported Agent Skills clients.
 
-The dynamically rendered destination choices contain `.agents` and, only when
-the recognised current agent has a configured project-local skills directory,
-that directory. An explicit destination remains available for an agent whose
-location is not known. This avoids hard-coding a global home directory or
-incorrectly assuming the server's filesystem is the client's filesystem.
+### Add Claude Code compatibility without replacing its content
+
+After an export, if the project has a `.claude` directory, create
+`.claude/skills` if necessary. For the exported skill, if its entry is absent
+from that directory, create a relative symlink to `.agents/skills/<skill-name>`.
+If an entry already exists, leave it unchanged. When it is not that canonical
+symlink, warn that Claude Code will use the existing `.claude/skills/<skill-name>`
+entry rather than the exported skill, and tell the user to move, delete, or
+rename it if they want the export to be visible. Do not create `.claude` solely
+for this compatibility path.
 
 ### Derive selections from the current skill catalogue
 
 At render time the command obtains the same eligible, project-aware skill
-catalogue used by `list_skills`. The `skills` keyword is split on commas,
-trimmed, de-duplicated, and compared against public skill names before the
-agent writes anything. Unknown names terminate the operation rather than
-producing a partial export.
+catalogue used by `list_skills`. Its sole positional skill name is compared
+against public skill names before the agent writes anything. Unknown names
+terminate the operation.
 
-When the keyword is absent, the command directs the agent to obtain a
-multi-select choice from the user. If a client-native picker is unavailable,
-it renders the complete available list and asks for a textual selection.
+When the name is absent, the command directs the agent to obtain one choice
+from the user. If a client-native picker is unavailable, it renders the
+complete available list and asks for one textual selection.
 
-### Make all mutation decisions explicit
+### Require explicit forced replacement
 
-The command has three decision points: destination selection when omitted,
-skill selection when omitted, and a final confirmation of the resolved output
-paths. It directs the agent to use an `AskUserQuestion`-style picker or
-confirmation UI when available; otherwise it asks in plain text and stops for
-the answer. It does not perform an implied default export merely because the
-default destination is known.
+The command selects one skill when its positional argument is omitted. An existing
+canonical export is never replaced by default: the agent reports it and stops.
+After the user explicitly requests replacement, `force=true` permits it. To
+replace safely, rename the old entry to `<skill-name>.tmp-<suffix>`, create the
+new export, then remove the backup. On an intervening failure, report it and
+restore the backup where possible.
 
-### Export package content by resource retrieval
+### Export complete package content through the MIME formatter
 
-After confirmation, the agent retrieves each selected skill's rendered
-`SKILL.md` resource and writes it to the proposed local package. The entrypoint
-can identify supporting `resources/`, `agents/`, or `scripts/` members; the
-agent retrieves only required members and treats scripts as untrusted local
-content. This maintains the existing package resource contract rather than
-introducing a parallel export representation.
+A bound `export_skill` tool returns the complete rendered package through the
+existing MIME content formatter. Each MIME part identifies a package-relative
+member and its permissions; the `SKILL.md` part includes only portable
+frontmatter (`name`, `description`, and `usage`) before its rendered body.
+Guide-only eligibility remains an export-time check. The command directs the
+agent to write the returned package locally without executing scripts.
+
+### Treat exports as user-owned snapshots
+
+An export is a one-way copy for clients that do not consume MCP skills directly,
+or for users who want to customise a local skill. Guide does not track, refresh,
+or reconcile exported files. A later export replaces an existing target only
+when the user has explicitly requested `force=true`.
+
+The copied content is the skill rendered for the current bound session, including
+its project, worktree, workflow, and other session-dependent context. Exports of
+the same named skill in different sessions may legitimately differ; Guide does
+not promise a stable raw-template representation.
 
 ## Risks / Trade-offs
 
-- [An agent lacks a native selection UI] → Render equivalent numbered or
-  named textual choices and wait for a response
-- [A recognised agent's local convention changes] → Keep the mapping limited
-  to recognised current agents and retain explicit destination input
-- [A skill changes while an export is in progress] → The agent retrieves the
-  rendered resource after confirmation, so the written content is the current
-  resource result rather than an unrendered server file
-- [An export could overwrite local work] → Require final confirmation and
-  include existing-target inspection in the command instructions
+- [An agent lacks a native selection UI] → Render the same named textual
+  choices and wait for a response
+- [A client does not discover `.agents/skills`] → Retain only the documented
+  Claude Code compatibility link; do not multiply export locations
+- [An exported skill diverges from Guide] → The local copy is intentionally
+  user-owned; a later export can replace it only with `force=true`
+- [The same skill renders differently on a later export] → Each export is an
+  intentional snapshot of its current session context, not a deterministic
+  source-template copy
+- [An export could overwrite local work] → Refuse it unless `force=true`, then
+  use a temporary rename and restoration path
+- [Claude has its own same-named skill] → Preserve it and warn that it shadows
+  the canonical export
 
 ## Migration Plan
 

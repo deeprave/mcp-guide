@@ -91,6 +91,16 @@ async def test_multipart_headers_preserve_each_documents_cache_policy(tmp_path):
 
 
 @pytest.mark.anyio
+async def test_mime_part_carries_an_explicit_export_mode(tmp_path):
+    file_info = document("script.py", "print('ok')")
+    file_info.mode = 0o755
+
+    result = await MimeFormatter().format([file_info], tmp_path.joinpath)
+
+    assert "X-Guide-Mode: 0755\r\n" in result
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("path", "location"),
     [

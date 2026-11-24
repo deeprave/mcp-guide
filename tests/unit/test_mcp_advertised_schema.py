@@ -41,6 +41,7 @@ def _ensure_production_surface() -> None:
             "tool_filesystem",
             "tool_project",
             "tool_resource",
+            "tool_skill_export",
             "tool_update",
             "tool_utility",
         ):

@@ -108,6 +108,20 @@ def test_project_categories_and_collections_become_enum_choices():
     assert collections["choose"]["schema"]["properties"]["name"] == {"type": "string", "enum": ["guidelines"]}
 
 
+def test_guide_skills_become_distinct_enum_choices():
+    """The export command can offer only the currently visible skill names."""
+    context = TemplateContext(
+        {"guide_skills": [{"name": "workflow-status"}, {"name": "triage-pr"}, {"name": "workflow-status"}]}
+    )
+
+    prepared = prepare_form_sources(_project_form("guide-skills", field="skill"), context)
+
+    assert prepared["choose"]["schema"]["properties"]["skill"] == {
+        "type": "string",
+        "enum": ["workflow-status", "triage-pr"],
+    }
+
+
 def test_worktree_inventory_offers_linked_paths_only():
     context = TemplateContext(
         {"worktree": {"path": "/client/root", "inventory": {"paths": ["/client/root", "/client/linked"]}}}

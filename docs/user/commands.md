@@ -298,6 +298,29 @@ guide://_export/add/architecture/.todo%2Farch.md?force
 Listing and removing tracked exports are no longer supported. Manage the
 resulting files with the client's own filesystem tools.
 
+### Skill export
+
+**`guide://_skills/export/<skill-name>[?force=true]`** exports one rendered
+Guide skill package as a user-owned snapshot at
+`.agents/skills/<skill-name>/SKILL.md` in the current project. Omitting the
+path name opens a single-skill picker where the client supports elicitation;
+otherwise Guide asks for one name before providing export instructions.
+
+Guide returns the rendered package as MIME documents. The local `SKILL.md`
+includes portable `name`, `description`, and `usage` frontmatter; package
+members retain their MIME types and permissions. Guide-only eligibility applies
+when exporting, not after a local client installs the snapshot.
+
+Existing exports are preserved unless the user explicitly requests
+`force=true`. A forced replacement uses a temporary sibling backup and restores
+it if the replacement cannot complete. Package members remain below the same
+skill directory; Guide never runs package scripts as part of export.
+
+When the project already has a `.claude` directory, Guide creates
+`.claude/skills` when needed and links a missing Claude skill entry to the
+canonical `.agents/skills` export. An existing non-matching Claude entry is
+preserved and reported because it takes precedence in Claude.
+
 ## Filesystem Permissions
 
 mcp-guide implements built-in security controls to ensure agent instructions don't transgress security boundaries outside the project.
