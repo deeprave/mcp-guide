@@ -90,6 +90,7 @@ class FileInfo:
         frontmatter: Optional[Dict[str, Any]] = None,
         content_loader: Optional[Callable[[], Awaitable[Optional[str]]]] = None,
         source: str = "file",
+        mode: int | None = None,
     ):
         """Initialize FileInfo with optional legacy content and frontmatter parameters."""
         self.path = path
@@ -100,6 +101,7 @@ class FileInfo:
         self.category = category
         self.ctime = ctime
         self.source = source
+        self.mode = mode
         self._content_loader = content_loader
 
         # Private attributes for lazy loading

@@ -95,6 +95,11 @@ def cache_control_header(file_info: FileInfo) -> str:
     return f"Cache-Control: {policy.scope.value}, max-age={policy.ttl_ms // 1000}"
 
 
+def mode_header(file_info: FileInfo) -> str:
+    """Return portable Unix permissions for an exported package member."""
+    return f"X-Guide-Mode: {file_info.mode:04o}\r\n" if file_info.mode is not None else ""
+
+
 class MimeFormatter:
     """Formats file content with MIME headers."""
 
@@ -225,6 +230,7 @@ class MimeFormatter:
         headers = f"Content-Type: {detected_type}\r\n"
         headers += f"Content-Location: {content_location}\r\n"
         headers += f"Content-Length: {content_length}\r\n"
+        headers += mode_header(file_info)
         headers += f"{cache_control_header(file_info)}\r\n"
 
         if max_content_limit is None:
@@ -296,6 +302,7 @@ class MimeFormatter:
                 f"Content-Type: {detected_type}\r\n",
                 f"Content-Location: {content_location}\r\n",
                 f"Content-Length: {content_length}\r\n",
+                mode_header(file_info),
                 f"{cache_control_header(file_info)}\r\n",
                 "\r\n",
                 content,

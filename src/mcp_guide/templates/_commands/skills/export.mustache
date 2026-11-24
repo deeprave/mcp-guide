@@ -1,0 +1,36 @@
+---
+type: agent/instruction
+description: Export one rendered Guide skill to this project's .agents/skills directory
+usage: "guide://_skills/export/<skill-name>[?force=true]"
+category: project
+includes:
+  - _partials/export-instructions
+elicitation:
+  export-skill:
+    message: Choose one Guide skill to export.
+    fallback: render
+    schema:
+      type: object
+      properties:
+        skill:
+          type: string
+          source: guide-skills
+      required: [skill]
+---
+{{#args.0.value}}
+{{>export-instructions}}
+{{/args.0.value}}
+{{^args.0.value}}
+{{#elicit.export-skill}}
+{{#kwargs.skill}}
+{{>export-instructions}}
+{{/kwargs.skill}}
+{{^kwargs.skill}}
+Ask the user to choose one available Guide skill, then rerun this command with
+that skill name as its sole path argument.
+{{#guide_skills}}
+- `{{name}}`
+{{/guide_skills}}
+{{/kwargs.skill}}
+{{/elicit.export-skill}}
+{{/args.0.value}}

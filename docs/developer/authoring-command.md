@@ -89,7 +89,8 @@ When a flag is declared in `argrequired`:
 Commands use the shared elicitation contract. See [Elicitation Authoring](authoring-elicitation.md)
 for the complete declaration reference, branching behaviour, protocol differences, and examples.
 Commands and skills may fill a form property's choices from project state with `source`
-(`workflow-phases`, `project-categories`, `project-collections`), described there. Shipped
+(`workflow-phases`, `project-categories`, `project-collections`, `guide-skills`), described there.
+`guide-skills` is for commands that need the current metadata-only Guide skill catalogue. Shipped
 category and collection commands include the `_choose-category` and `_choose-collection` partials.
 
 ## Template Context

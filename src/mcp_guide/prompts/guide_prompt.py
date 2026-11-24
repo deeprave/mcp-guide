@@ -49,6 +49,7 @@ from mcp_guide.result_constants import (
     ERROR_VALIDATION,
     UNKNOWN_ERROR,
     USER_ERROR,
+    make_no_project_result,
 )
 from mcp_guide.runtime import RequestContext
 from mcp_guide.session import Session
@@ -302,6 +303,8 @@ def _build_command_context(
 
     def enrich_command_metadata(command: dict[str, Any]) -> dict[str, Any]:
         enriched = dict(command)
+        if command.get("name") == "skills/export":
+            enriched["skill_export"] = True
         aliases = command.get("aliases", [])
         if aliases:
             enriched["aliases_csv"] = ",".join(str(alias) for alias in aliases)
@@ -463,9 +466,57 @@ async def _execute_command(
         except SecurityError as error:
             return Result.failure(str(error), error_type=ERROR_SECURITY, disposition=AGENT_ERROR)
 
+    is_skills_export = file_info.path.with_suffix("") == commands_dir / "skills/export"
+    is_skills_export_help = command_path in {"help", "h"} and bool(args) and args[0] == "skills/export"
+    if is_skills_export or is_skills_export_help:
+        if not request_context.is_bound:
+            return await make_no_project_result()
+        # Deferred to avoid the resource/command import cycle.
+        from mcp_guide.tools.tool_resource import discover_guide_skills
+
+        skills = await discover_guide_skills(request_context)
+
+    if is_skills_export:
+        if len(args) > 1:
+            return Result.failure(
+                "Skill export accepts exactly one skill name.",
+                error_type=ERROR_VALIDATION,
+                disposition=AGENT_ERROR,
+            )
+        if "skill" in kwargs:
+            return Result.failure(
+                "Skill export accepts the skill name only as a path argument.",
+                error_type=ERROR_VALIDATION,
+                disposition=AGENT_ERROR,
+            )
+        if "force" in kwargs and not isinstance(kwargs["force"], bool):
+            return Result.failure(
+                "The `force` keyword must be true or false.",
+                error_type=ERROR_VALIDATION,
+                disposition=AGENT_ERROR,
+            )
+
     requirements_context: dict[str, Any] = await resolve_all_flags(session)
     base_context = await get_template_contexts(session)
     requirements_context = {**dict(base_context), **requirements_context}
+    if is_skills_export:
+        if not skills and not kwargs.get("_help"):
+            return Result.failure(
+                "No Guide skills are currently available for export.",
+                error_type=ERROR_VALIDATION,
+                disposition=AGENT_ERROR,
+            )
+        available_skill_names = {skill.name for skill in skills}
+        selected_skill = args[0] if args else kwargs.get("skill")
+        if selected_skill is not None and (
+            not isinstance(selected_skill, str) or not selected_skill or selected_skill not in available_skill_names
+        ):
+            return Result.failure(
+                f"Unknown or unavailable Guide skill: {selected_skill}",
+                error_type=ERROR_VALIDATION,
+                disposition=AGENT_ERROR,
+            )
+        base_context = base_context.new_child({"guide_skills": [{"name": skill.name} for skill in skills]})
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
 
     # Help describes a command without executing it, so it must not request its
@@ -521,6 +572,10 @@ async def _execute_command(
     # Refresh the base context after command-specific state changes, then add
     # resolved elicitation keywords for rendering.
     base_context = await get_template_contexts(session)
+    if is_skills_export or is_skills_export_help:
+        # Keep dynamic help and command rendering on the same eligible catalogue.
+        # See the import above: this remains local to avoid the resource/command cycle.
+        base_context = base_context.new_child({"guide_skills": [{"name": skill.name} for skill in skills]})
     command_context = _build_command_context(base_context, command_path, file_info, kwargs, args, commands)
     try:
         entrypoint_path = file_info.path.relative_to(commands_dir).as_posix()

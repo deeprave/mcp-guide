@@ -103,6 +103,7 @@ guide://_status             # Check project and workflow state
 guide://_project            # View categories, collections, permissions
 guide://_check              # Run code quality checks
 guide://_review             # Start a code review
+guide://_skills/export/git-commit  # Export one rendered skill to .agents/skills
 ```
 
 **Managing content:**

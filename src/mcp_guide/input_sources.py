@@ -12,6 +12,7 @@ WORKFLOW_PHASES_SOURCE = "workflow-phases"
 PROJECT_CATEGORIES_SOURCE = "project-categories"
 PROJECT_COLLECTIONS_SOURCE = "project-collections"
 WORKTREE_INVENTORY_SOURCE = "worktree-inventory"
+GUIDE_SKILLS_SOURCE = "guide-skills"
 
 
 def prepare_form_sources(
@@ -97,11 +98,21 @@ def _worktree_choices(context: Mapping[str, Any] | None) -> list[str]:
     return list(dict.fromkeys(path for path in paths if isinstance(path, str) and path and path != root_path))
 
 
+def _guide_skill_choices(context: Mapping[str, Any] | None) -> list[str]:
+    """Return currently eligible Guide skill names for command elicitation."""
+    skills = context.get("guide_skills") if isinstance(context, Mapping) else None
+    if not isinstance(skills, Sequence) or isinstance(skills, (str, bytes)):
+        return []
+    names = [skill.get("name") for skill in skills if isinstance(skill, Mapping)]
+    return list(dict.fromkeys(name for name in names if isinstance(name, str) and name))
+
+
 _SOURCES: dict[str, Callable[[Mapping[str, Any] | None], list[str]]] = {
     WORKFLOW_PHASES_SOURCE: _phase_choices,
     PROJECT_CATEGORIES_SOURCE: _category_choices,
     PROJECT_COLLECTIONS_SOURCE: _collection_choices,
     WORKTREE_INVENTORY_SOURCE: _worktree_choices,
+    GUIDE_SKILLS_SOURCE: _guide_skill_choices,
 }
 
 

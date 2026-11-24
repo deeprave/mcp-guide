@@ -74,6 +74,7 @@ project before the form is delivered. Guide removes the marker, so the client re
 | `workflow-phases` | The enabled workflow phases, omitting the active phase. |
 | `project-categories` | The names of the project's categories. |
 | `project-collections` | The names of the project's collections. |
+| `guide-skills` | The names in the current metadata-only Guide skill catalogue. |
 
 ```yaml
 elicitation:
