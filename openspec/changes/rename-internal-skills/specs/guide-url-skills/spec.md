@@ -174,9 +174,17 @@ require explicit user configuration to access that directory.
 #### Scenario: Bound triage has one canonical issue record
 - **WHEN** Guide collates review evidence for a bound workflow issue
 - **THEN** it SHALL retain the canonical findings record at
-  `path.cache/reviews/<project-hash>/<issue>/review-findings.json`
+  `path.cache/reviews/<project-hash>/<issue>.json`
 - **AND** it SHALL retain references to independent agent, external-review, and
   pull-request sources rather than replacing their evidence
+
+#### Scenario: Link a pull request to bound issue evidence by branch
+- **WHEN** a bound guide-triage request has a pull request whose head branch
+  matches the current local branch
+- **THEN** Guide SHALL associate its evidence with the active issue's canonical
+  findings record
+- **AND** otherwise SHALL triage that pull request without reading or updating
+  the active issue's records
 
 #### Scenario: Unbound pull-request review has a stable cache record
 - **WHEN** an unbound guide-triage request targets a pull request

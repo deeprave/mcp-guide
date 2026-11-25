@@ -9,7 +9,7 @@
 ## 2. Unified triage and sequential decisions
 
 - [x] 2.1 Consolidate review-report and pull-request triage into `guide-triage`, and verify explicit input overrides context while applicable bound and unbound contexts select the correct evidence.
-- [x] 2.2 Collate independent review reports, external feedback, and pull-request threads into the issue-specific `review-findings.json` record without modifying source evidence, and verify duplicate concerns retain their sources.
+- [x] 2.2 Collate independent review reports, external feedback, and pull-request threads into the issue-specific `<issue>.json` record without modifying source evidence, and verify duplicate concerns retain their sources.
 - [x] 2.3 Implement `guide-sequence` as an ordered conversational walkthrough with its review and non-review decision sets, and verify it records decisions without executing follow-up actions.
 
 ## 3. Guide-owned references

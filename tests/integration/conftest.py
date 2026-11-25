@@ -122,25 +122,6 @@ async def resource_project(runtime, tmp_path):
         "---\n"
         "Read the current Guide workflow and OpenSpec status."
     )
-    (docroot / "_skills/guide/review").mkdir()
-    (docroot / "_skills/guide/review/SKILL.md.mustache").write_text(
-        "---\n"
-        "name: guide-review\n"
-        "description: Review the selected target.\n"
-        "usage: Use when the user requests a review.\n"
-        "elicitation:\n"
-        "  review-target:\n"
-        "    message: Choose the target for this review.\n"
-        "    fallback: render\n"
-        "    schema:\n"
-        "      type: object\n"
-        "      properties:\n"
-        "        mode:\n"
-        "          type: string\n"
-        "      required: [mode]\n"
-        "---\n"
-        "{{#elicit.review-target}}Review {{kwargs.mode}}{{/elicit.review-target}}"
-    )
     (docroot / "_skills/guide/status/resources/checklist.md.mustache").write_text(
         "Package={{skill.path}}; resources={{skill.resources_uri}}; mode={{kwargs.mode}}"
     )

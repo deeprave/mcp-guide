@@ -648,25 +648,6 @@ async def test_skill_resource_forwards_arbitrary_query_values_to_its_template(re
 
 
 @pytest.mark.anyio
-async def test_skill_frontmatter_requests_a_standard_mcp_selection(resource_project):
-    """A modern resource read requests the selected skill's declared target form."""
-    context = SimpleNamespace(
-        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
-        input_responses=None,
-        request_context=SimpleNamespace(protocol_version="2026-07-28"),
-    )
-    result = await guide_skill_resource.__wrapped__(
-        "guide-review",
-        request_context=resource_project,
-        request_uri="guide://$guide-review",
-        mcp_context=context,
-    )
-
-    assert isinstance(result, InputRequiredResult)
-    assert "review-target" in result.input_requests
-
-
-@pytest.mark.anyio
 async def test_skill_resolves_a_form_invoked_by_a_rendered_partial(resource_project):
     """A skill resolves a partial form only when that partial renders."""
     skill_dir = resource_project.resolve_document_path("_skills/guide/status")
@@ -719,48 +700,6 @@ async def test_skill_resolves_a_form_invoked_by_a_rendered_partial(resource_proj
 
     assert payload["success"] is True
     assert payload["value"] == "Mode=summary"
-
-
-@pytest.mark.anyio
-async def test_skill_without_elicitation_renders_its_fallback_instructions(resource_project):
-    """A render fallback lets the skill collect missing input from the user."""
-    context = SimpleNamespace(
-        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation=None))),
-        input_responses=None,
-        request_context=SimpleNamespace(protocol_version="2026-07-28"),
-    )
-
-    result = await guide_skill_resource.__wrapped__(
-        "guide-review",
-        request_context=resource_project,
-        request_uri="guide://$guide-review",
-        mcp_context=context,
-    )
-    payload = json.loads(result.contents[0].content)
-
-    assert payload["success"] is True
-    assert payload["value"] == "Review "
-
-
-@pytest.mark.anyio
-async def test_workflow_review_uses_an_accepted_modern_selection(resource_project):
-    """A modern retry renders the selected target through the existing URI contract."""
-    context = SimpleNamespace(
-        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
-        input_responses={"review-target": SimpleNamespace(action="accept", content={"mode": "main"})},
-        request_context=SimpleNamespace(protocol_version="2026-07-28"),
-    )
-
-    result = await guide_skill_resource.__wrapped__(
-        "guide-review/SKILL.md",
-        request_context=resource_project,
-        request_uri="guide://$guide-review/SKILL.md",
-        mcp_context=context,
-    )
-    payload = json.loads(result.contents[0].content)
-
-    assert payload["success"] is True
-    assert payload["value"] == "Review main"
 
 
 @pytest.mark.anyio

@@ -48,11 +48,13 @@ preventing renewed ambiguity with a user's installed skills.
 `guide-triage` chooses its input from explicit review material first, then
 the active workflow issue or pull request. It collates independent agent
 reports, external review records, and pull-request threads into a canonical
-issue record at `{{path.cache}}reviews/{{project.hash}}/<issue>/review-findings.json`.
+issue record at `{{path.cache}}reviews/{{project.hash}}/<issue>.json`.
 The record preserves each source reference and its associated evidence;
 deduplication combines concerns, not source records. An unbound pull-request
 triage retains its provider/repository/pull-request cache record until an
-issue-specific record is available.
+issue-specific record is available. A pull request contributes to the local
+issue record only when its head branch matches the current local branch;
+otherwise it is triaged independently of the active workflow issue.
 
 `guide-sequence` accepts a stable inventory from `guide-triage` or explicit
 user material. Before presentation, it uses the user-selected ordering. It

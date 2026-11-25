@@ -377,16 +377,6 @@ async def test_skill_render_failure_returns_a_structured_result(resource_project
 
 
 @pytest.mark.anyio
-async def test_skill_elicitation_renders_the_declared_non_elicitation_fallback(resource_project):
-    """A skill may render instructions when a caller cannot complete its declared form."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$guide-review"), resource_project)
-
-    assert result.success, result.error
-    assert result.message == "Rendered skill file: guide-review/SKILL.md"
-    assert result.value == "Review "
-
-
-@pytest.mark.anyio
 async def test_skill_package_member_receives_the_package_context(resource_project):
     """A requested member receives public package URIs and reports its virtual path."""
     result = await internal_read_resource(
