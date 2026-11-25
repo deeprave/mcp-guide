@@ -17,7 +17,7 @@ at `SKILL.md` through Guide resources for explicit selection by an agent.
 - **AND** the content SHALL be rendered for the current project and Guide
   settings
 - **AND** the response `message` SHALL identify the rendered virtual path, such as
-  `workflow-status/SKILL.md`
+  `guide-status/SKILL.md`
 - **AND** the response `value` SHALL contain the rendered entrypoint content
 
 ### Requirement: Guide skill catalogue tool registration
@@ -40,7 +40,7 @@ characters for internal namespaces.
 
 #### Scenario: Serve a package member
 - **WHEN** an agent requests a member below an available package, such as
-  `guide://$workflow-status/resources/checklist.md`
+  `guide://$guide-status/resources/checklist.md`
 - **THEN** the system SHALL render and return that member with its public virtual path
   in `message` and its content in `value`
 - **AND** the member SHALL receive a `skill` template context containing the public
@@ -94,8 +94,8 @@ The system SHALL provide a minimal Guide skill catalogue containing the metadata
 - **AND** SHALL deliver the table as `user/information` content
 
 #### Scenario: Resolve a nested skill
-- **WHEN** an agent requests `guide://$workflow-status` through Guide's `read_resource` tool or a native MCP resource read
-- **THEN** the system SHALL resolve the entrypoint below `{docroot}/_skills/workflow-status/SKILL.md`
+- **WHEN** an agent requests `guide://$guide-status` through Guide's `read_resource` tool or a native MCP resource read
+- **THEN** the system SHALL resolve the entrypoint below `{docroot}/_skills/guide/status/SKILL.md`
 - **AND** SHALL preserve the normal template suffix handling used by Guide commands
 - **AND** SHALL make URI query parameters available to the skill template as `kwargs`, with a valueless key represented as `true`
 - **AND** native resource-template transport SHALL preserve arbitrary skill query keywords before Guide applies that shared parsing
@@ -329,15 +329,15 @@ reference identifying `SKILL.md`. Guide's `read_resource` compatibility
 surface SHALL resolve that URI.
 
 #### Scenario: Render a skill reference
-- **WHEN** a template renders `{{#skill}}git-commit{{/skill}}`
-- **THEN** the section SHALL render `skill://git-commit/SKILL.md`
+- **WHEN** a template renders `{{#skill}}guide-git-commit{{/skill}}`
+- **THEN** the section SHALL render `skill://guide-git-commit/SKILL.md`
 
 #### Scenario: Resolve a compatibility skill reference
 - **WHEN** a client supplies a `skill://` URI to Guide's `read_resource`
 - **THEN** Guide SHALL resolve it through the standard skill resource resolver
 
 ### Requirement: Workflow review depth
-The workflow-review skill and its paired command SHALL accept a `depth`
+The guide-review skill and its paired command SHALL accept a `depth`
 selection. `quick` SHALL run one lighter reviewer, `standard` SHALL run one
 heavier reviewer, and `thorough` SHALL run both independently. `thorough`
 SHALL be the default. The orchestrating agent SHALL return one combined review
@@ -360,9 +360,9 @@ after all selected reviews complete.
 
 ### Requirement: Shared review cache
 Guide SHALL retain review and pull-request triage records in its user-cache
-directory. Bound workflow reviews SHALL use the Guide project identity and
-active issue as their key. Unbound pull-request reviews and triage SHALL use
-canonical provider, immutable repository identity, and pull-request number.
+directory. Bound review triage SHALL use the Guide project identity and active
+issue as its key. Unbound pull-request triage SHALL use canonical provider,
+immutable repository identity, and pull-request number.
 Guide SHALL NOT require explicit user configuration to access that directory.
 
 #### Scenario: Cache path is available in every rendering context
@@ -370,8 +370,15 @@ Guide SHALL NOT require explicit user configuration to access that directory.
 - **THEN** `path.cache` SHALL identify the Guide user-cache directory
 - **AND** that directory SHALL be an implied runtime read/write location
 
+#### Scenario: Bound triage has one canonical issue record
+- **WHEN** Guide collates review evidence for a bound workflow issue
+- **THEN** it SHALL retain the canonical findings record at
+  `path.cache/reviews/<project-hash>/<issue>/review-findings.json`
+- **AND** it SHALL retain references to independent agent, external-review, and
+  pull-request sources rather than replacing their evidence
+
 #### Scenario: Unbound pull-request review has a stable cache record
-- **WHEN** an unbound workflow review targets a pull request
+- **WHEN** an unbound guide-triage request targets a pull request
 - **THEN** Guide SHALL store its combined record at `path.cache/reviews/<provider>/<repository-id>/<pr-number>.json`
 
 #### Scenario: Existing project review artefacts are not migrated
@@ -379,23 +386,23 @@ Guide SHALL NOT require explicit user configuration to access that directory.
 - **THEN** it SHALL NOT migrate existing project review or triage documents into that cache
 
 ### Requirement: Unbound triage skills
-Guide SHALL provide unbound variants of triage-items, triage-review, and
-triage-pr. The unbound variants SHALL use explicit user-supplied inventories,
-review inputs, or pull-request identity rather than project workflow state or
-project document paths.
+Guide SHALL provide unbound variants of guide-triage and guide-sequence. The
+unbound variants SHALL use explicit user-supplied inventories, review inputs,
+or pull-request identity rather than project workflow state or project document
+paths.
 
 #### Scenario: Triage items without a project
-- **WHEN** an unbound user supplies an inventory for triage-items
+- **WHEN** an unbound user supplies an inventory for guide-sequence
 - **THEN** Guide SHALL present its items one at a time
 - **AND** SHALL retain decisions in the conversation unless the user requests an output destination
 
 #### Scenario: Triage pull-request feedback without a project
-- **WHEN** an unbound user invokes triage-pr with an explicit pull-request identity
+- **WHEN** an unbound user invokes guide-triage with an explicit pull-request identity
 - **THEN** Guide SHALL use the canonical pull-request cache record to identify new feedback
 - **AND** SHALL not infer project workflow state or a project document path
 
 #### Scenario: Later triage finds new review threads
-- **WHEN** triage-pr revisits a pull request with existing triage state
+- **WHEN** guide-triage revisits a pull request with existing triage state
 - **THEN** Guide SHALL identify review threads not represented by that state
 - **AND** SHALL retain the earlier thread state
 
@@ -424,8 +431,8 @@ only an exact effective skill identifier.
 
 #### Scenario: Tool accepts the optional skill marker
 - **WHEN** a bound client calls `{{tool_prefix}}use_skill` for
-  `$workflow-review`
-- **THEN** it resolves the `workflow-review` Guide skill
+  `$guide-review`
+- **THEN** it resolves the `guide-review` Guide skill
 
 ### Requirement: Tool-facade skill argument parsing
 
@@ -434,7 +441,7 @@ command-argument parser, with the skill name as argv[0].
 
 #### Scenario: Tool invokes a skill with arguments
 - **WHEN** a bound client calls `{{tool_prefix}}use_skill` for
-  `workflow-review` with `args: ["mode=uncommitted", "verbose"]`
+  `guide-review` with `args: ["mode=uncommitted", "verbose"]`
 - **THEN** the resolved skill receives `mode` with value `uncommitted` and
   `verbose` with value `true` through its keyword template context
 - **AND** the tool uses the shared command-argument parser rather than duplicating it
@@ -447,3 +454,57 @@ policy, rendering, or response-handling behaviour.
 #### Scenario: Tool delegates skill resolution
 - **WHEN** a bound client invokes a resolved Guide skill through the tool facade
 - **THEN** shared skill resolution handles its arguments, elicitation, policy, rendering, and response behaviour
+
+### Requirement: Contextual Guide triage
+Guide SHALL provide `guide-triage` to collect and collate review evidence. It
+SHALL use explicit user-supplied review material in preference to contextual
+sources, and SHALL otherwise use applicable bound issue or pull-request context.
+
+#### Scenario: Triage supplied review material
+- **WHEN** a user invokes `guide-triage` with a review file or directory
+- **THEN** Guide SHALL use that material rather than infer a workflow issue or
+  pull request
+
+#### Scenario: Triage a bound review issue
+- **WHEN** a bound user invokes `guide-triage` without explicit review material
+- **AND** the active workflow identifies an issue
+- **THEN** Guide SHALL collate the issue's independent review reports into its
+  canonical findings record
+
+#### Scenario: Triage pull-request feedback
+- **WHEN** guide-triage has an applicable pull request
+- **THEN** Guide SHALL collate its review threads, summaries, and review-related
+  comments with other relevant evidence
+- **AND** SHALL preserve source and location references when deduplicating a concern
+
+### Requirement: Sequential Guide decisions
+Guide SHALL provide `guide-sequence` to present a stable item inventory in a
+user-selected order. It SHALL present only the current item and its sequence
+position, title, description, and applicable optional priority, analysis, and
+recommendation fields. Its decisions SHALL be conversational.
+
+#### Scenario: Decide a review finding
+- **WHEN** guide-sequence presents a review finding
+- **THEN** it SHALL accept Accept, Decline, Next, Skip, Vary, and Defer as
+  decisions for the current item
+- **AND** Accept or Vary SHALL record a follow-up without executing it
+- **AND** Defer SHALL record a context todo
+
+#### Scenario: Decide a non-review item
+- **WHEN** guide-sequence presents a non-review item
+- **THEN** it SHALL accept Ok or an Action supplied by the user
+
+#### Scenario: Use an exported sequential skill
+- **WHEN** an exported guide-sequence skill receives an explicit stable inventory
+- **THEN** it SHALL guide the same conversational walkthrough without requiring
+  Guide runtime state or MCP elicitation support
+
+### Requirement: Guide commands remain independent from skill identities
+Guide command URIs and command-template locations SHALL remain unchanged when
+the selected skill package identities and locations change. References from a
+command to a selected skill SHALL use that skill's new public name.
+
+#### Scenario: Invoke an unchanged workflow command
+- **WHEN** an agent reads `guide://_workflow/review`
+- **THEN** Guide SHALL resolve the existing workflow review command
+- **AND** SHALL NOT require the former or current public skill name in the URI

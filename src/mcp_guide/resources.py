@@ -101,8 +101,8 @@ async def guide_skill_resource(
 ) -> object:
     """Retrieve a package member from an explicitly selected Guide skill.
 
-    ``guide://$workflow-status`` resolves to
-    ``{docroot}/_skills/workflow-status/SKILL.md``. A suffix such as
+    ``guide://$guide-status`` resolves to
+    ``{docroot}/_skills/guide/status/SKILL.md``. A suffix such as
     ``/resources/checklist.md`` resolves a named member below the same package
     root, using the normal template suffix handling used for Guide commands.
     """

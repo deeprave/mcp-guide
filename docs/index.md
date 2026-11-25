@@ -34,7 +34,7 @@ mcp-guide is an MCP server that provides AI agents with organised access to proj
 
 ### Features
 - [Guide URIs](user/guide-uris.md) - Accessing content via the `guide://` URI scheme
-- [Guide URIs](user/guide-uris.md#skill-uris) - Discovering and reading native `skill://` resources
+- [Skills](user/skills.md) - Discovering, using, and exporting Guide skills
 - [Stored Documents](user/stored-documents.md) - Ingesting and managing external content
 - [Workflows](user/workflows.md) - Structured development phase tracking
 - [OpenSpec Integration](user/openspec.md) - Spec-driven development workflow

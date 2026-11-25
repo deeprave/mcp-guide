@@ -176,10 +176,10 @@ async def test_prompt_routes_underscore_prefixed_command(resource_project):
 @pytest.mark.anyio
 async def test_prompt_routes_dollar_prefixed_skill_with_query(resource_project):
     """A dollar-prefixed prompt request renders a selected skill member with URI keywords."""
-    result = await invoke(resource_project, "$workflow-status/resources/checklist.md?mode=summary")
+    result = await invoke(resource_project, "$guide-status/resources/checklist.md?mode=summary")
 
     assert result["success"], result
-    assert result["value"] == "Package=workflow-status; resources=guide://$workflow-status/resources; mode=summary"
+    assert result["value"] == "Package=guide-status; resources=guide://$guide-status/resources; mode=summary"
 
 
 @pytest.mark.anyio
@@ -193,7 +193,7 @@ async def test_prompt_preserves_an_input_request(resource_project, monkeypatch):
 
     monkeypatch.setattr(tool_resource, "internal_read_resource", requires_input)
 
-    result = await guide_prompt._handle_uri_namespace_request(["guide", "$workflow-review"], resource_project)
+    result = await guide_prompt._handle_uri_namespace_request(["guide", "$guide-review"], resource_project)
 
     assert isinstance(result, InputRequiredResult)
 
@@ -245,7 +245,7 @@ async def test_prompt_command_routes_return_and_resume_declared_input(resource_p
 @pytest.mark.anyio
 async def test_prompt_returns_structured_not_found_for_an_unknown_skill_member(resource_project):
     """A missing skill member follows the ordinary Guide prompt error contract."""
-    result = await invoke(resource_project, "$workflow-status/resources/missing.md")
+    result = await invoke(resource_project, "$guide-status/resources/missing.md")
 
     assert result["success"] is False
     assert result["error_type"] == "not_found"

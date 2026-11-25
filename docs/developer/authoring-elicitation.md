@@ -151,7 +151,7 @@ only an omitted, null, or blank string required field is unresolved.
 
 ```text
 guide://_review?mode=uncommitted
-guide://$workflow-review?mode=branch&reference=feature/example
+guide://$guide-review?mode=branch&reference=feature/example
 ```
 
 ## Help and non-interactive clients

@@ -9,7 +9,7 @@ instruction: Perform a review of project changes in the current repository.
 includes:
   - ../_partials/client-info
 elicitation:
-  review-target:
+  target:
     message: Choose what to review in this repository.
     fallback: render
     schema:
@@ -44,7 +44,7 @@ elicitation:
           type: integer
           minimum: 1
       required: [pull_request_number]
-  review-depth:
+  depth:
     message: Choose the review depth.
     fallback: render
     schema:
@@ -54,8 +54,9 @@ elicitation:
           type: string
           enum: [quick, standard, thorough]
           default: thorough
+      required: [depth]
 ---
-{{#elicit.review-target}}
+{{#elicit.target}}
 {{h1}}Code Review
 
 {{h2}}Review target
@@ -115,6 +116,8 @@ Ask the user to choose one target before reviewing. Do not infer a target.
 - A pull request number in this repository
 {{/kwargs.mode}}
 
+{{#elicit.depth}}{{/elicit.depth}}
+
 {{h2}}General Guidance
 
 - Evaluate changes against the agreed requirements and likely regressions.
@@ -152,4 +155,4 @@ Read `{{workflow.file}}` to understand the current issue context. If its phase i
 {{>client-info}}
 {{/agent.class}}
 {{/workflow}}
-{{/elicit.review-target}}
+{{/elicit.target}}

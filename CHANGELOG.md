@@ -23,6 +23,10 @@ All notable changes to mcp-guide will be documented in this file.
 - Runtime logs now include the Guide process identifier.
 
 ### Changed
+- **Breaking:** Guide-owned skill names are now prefixed: workflow skills use
+  `guide-`, Git skills use `guide-git-`, and review collation and sequential
+  item decisions use `guide-triage` and `guide-sequence`. Previous internal
+  skill names are no longer available.
 - `{{#skill}}` references now always render canonical `skill://` entrypoints;
   Guide's `read_resource` compatibility surface resolves those URIs for clients
   that use it.

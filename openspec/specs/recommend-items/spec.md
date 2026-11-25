@@ -17,11 +17,11 @@ URI or configured tool invocation. The helper SHALL NOT infer an item from
 ordinary response prose.
 
 #### Scenario: Template recommends a skill
-- **WHEN** a template directs an agent to the `git-commit` Guide skill and
-  renders `{{#recommend}}skill:git-commit{{/recommend}}`
-- **THEN** its ordinary rendered content contains `Guide skill "git-commit"`
-- **AND** its rendered footnote contains `guide://$git-commit` and the
-  configured `use_skill("git-commit")` invocation
+- **WHEN** a template directs an agent to the `guide-git-commit` Guide skill and
+  renders `{{#recommend}}skill:guide-git-commit{{/recommend}}`
+- **THEN** its ordinary rendered content contains `Guide skill "guide-git-commit"`
+- **AND** its rendered footnote contains `guide://$guide-git-commit` and the
+  configured `use_skill("guide-git-commit")` invocation
 
 ### Requirement: Guide-skill recommendations remain client-driven
 When a template refers to a Guide skill, it SHALL pass `skill:<name>` to the

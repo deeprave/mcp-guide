@@ -77,7 +77,7 @@ read-only, or to distinct worktrees when it modifies code. Each runner starts
 its own Guide session and runs the supplied Guide operation.
 
 Multi-agent review is the first consumer: the root agent selects several
-runners and `workflow-review`; each receives the same implementation worktree
+runners and `guide-review`; each receives the same implementation worktree
 and records an independently attributable review result. Root orchestration
 collects the results for user-led triage. The generic operation deliberately
 does not encode Codex, Claude, Cursor, or any other runner's command syntax.

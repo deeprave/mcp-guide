@@ -135,11 +135,11 @@ async def test_execute_command_specialises_workflow_phase_choices(cmd_docroot, r
 
 def _write_export_skill_fixture(docroot: Path) -> None:
     """Provide one discoverable skill and its export command entrypoint."""
-    skills_dir = docroot / "_skills" / "workflow-status"
+    skills_dir = docroot / "_skills" / "guide" / "guide-status"
     skills_dir.mkdir(parents=True)
     (skills_dir / "SKILL.md").write_text(
         "---\n"
-        "name: workflow-status\n"
+        "name: guide-status\n"
         "description: Report workflow state.\n"
         "usage: Check the current workflow.\n"
         "---\n"
@@ -192,7 +192,7 @@ async def test_skills_export_elicitation_uses_current_metadata_catalogue(cmd_doc
     skill_requests = cast(dict[str, Any], result.input_requests)
     skill_request = skill_requests["export-skill"]
     skill_schema = cast(dict[str, Any], skill_request.params.requested_schema)
-    assert skill_schema["properties"]["skill"]["enum"] == ["workflow-status"]
+    assert skill_schema["properties"]["skill"]["enum"] == ["guide-status"]
 
 
 @pytest.mark.anyio
@@ -224,10 +224,10 @@ async def test_skills_export_rejects_a_skill_keyword(cmd_docroot, runtime):
 
     result = await _execute_command(
         "skills/export",
-        {"skill": "workflow-status"},
+        {"skill": "guide-status"},
         [],
         await request_context_for(session),
-        argv=[":skills/export", "--skill=workflow-status"],
+        argv=[":skills/export", "--skill=guide-status"],
     )
 
     assert isinstance(result, Result)
@@ -244,9 +244,9 @@ async def test_skills_export_requires_a_bound_project(cmd_docroot):
     result = await _execute_command(
         "skills/export",
         {},
-        ["workflow-status"],
+        ["guide-status"],
         await request_context_for(session),
-        argv=[":skills/export", "workflow-status"],
+        argv=[":skills/export", "guide-status"],
     )
 
     assert isinstance(result, Result)

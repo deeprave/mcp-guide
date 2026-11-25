@@ -12,6 +12,8 @@ entries, and resource URIs.
 - **BREAKING** Rename the selected server-owned `workflow-*` skills to their
   corresponding `guide-*` names.
 - **BREAKING** Rename every server-owned `git-*` skill to `guide-git-*`.
+- Reorganise the renamed and consolidated packages beneath `_skills/guide`
+  while retaining all Guide command URIs and command-template locations.
 - **BREAKING** Replace `triage-review` and `triage-pr` with one contextual
   `guide-triage` skill, and replace `triage-items` with `guide-sequence`.
 - Collate review reports, external reviews, and pull-request feedback into one
@@ -20,8 +22,8 @@ entries, and resource URIs.
   conversational so exported skills remain usable without Guide runtime support.
 - Update internal skill recommendations, resource examples, documentation, and
   behavioural coverage to use the renamed public identities.
-- Preserve each skill package's server-side directory layout and its existing
-  availability, rendering, elicitation, and command pairing behaviour.
+- Preserve each skill's availability, rendering, elicitation, and command
+  pairing behaviour.
 
 ## Capabilities
 
@@ -39,8 +41,9 @@ None.
 
 ## Impact
 
-- Built-in skill frontmatter, triage package structure, review-cache records,
-  and all internal references to the renamed skills.
+- Built-in skill frontmatter and package hierarchy, review-cache records,
+  command-to-skill references, user and developer documentation, and all
+  internal references to the renamed skills.
 - Guide skill discovery, `guide://$`, `skill://`, `use_skill`, documentation,
   and tests that name those public skills.
 - User-installed skills remain unchanged.

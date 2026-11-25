@@ -1,10 +1,10 @@
 ---
-name: workflow-review
+name: guide-review
 description: Run two independent reviews and report their source records.
 usage: Use when the user asks to enter, apply, or follow workflow review, or requests a review target.
 cache: short, private
 elicitation:
-  review-target:
+  target:
     message: Choose the target for this code review.
     fallback: render
     schema:
@@ -47,7 +47,7 @@ elicitation:
           type: integer
           minimum: 1
       required: [pull_request_number]
-  review-depth:
+  depth:
     message: Choose the review depth.
     fallback: render
     schema:
@@ -57,8 +57,9 @@ elicitation:
           type: string
           enum: [quick, standard, thorough]
           default: thorough
+      required: [depth]
 ---
-{{#elicit.review-target}}
+{{#elicit.target}}
 # Code Review
 
 ## Directives
@@ -91,7 +92,7 @@ elicitation:
 - Before dispatch, determine the next positive review version only for that reviewer's exact `<agent-name>-<model-name>` destination without exposing any earlier findings or another reviewer's identity. Pass that version to the reviewer, which overwrites only its own report and assigns the same `version` to every finding in that report
 - Each source report must identify its own composite reviewer identity, own agent name, own model name, version, target, scope, and creation time, and contain a `findings` array whose entries have a stable identifier, version, P1-to-P6 priority, location, description, analysis, and recommendation
 - After the selected reviews are complete, combine their outcomes into one review for the user, report the exact paths of the source records produced, state that they remain independent evidence, and ask the user what they want to do next
-- Do not collate reports, inspect pull-request comments, create or update `{{path.cache}}reviews/{{project.hash}}/<issue>.json`, or invoke `triage-items`; {{#recommend}}skill:triage-review{{/recommend}} performs those actions when the user elects triage.
+- Do not collate reports, inspect pull-request comments, create or update `{{path.cache}}reviews/{{project.hash}}/<issue>/review-findings.json`, or invoke `guide-sequence`; {{#recommend}}skill:guide-triage{{/recommend}} performs those actions when the user elects triage.
 
 ## Source review record format
 
@@ -147,6 +148,8 @@ elicitation:
 {{/kwargs.pull_request_number}}{{^kwargs.pull_request_number}}- Ask the user for the pull-request number to review. Do not begin the review until it is provided.
 {{/kwargs.pull_request_number}}{{/elicit.pull-request-number}}{{/equals}}
 
+{{#elicit.depth}}{{/elicit.depth}}
+
 ## Guidelines
 
 - Read `guide://review/general` for requirements on reviewing the code
@@ -163,4 +166,4 @@ elicitation:
 - Keep selected reviews independent; do not provide prior findings, conclusions, prior conversation, existing review records, or one reviewer's output to another
 - Do not implement, format, commit, push, or discard changes during review or finding triage unless the user explicitly confirms the collected accepted actions
 {{/unbound}}
-{{/elicit.review-target}}
+{{/elicit.target}}

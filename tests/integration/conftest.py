@@ -97,8 +97,8 @@ async def resource_project(runtime, tmp_path):
         "policies/git/ops",
         "_commands/project",
         "_commands/openspec",
-        "_skills/workflow-status/resources",
-        "_skills/workflow-status/scripts",
+        "_skills/guide/status/resources",
+        "_skills/guide/status/scripts",
         "_skills/grouped/nested",
         "_skills/grouped/nested/resources",
     ):
@@ -113,19 +113,19 @@ async def resource_project(runtime, tmp_path):
     (docroot / "_commands/openspec/show.mustache").write_text(
         "Show {{#args}}{{value}}{{/args}}{{#kwargs.verbose}} verbose{{/kwargs.verbose}}"
     )
-    (docroot / "_skills/workflow-status/SKILL.md.mustache").write_text(
+    (docroot / "_skills/guide/status/SKILL.md.mustache").write_text(
         "---\n"
-        "name: workflow-status\n"
+        "name: guide-status\n"
         "description: Report the current Guide workflow and OpenSpec status without changing it.\n"
         "usage: Use when the user asks for the current Guide workflow or OpenSpec status.\n"
         "type: agent/instruction\n"
         "---\n"
         "Read the current Guide workflow and OpenSpec status."
     )
-    (docroot / "_skills/workflow-review").mkdir()
-    (docroot / "_skills/workflow-review/SKILL.md.mustache").write_text(
+    (docroot / "_skills/guide/review").mkdir()
+    (docroot / "_skills/guide/review/SKILL.md.mustache").write_text(
         "---\n"
-        "name: workflow-review\n"
+        "name: guide-review\n"
         "description: Review the selected target.\n"
         "usage: Use when the user requests a review.\n"
         "elicitation:\n"
@@ -141,10 +141,10 @@ async def resource_project(runtime, tmp_path):
         "---\n"
         "{{#elicit.review-target}}Review {{kwargs.mode}}{{/elicit.review-target}}"
     )
-    (docroot / "_skills/workflow-status/resources/checklist.md.mustache").write_text(
+    (docroot / "_skills/guide/status/resources/checklist.md.mustache").write_text(
         "Package={{skill.path}}; resources={{skill.resources_uri}}; mode={{kwargs.mode}}"
     )
-    (docroot / "_skills/workflow-status/scripts/inspect.py").write_text("print('inspect locally')\n")
+    (docroot / "_skills/guide/status/scripts/inspect.py").write_text("print('inspect locally')\n")
     (docroot / "_skills/grouped/nested/SKILL.md.mustache").write_text(
         "---\n"
         "name: grouped-nested\n"
@@ -156,21 +156,21 @@ async def resource_project(runtime, tmp_path):
     (docroot / "_skills/grouped/nested/resources/checklist.md.mustache").write_text("Nested member content.")
     for name, description, usage, content in (
         (
-            "triage-pr",
-            "Classify pull request feedback.",
-            "Use when reviewing a pull request.",
-            "Review the findings, then {{#recommend}}skill:triage-items{{/recommend}}.",
+            "guide-triage",
+            "Collate review evidence.",
+            "Use when triaging review material or a pull request.",
+            "Review the findings, then {{#recommend}}skill:guide-sequence{{/recommend}}.",
         ),
         (
-            "triage-items",
-            "Classify a supplied inventory.",
+            "guide-sequence",
+            "Present a supplied inventory sequentially.",
             "Use when deciding the next action for listed items.",
             "Classify the inventory before any authorised local or external action.",
         ),
         (
-            "triage-review",
-            "Classify review findings.",
-            "Use when reviewing a collected set of findings.",
+            "guide-git-pr",
+            "Prepare a pull request.",
+            "Use when preparing a pull request.",
             "Keep the initial inventory cutoff and classify newer records separately.",
         ),
     ):

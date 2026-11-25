@@ -40,8 +40,8 @@ guide://_status?verbose=true
 guide://_perm/write/add/docs%2F
 guide://$
 guide://$?table          # User-facing skill catalogue table
-guide://$workflow-status
-guide://$workflow-status/resources/checklist.md
+guide://$guide-status
+guide://$guide-status/resources/checklist.md
 ```
 
 {{h2}}Usage

@@ -569,7 +569,7 @@ async def test_skill_catalogue_lists_each_frontmatter_defined_entrypoint(resourc
     catalogue_payload = json.loads(catalogue.contents[0].content)
 
     assert catalogue_payload["success"] is True
-    assert "workflow-status" in catalogue_payload["value"]
+    assert "guide-status" in catalogue_payload["value"]
     assert (
         "Use when: Use when the user asks for the current Guide workflow or OpenSpec status."
         in catalogue_payload["value"]
@@ -589,20 +589,18 @@ async def test_verbose_skill_catalogue_resource_is_user_information(resource_pro
     assert catalogue_payload["success"] is True
     assert catalogue_payload["disposition"] == USER_INFO
     assert "Report the current Guide workflow and OpenSpec status without changing it." in catalogue_payload["value"]
-    assert "guide://$workflow-status" in catalogue_payload["value"]
+    assert "guide://$guide-status" in catalogue_payload["value"]
 
-    skill = await guide_skill_resource.__wrapped__(
-        "workflow-status", request_context=resource_project, request_uri=None
-    )
+    skill = await guide_skill_resource.__wrapped__("guide-status", request_context=resource_project, request_uri=None)
     skill_payload = json.loads(skill.contents[0].content)
 
     assert skill_payload["success"] is True
     assert skill_payload["value"] == "Read the current Guide workflow and OpenSpec status."
-    assert skill_payload["message"] == "Rendered skill file: workflow-status/SKILL.md"
+    assert skill_payload["message"] == "Rendered skill file: guide-status/SKILL.md"
     assert skill_payload["disposition"] == "agent/instruction"
 
     routed = await guide_resource.__wrapped__(
-        "$workflow-status", "", request_context=resource_project, request_uri="guide://$workflow-status"
+        "$guide-status", "", request_context=resource_project, request_uri="guide://$guide-status"
     )
     routed_payload = json.loads(routed.contents[0].content)
     assert routed_payload["success"] is True
@@ -627,9 +625,9 @@ async def test_table_skill_catalogue_resource_is_user_information(resource_proje
 @pytest.mark.anyio
 async def test_skill_resource_forwards_arbitrary_query_values_to_its_template(resource_project):
     """Skill templates receive URI keywords with command-equivalent semantics."""
-    resource_project.resolve_document_path("_skills/workflow-status/SKILL.md.mustache").write_text(
+    resource_project.resolve_document_path("_skills/guide/status/SKILL.md.mustache").write_text(
         "---\n"
-        "name: workflow-status\n"
+        "name: guide-status\n"
         "description: Report the current Guide workflow and OpenSpec status without changing it.\n"
         "usage: Use when the user asks for the current Guide workflow or OpenSpec status.\n"
         "type: agent/instruction\n"
@@ -638,15 +636,15 @@ async def test_skill_resource_forwards_arbitrary_query_values_to_its_template(re
     )
 
     skill = await guide_skill_resource.__wrapped__(
-        "workflow-status",
+        "guide-status",
         request_context=resource_project,
-        request_uri="guide://$workflow-status?mode=summary&dry-run",
+        request_uri="guide://$guide-status?mode=summary&dry-run",
     )
     payload = json.loads(skill.contents[0].content)
 
     assert payload["success"] is True
     assert payload["value"] == "Mode=summary; dry-run=True"
-    assert payload["message"] == "Rendered skill file: workflow-status/SKILL.md"
+    assert payload["message"] == "Rendered skill file: guide-status/SKILL.md"
 
 
 @pytest.mark.anyio
@@ -658,9 +656,9 @@ async def test_skill_frontmatter_requests_a_standard_mcp_selection(resource_proj
         request_context=SimpleNamespace(protocol_version="2026-07-28"),
     )
     result = await guide_skill_resource.__wrapped__(
-        "workflow-review",
+        "guide-review",
         request_context=resource_project,
-        request_uri="guide://$workflow-review",
+        request_uri="guide://$guide-review",
         mcp_context=context,
     )
 
@@ -671,10 +669,10 @@ async def test_skill_frontmatter_requests_a_standard_mcp_selection(resource_proj
 @pytest.mark.anyio
 async def test_skill_resolves_a_form_invoked_by_a_rendered_partial(resource_project):
     """A skill resolves a partial form only when that partial renders."""
-    skill_dir = resource_project.resolve_document_path("_skills/workflow-status")
+    skill_dir = resource_project.resolve_document_path("_skills/guide/status")
     (skill_dir / "SKILL.md.mustache").write_text(
         "---\n"
-        "name: workflow-status\n"
+        "name: guide-status\n"
         "description: Report the current Guide workflow and OpenSpec status without changing it.\n"
         "usage: Use when the user asks for the current Guide workflow or OpenSpec status.\n"
         "includes: ['input']\n"
@@ -702,14 +700,14 @@ async def test_skill_resolves_a_form_invoked_by_a_rendered_partial(resource_proj
     )
 
     pending = await guide_skill_resource.__wrapped__(
-        "workflow-status", request_context=resource_project, request_uri="guide://$workflow-status", mcp_context=context
+        "guide-status", request_context=resource_project, request_uri="guide://$guide-status", mcp_context=context
     )
 
     assert isinstance(pending, InputRequiredResult)
     accepted = await guide_skill_resource.__wrapped__(
-        "workflow-status",
+        "guide-status",
         request_context=resource_project,
-        request_uri="guide://$workflow-status",
+        request_uri="guide://$guide-status",
         mcp_context=SimpleNamespace(
             session=context.session,
             request_context=context.request_context,
@@ -733,9 +731,9 @@ async def test_skill_without_elicitation_renders_its_fallback_instructions(resou
     )
 
     result = await guide_skill_resource.__wrapped__(
-        "workflow-review",
+        "guide-review",
         request_context=resource_project,
-        request_uri="guide://$workflow-review",
+        request_uri="guide://$guide-review",
         mcp_context=context,
     )
     payload = json.loads(result.contents[0].content)
@@ -754,9 +752,9 @@ async def test_workflow_review_uses_an_accepted_modern_selection(resource_projec
     )
 
     result = await guide_skill_resource.__wrapped__(
-        "workflow-review/SKILL.md",
+        "guide-review/SKILL.md",
         request_context=resource_project,
-        request_uri="guide://$workflow-review/SKILL.md",
+        request_uri="guide://$guide-review/SKILL.md",
         mcp_context=context,
     )
     payload = json.loads(result.contents[0].content)

@@ -130,13 +130,13 @@ async def test_mcp_prompt_routes_explicit_command_and_skill_namespaces(tmp_path,
     config_dir.mkdir()
     (config_dir / "config.yaml").write_text(f"docroot: {docroot}\nprojects: {{}}\n", encoding="utf-8")
     (docroot / "_commands").mkdir(parents=True)
-    (docroot / "_skills" / "workflow-status").mkdir(parents=True)
+    (docroot / "_skills" / "guide" / "guide-status").mkdir(parents=True)
     (docroot / "_commands" / "project.mustache").write_text(
         "{{project.name}}{{#kwargs.verbose}} verbose{{/kwargs.verbose}}", encoding="utf-8"
     )
-    (docroot / "_skills" / "workflow-status" / "SKILL.md.mustache").write_text(
+    (docroot / "_skills" / "guide" / "guide-status" / "SKILL.md.mustache").write_text(
         "---\n"
-        "name: workflow-status\n"
+        "name: guide-status\n"
         "description: Report workflow status.\n"
         "usage: Use when the user asks for workflow status.\n"
         "type: agent/instruction\n"
@@ -152,7 +152,7 @@ async def test_mcp_prompt_routes_explicit_command_and_skill_namespaces(tmp_path,
         session_id = bound.structured_content["session_id"]
 
         command = await client.get_prompt("guide", {"arg1": "_project?verbose", "session_id": session_id})
-        skill = await client.get_prompt("guide", {"arg1": "$workflow-status?mode=summary", "session_id": session_id})
+        skill = await client.get_prompt("guide", {"arg1": "$guide-status?mode=summary", "session_id": session_id})
 
     command_payload = json.loads(command.messages[0].content.text)
     skill_payload = json.loads(skill.messages[0].content.text)
