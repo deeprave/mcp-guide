@@ -73,7 +73,10 @@ Guide SHALL direct agents to update the configured handoff context but SHALL NOT
 
 ### Requirement: Shared handover context is worktree-keyed
 
-Worktree-specific handover data SHALL be stored at `projects.<project-name>.worktrees.<worktree-name>` in the shared context object. Every worktree entry SHALL include a `timestamp` recording the entry's date and time, and a `path` recording the worktree path. `issue` and `phase` MAY be included but are not required because workflow state is tracked separately. Beyond the required bookkeeping fields, an entry MAY contain any valid JSON necessary for a complete, agent-agnostic handoff, including nested objects and lists; agents SHALL remove information once it is no longer relevant. Reserved top-level sections MAY contain genuinely global todo notes or instructions and SHALL be preserved. The primary checkout SHALL use the `root` worktree label within its own project namespace. Projects sharing one context object SHALL use distinct configured Guide project names.
+Worktree-specific handover data SHALL be stored at
+`projects.<project-name>.worktrees.<worktree-name>`. Every worktree entry
+SHALL include a `timestamp` recording the entry's date and time and a `path`
+recording the worktree path.
 
 #### Scenario: Worktree handover records resumable state
 - **GIVEN** a client updates its worktree handover entry
@@ -88,6 +91,27 @@ Worktree-specific handover data SHALL be stored at `projects.<project-name>.work
 - **THEN** each worktree entry is preserved
 - **AND** neither update replaces the other worktree entry
 
+### Requirement: Flexible worktree handover content
+
+`issue` and `phase` MAY be included in a worktree handover entry but are not
+required because workflow state is tracked separately. Beyond `timestamp` and
+`path`, an entry MAY contain any valid JSON needed for a complete,
+agent-agnostic handover; agents SHALL remove information once it is no longer
+relevant.
+
+#### Scenario: Worktree handover contains complete current context
+- **GIVEN** a client updates its worktree handover entry
+- **WHEN** it records current handover context beyond `timestamp` and `path`
+- **THEN** it MAY use any valid JSON structure needed for another agent or session to resume work
+- **AND** it SHALL remove information that is no longer relevant
+
+### Requirement: Shared handover namespaces remain independent
+
+Reserved top-level sections MAY contain genuinely global todo notes or
+instructions and SHALL be preserved. The primary checkout SHALL use the `root`
+worktree label within its project namespace. Projects sharing one context object
+SHALL use distinct configured Guide project names.
+
 #### Scenario: Separate projects share handover context
 - **GIVEN** independently configured projects use the same structured handover document
 - **WHEN** each primary checkout updates its `root` worktree entry
@@ -99,12 +123,6 @@ Worktree-specific handover data SHALL be stored at `projects.<project-name>.work
 - **WHEN** the primary checkout updates its `projects.<project-name>.worktrees.root` handover entry
 - **THEN** Guide SHALL preserve the global sections
 - **AND** SHALL not replace another project or worktree entry
-
-#### Scenario: Worktree handover contains complete current context
-- **GIVEN** a client updates its worktree handover entry
-- **WHEN** it records current handover context beyond `timestamp` and `path`
-- **THEN** it MAY use any valid JSON structure needed for another agent or session to resume work
-- **AND** it SHALL remove information that is no longer relevant
 
 #### Scenario: Shared projects have distinct names
 - **GIVEN** separate Guide projects share one structured handover document
