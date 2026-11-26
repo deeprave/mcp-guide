@@ -1158,21 +1158,21 @@
 <h1 id="guide-skills-authoring">Guide Skills Authoring<a class="headerlink" href="#guide-skills-authoring" title="Permanent link">&para;</a></h1>
 <p>Guide skills are server-owned, native-skill-shaped packages in the configured document root:</p>
 <div class="codehilite"><pre><span></span><code>_skills/
-  workflow/
+  guide/
     review/
       SKILL.md.mustache
 </code></pre></div>
 
 <p>The package directory may be nested for organisation. Its directory is private implementation detail;
 the public entrypoint is the required frontmatter <code>name</code>, so this example remains
-<code>skill://workflow-review/SKILL.md</code>; <code>guide://$workflow-review</code> remains the
+<code>skill://guide-review/SKILL.md</code>; <code>guide://$guide-review</code> remains the
 Guide compatibility entrypoint. A skill package may include
 <code>references/</code>, <code>scripts/</code>, or <code>agents/</code> members, which are retrieved individually through the same
 skill URI root. <code>SKILL.md</code> is the entrypoint and contains the instructions an agent follows.</p>
 <h2 id="skill-frontmatter">Skill Frontmatter<a class="headerlink" href="#skill-frontmatter" title="Permanent link">&para;</a></h2>
 <p>Every skill entrypoint declares at least <code>name</code>, <code>description</code>, and <code>usage</code> in YAML frontmatter:</p>
 <div class="codehilite"><pre><span></span><code><span class="nn">---</span>
-<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">workflow-review</span>
+<span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">guide-review</span>
 <span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Review a selected change and present the findings.</span>
 <span class="nt">usage</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Use when the user asks to review a change.</span>
 <span class="nn">---</span>

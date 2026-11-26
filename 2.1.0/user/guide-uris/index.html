@@ -1370,14 +1370,14 @@ read_resource("guide://_help/flags")
 <p>Guide native skills use stable <code>skill://</code> entrypoints. Compatible MCP clients
 discover them through the standard Skills extension and then read an entrypoint
 or public package member as a resource:</p>
-<div class="codehilite"><pre><span></span><code>skill://workflow-review/SKILL.md
-skill://git-commit/SKILL.md
+<div class="codehilite"><pre><span></span><code>skill://guide-review/SKILL.md
+skill://guide-git-commit/SKILL.md
 </code></pre></div>
 
 <p>The catalogue remains unbound and metadata-only. A skill that needs
 project-aware rendering can be read with the opaque <code>session_id</code> returned by
 <code>set_project</code>:</p>
-<div class="codehilite"><pre><span></span><code>skill://workflow-review/SKILL.md?session_id=&lt;session_id&gt;
+<div class="codehilite"><pre><span></span><code>skill://guide-review/SKILL.md?session_id=&lt;session_id&gt;
 </code></pre></div>
 
 <p>For compatibility, <code>read_resource</code> also resolves <code>skill://</code> URIs. The existing
@@ -1395,7 +1395,7 @@ guide://lang/python         # Language-specific guides
 <span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_project</span><span class="w">            </span><span class="c1"># View categories, collections, permissions</span>
 <span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_check</span><span class="w">              </span><span class="c1"># Run code quality checks</span>
 <span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_review</span><span class="w">             </span><span class="c1"># Start a code review</span>
-<span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_skills</span><span class="o">/</span><span class="k">export</span><span class="o">/</span><span class="n">git</span><span class="o">-</span><span class="n">commit</span><span class="w">  </span><span class="c1"># Export one rendered skill to .agents/skills</span>
+<span class="n">guide</span><span class="p">:</span><span class="o">//</span><span class="n">_skills</span><span class="o">/</span><span class="k">export</span><span class="o">/</span><span class="n">guide</span><span class="o">-</span><span class="n">git</span><span class="o">-</span><span class="n">commit</span><span class="w">  </span><span class="c1"># Export one rendered skill to .agents/skills</span>
 </code></pre></div>
 
 <p><strong>Managing content:</strong></p>
