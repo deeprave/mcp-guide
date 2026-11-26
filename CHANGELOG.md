@@ -2,7 +2,7 @@
 
 All notable changes to mcp-guide will be documented in this file.
 
-## [2.1.0] - 2026-11-17
+## [2.1.0] - 2026-11-26
 
 ### Added
 - Native Guide skills now use the standard `io.modelcontextprotocol/skills`
