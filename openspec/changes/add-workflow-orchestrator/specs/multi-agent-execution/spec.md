@@ -80,12 +80,12 @@ handoff and fresh Guide session for its assigned worktree.
 ### Requirement: Independent multi-agent review
 
 Root orchestration SHALL support multi-agent review by assigning selected
-eligible runners the same implementation worktree and `workflow-review`. Each
+eligible runners the same implementation worktree and `guide-review`. Each
 runner SHALL produce an independently attributable review result for root-led
 user triage.
 
 #### Scenario: Four runners review one implementation
 - **GIVEN** root orchestration selects four eligible runners for review
-- **WHEN** it fans out `workflow-review` for an implementation worktree
+- **WHEN** it fans out `guide-review` for an implementation worktree
 - **THEN** each runner SHALL receive an isolated review handoff for that worktree
 - **AND** root orchestration SHALL collect four attributable review results

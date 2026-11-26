@@ -72,8 +72,8 @@ discover them through the standard Skills extension and then read an entrypoint
 or public package member as a resource:
 
 ```
-skill://workflow-review/SKILL.md
-skill://git-commit/SKILL.md
+skill://guide-review/SKILL.md
+skill://guide-git-commit/SKILL.md
 ```
 
 The catalogue remains unbound and metadata-only. A skill that needs
@@ -81,7 +81,7 @@ project-aware rendering can be read with the opaque `session_id` returned by
 `set_project`:
 
 ```
-skill://workflow-review/SKILL.md?session_id=<session_id>
+skill://guide-review/SKILL.md?session_id=<session_id>
 ```
 
 For compatibility, `read_resource` also resolves `skill://` URIs. The existing
@@ -103,7 +103,7 @@ guide://_status             # Check project and workflow state
 guide://_project            # View categories, collections, permissions
 guide://_check              # Run code quality checks
 guide://_review             # Start a code review
-guide://_skills/export/git-commit  # Export one rendered skill to .agents/skills
+guide://_skills/export/guide-git-commit  # Export one rendered skill to .agents/skills
 ```
 
 **Managing content:**

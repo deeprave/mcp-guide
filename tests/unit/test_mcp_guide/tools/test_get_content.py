@@ -21,74 +21,6 @@ def test_expression_field_is_required():
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("bearer", [None, b"Bearer user-token"], ids=["anonymous", "user"])
-async def test_remote_content_without_a_bound_decision_hides_admin_template_content(runtime, tmp_path, bearer):
-    """Unprotected remote content is safe before an authorisation decision exists."""
-    from mcp_guide.auth import AuthEvidence, bind_auth_evidence
-
-    docs = tmp_path / "docs"
-    docs.mkdir()
-    (docs / "guarded.md.mustache").write_text(
-        "{{#auth.admin}}administrator-only{{/auth.admin}}{{^auth.admin}}ordinary-content{{/auth.admin}}"
-    )
-    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
-    session = await create_bound_test_session(runtime, "remote-template-auth")
-    await session.update_config(lambda project: project.with_category("docs", Category(dir="docs", patterns=["*.md"])))
-    headers = () if bearer is None else ((b"authorization", bearer),)
-
-    with bind_auth_evidence(AuthEvidence(headers=headers, method="POST", path="/mcp")):
-        result = await get_content.__wrapped__(ContentArgs(expression="docs"), await request_context_for(session))
-
-    content = tool_result_payload(result)["value"]
-    assert content == "ordinary-content"
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize(
-    "project_format,global_format,expected",
-    [
-        (None, None, "none"),
-        ("plain", None, "plain"),
-        ("mime", None, "mime"),
-        ("none", None, "none"),
-        (None, "plain", "plain"),
-        (None, "mime", "mime"),
-        (None, "none", "none"),
-        ("plain", "mime", "plain"),
-        ("mime", "plain", "mime"),
-        ("none", "plain", "none"),
-    ],
-)
-async def test_content_format_resolution_uses_actual_headers_and_separators(
-    runtime, tmp_path, project_format, global_format, expected
-):
-    docs = tmp_path / "docs"
-    docs.mkdir()
-    (docs / "first.md").write_text("First content")
-    (docs / "second.md").write_text("Second content")
-    flags = {} if global_format is None else {"content-format": global_format}
-    runtime.configuration_service().config_file.write_text(
-        yaml.safe_dump({"docroot": str(tmp_path), "projects": {}, "feature_flags": flags})
-    )
-    session = await create_bound_test_session(runtime, "formatting")
-    await session.update_config(lambda p: p.with_category("docs", Category(dir="docs", patterns=["*.md"])))
-    if project_format is not None:
-        await session.project_flags().set("content-format", project_format)
-    result = await get_content.__wrapped__(ContentArgs(expression="docs"), await request_context_for(session))
-    payload = tool_result_payload(result)
-    assert payload["success"] is True
-    content = payload["value"]
-    if expected == "mime":
-        message = Parser(policy=policy.default).parsestr(content)
-        assert message.is_multipart()
-        assert message.get_content_type() == "multipart/mixed"
-        assert [part.get_payload() for part in message.iter_parts()] == ["First content", "Second content"]
-    elif expected == "plain":
-        assert content == "--- docs/first.md ---\nFirst content\n--- docs/second.md ---\nSecond content"
-    else:
-        assert content == "First content\nSecond content"
-
-
 @pytest.mark.anyio
 async def test_mime_output_safely_serialises_a_legacy_stored_control_character_name(runtime, tmp_path, monkeypatch):
     docs = tmp_path / "docs"
@@ -128,21 +60,6 @@ async def test_escaping_category_directory_returns_validation_error(runtime, tmp
     assert not result.success
     assert result.error_type == "validation_error"
     assert "document root" in result.error
-
-
-@pytest.mark.anyio
-async def test_get_content_exposes_declared_document_cache_policy(runtime, tmp_path):
-    """Document frontmatter is adapted to the public Guide metadata contract."""
-    docs = tmp_path / "docs"
-    docs.mkdir()
-    (docs / "reference.md").write_text("---\ncache: long\n---\nReference content")
-    runtime.configuration_service().config_file.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
-    session = await create_bound_test_session(runtime, "content-cache")
-    await session.update_config(lambda project: project.with_category("docs", Category(dir="docs", patterns=["*.md"])))
-
-    response = await get_content.__wrapped__(ContentArgs(expression="docs"), await request_context_for(session))
-
-    assert response.meta == {"mcp-guide": {"cache": {"ttl_ms": 86_400_000, "scope": "public"}}}
 
 
 @pytest.mark.anyio

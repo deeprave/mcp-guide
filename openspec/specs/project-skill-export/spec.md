@@ -18,8 +18,8 @@ It SHALL render its execution requirements from the active session's available
 Guide skills and parsed command arguments.
 
 #### Scenario: Export from a command URI
-- **WHEN** an agent reads `guide://_skills/export/workflow-review`
-- **THEN** the command SHALL identify `workflow-review` as the named skill
+- **WHEN** an agent reads `guide://_skills/export/guide-review`
+- **THEN** the command SHALL identify `guide-review` as the named skill
 - **AND** SHALL direct the agent to obtain and write its rendered package beneath `.agents/skills`
 
 #### Scenario: Export is limited to the current project
@@ -56,8 +56,8 @@ It SHALL refuse to overwrite an existing canonical export unless its `force`
 keyword is true after the user has explicitly requested replacement.
 
 #### Scenario: Select a named skill
-- **WHEN** an agent invokes `skills/export/workflow-review`
-- **THEN** the command SHALL identify `workflow-review` for export
+- **WHEN** an agent invokes `skills/export/guide-review`
+- **THEN** the command SHALL identify `guide-review` for export
 
 #### Scenario: Select a skill interactively
 - **WHEN** the skill name is omitted and the client provides a native picker

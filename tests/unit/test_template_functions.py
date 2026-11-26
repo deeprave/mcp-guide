@@ -333,10 +333,10 @@ class TestRecommendLambda:
     async def test_recommend_renders_a_skill_reference_and_records_its_name(self):
         functions = TemplateFunctions(ChainMap())
 
-        rendered = await functions.recommend("skill:workflow-review", render=_identity)
+        rendered = await functions.recommend("skill:guide-review", render=_identity)
 
-        recommendation = parse_recommendation("skill:workflow-review")
-        assert rendered == f'Guide skill "workflow-review"[^{recommendation.label}]'
+        recommendation = parse_recommendation("skill:guide-review")
+        assert rendered == f'Guide skill "guide-review"[^{recommendation.label}]'
         assert functions.recommendations == [recommendation]
 
     @pytest.mark.anyio
@@ -346,17 +346,16 @@ class TestRecommendLambda:
 
         result = await render_template_content(
             "{{#recommend}}{{first}}{{/recommend}} {{#recommend}}{{second}}{{/recommend}}",
-            TemplateContext({"first": "skill:workflow-status", "second": "content:docs"}),
+            TemplateContext({"first": "skill:guide-status", "second": "content:docs"}),
             recommendation_footnotes=footnotes,
         )
 
         assert result.success
         assert result.value is not None
-        skill = parse_recommendation("skill:workflow-status")
+        skill = parse_recommendation("skill:guide-status")
         content = parse_recommendation("content:docs")
         assert (
-            result.value.content
-            == f'Guide skill "workflow-status"[^{skill.label}] Guide content "docs"[^{content.label}]'
+            result.value.content == f'Guide skill "guide-status"[^{skill.label}] Guide content "docs"[^{content.label}]'
         )
 
     @pytest.mark.anyio
@@ -365,17 +364,17 @@ class TestRecommendLambda:
             return ""
 
         result = await render_template_content(
-            "{{#recommend}}workflow-review{{/recommend}} {{#recommend}}workflow-review{{/recommend}}",
+            "{{#recommend}}guide-review{{/recommend}} {{#recommend}}guide-review{{/recommend}}",
             TemplateContext({}),
             recommendation_footnotes=footnotes,
         )
 
         assert result.success
         assert result.value is not None
-        content = parse_recommendation("workflow-review")
+        content = parse_recommendation("guide-review")
         assert (
             result.value.content
-            == f'Guide content "workflow-review"[^{content.label}] Guide content "workflow-review"[^{content.label}]'
+            == f'Guide content "guide-review"[^{content.label}] Guide content "guide-review"[^{content.label}]'
         )
         assert result.value.content.count(content.label) == 2
 

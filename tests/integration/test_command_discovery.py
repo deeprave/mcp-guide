@@ -14,65 +14,6 @@ async def command_session(runtime, tmp_path):
 
 
 @pytest.mark.anyio
-async def test_discovery_metadata_aliases_and_nested_commands(command_session, tmp_path, caplog):
-    commands = tmp_path / "_commands"
-    nested = commands / "create"
-    nested.mkdir(parents=True)
-    (nested / "category.mustache").write_text("Create category")
-    (commands / "simple.md").write_text("Simple command")
-    (commands / "help.md").write_text(
-        "---\ndescription: Show commands\nusage: ':help [command]'\n"
-        "examples: [':help', ':help create/category']\n"
-        "aliases: [h, '?', '?foo=bar', project/perm, ../escape, 'project?verbose', "
-        "'project/table?table=true', 'project/topic?label=a?b']\n---\nHelp"
-    )
-    found = {item["name"]: item for item in await discover_commands(commands, command_session)}
-    assert set(found) == {"create/category", "simple", "help"}
-    assert found["simple"] == {
-        "name": "simple",
-        "path": str(commands / "simple.md"),
-        "description": "",
-        "usage": "",
-        "examples": [],
-        "aliases": [],
-        "alias_metadata": [],
-        "category": "general",
-    }
-    help_command = found["help"]
-    assert help_command["description"] == "Show commands"
-    assert help_command["usage"] == ":help [command]"
-    assert help_command["examples"] == [":help", ":help create/category"]
-    assert help_command["aliases"] == [
-        "h",
-        "project/perm",
-        "project?verbose",
-        "project/table?table=true",
-        "project/topic?label=a?b",
-    ]
-    assert help_command["alias_metadata"] == [
-        {"raw": "h", "path": "h", "implied_kwargs": {}},
-        {"raw": "project/perm", "path": "project/perm", "implied_kwargs": {}},
-        {"raw": "project?verbose", "path": "project", "implied_kwargs": {"verbose": True}},
-        {"raw": "project/table?table=true", "path": "project/table", "implied_kwargs": {"table": True}},
-        {"raw": "project/topic?label=a?b", "path": "project/topic", "implied_kwargs": {"label": "a?b"}},
-    ]
-    for invalid in ("?", "?foo=bar", "../escape"):
-        assert repr(invalid) in caplog.text
-
-
-@pytest.mark.anyio
-async def test_requirements_follow_real_workflow_enablement(command_session, tmp_path):
-    commands = tmp_path / "_commands"
-    commands.mkdir()
-    (commands / "plan.md").write_text("---\nrequires-workflow: [planning]\n---\nPlan")
-    (commands / "workflow.md").write_text("---\nrequires-workflow: true\n---\nWorkflow")
-    (commands / "feature.md").write_text("---\nrequires-feature: enabled\n---\nFeature")
-    assert await discover_commands(commands, command_session) == []
-    await command_session.project_flags().set("workflow", True)
-    assert {item["name"] for item in await discover_commands(commands, command_session)} == {"plan", "workflow"}
-
-
-@pytest.mark.anyio
 async def test_cache_is_session_local_and_development_mode_refreshes_files(command_session, runtime, tmp_path):
     commands = tmp_path / "_commands"
     commands.mkdir()

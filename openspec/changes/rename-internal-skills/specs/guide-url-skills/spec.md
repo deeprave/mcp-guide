@@ -81,7 +81,7 @@ The system SHALL provide a minimal Guide skill catalogue containing the metadata
 
 #### Scenario: Resolve a nested skill
 - **WHEN** an agent requests `guide://$guide-status` through Guide's `read_resource` tool or a native MCP resource read
-- **THEN** the system SHALL resolve the entrypoint below `{docroot}/_skills/workflow/status/SKILL.md`
+- **THEN** the system SHALL resolve the entrypoint below `{docroot}/_skills/guide/status/SKILL.md`
 - **AND** SHALL preserve the normal template suffix handling used by Guide commands
 - **AND** SHALL make URI query parameters available to the skill template as `kwargs`, with a valueless key represented as `true`
 - **AND** native resource-template transport SHALL preserve arbitrary skill query keywords before Guide applies that shared parsing
@@ -174,9 +174,17 @@ require explicit user configuration to access that directory.
 #### Scenario: Bound triage has one canonical issue record
 - **WHEN** Guide collates review evidence for a bound workflow issue
 - **THEN** it SHALL retain the canonical findings record at
-  `path.cache/reviews/<project-hash>/<issue>/review-findings.json`
+  `path.cache/reviews/<project-hash>/<issue>.json`
 - **AND** it SHALL retain references to independent agent, external-review, and
   pull-request sources rather than replacing their evidence
+
+#### Scenario: Link a pull request to bound issue evidence by branch
+- **WHEN** a bound guide-triage request has a pull request whose head branch
+  matches the current local branch
+- **THEN** Guide SHALL associate its evidence with the active issue's canonical
+  findings record
+- **AND** otherwise SHALL triage that pull request without reading or updating
+  the active issue's records
 
 #### Scenario: Unbound pull-request review has a stable cache record
 - **WHEN** an unbound guide-triage request targets a pull request
@@ -212,50 +220,12 @@ document paths.
 - **WHEN** a pull request is triaged first while unbound and later while bound
 - **THEN** the later triage SHALL use the same pull-request state
 
-## ADDED Requirements
+### Requirement: Guide commands remain independent from skill identities
+Guide command URIs and command-template locations SHALL remain unchanged when
+the selected skill package identities and locations change. References from a
+command to a selected skill SHALL use that skill's new public name.
 
-### Requirement: Contextual Guide triage
-Guide SHALL provide `guide-triage` to collect and collate review evidence. It
-SHALL use explicit user-supplied review material in preference to contextual
-sources, and SHALL otherwise use applicable bound issue or pull-request
-context.
-
-#### Scenario: Triage supplied review material
-- **WHEN** a user invokes `guide-triage` with a review file or directory
-- **THEN** Guide SHALL use that material rather than infer a workflow issue or
-  pull request
-
-#### Scenario: Triage a bound review issue
-- **WHEN** a bound user invokes `guide-triage` without explicit review material
-- **AND** the active workflow identifies an issue
-- **THEN** Guide SHALL collate the issue's independent review reports into its
-  canonical findings record
-
-#### Scenario: Triage pull-request feedback
-- **WHEN** guide-triage has an applicable pull request
-- **THEN** Guide SHALL collate its review threads, summaries, and review-related
-  comments with other relevant evidence
-- **AND** SHALL preserve source and location references when deduplicating a
-  concern
-
-### Requirement: Sequential Guide decisions
-Guide SHALL provide `guide-sequence` to present a stable item inventory in a
-user-selected order. It SHALL present only the current item and its sequence
-position, title, description, and applicable optional priority, analysis, and
-recommendation fields. Its decisions SHALL be conversational.
-
-#### Scenario: Decide a review finding
-- **WHEN** guide-sequence presents a review finding
-- **THEN** it SHALL accept Accept, Decline, Next, Skip, Vary, and Defer as
-  decisions for the current item
-- **AND** Accept or Vary SHALL record a follow-up without executing it
-- **AND** Defer SHALL record a context todo
-
-#### Scenario: Decide a non-review item
-- **WHEN** guide-sequence presents a non-review item
-- **THEN** it SHALL accept Ok or an Action supplied by the user
-
-#### Scenario: Use an exported sequential skill
-- **WHEN** an exported guide-sequence skill receives an explicit stable inventory
-- **THEN** it SHALL guide the same conversational walkthrough without requiring
-  Guide runtime state or MCP elicitation support
+#### Scenario: Invoke an unchanged workflow command
+- **WHEN** an agent reads `guide://_workflow/review`
+- **THEN** Guide SHALL resolve the existing workflow review command
+- **AND** SHALL NOT require the former or current public skill name in the URI

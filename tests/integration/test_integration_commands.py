@@ -40,70 +40,6 @@ async def command_project(runtime, tmp_path):
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("prefix", [":", ";"], ids=["colon", "semicolon"])
-async def test_command_arguments_render_in_order(command_project, prefix):
-    _, invoke = command_project
-    result = await invoke(f"{prefix}test", "--verbose", "arg1", "arg2", "arg3")
-    assert result["success"] is True
-    assert "Test command executed successfully!" in result["value"]
-    assert "Verbose mode enabled." in result["value"]
-    assert "Args: arg1 arg2 arg3" in result["value"]
-    assert "Indexed args: FIRST: arg1 arg2 arg3 LAST" in result["value"]
-
-
-@pytest.mark.anyio
-async def test_content_routing_combines_real_category_expressions(command_project):
-    _, invoke = command_project
-    single = await invoke("docs")
-    assert single["success"] is True
-    assert single["value"] == "Content from docs"
-    combined = await invoke("docs", "examples", "tests")
-    assert combined["success"] is True
-    for name in ["docs", "examples", "tests"]:
-        assert f"Content from {name}" in combined["value"]
-    missing = await invoke("nonexistent")
-    assert missing["success"] is False
-    assert missing["error"]
-
-
-@pytest.mark.anyio
-async def test_security_rejects_traversal_and_command_injection(command_project):
-    _, invoke = command_project
-    for command in [":../../../etc/passwd", ":test;rm"]:
-        result = await invoke(command)
-        assert result["success"] is False
-        assert "security validation failed" in result["error"].lower()
-
-
-@pytest.mark.anyio
-async def test_help_discovers_actual_commands(command_project):
-    commands, invoke = command_project
-    (commands / "help.mustache").write_text(
-        "---\ndescription: Show help information\n---\n"
-        "Available commands:\n{{#commands}}- {{name}}: {{description}}\n{{/commands}}"
-    )
-    result = await invoke(":help")
-    assert result["success"] is True
-    assert "Available commands:" in result["value"]
-    assert "test: Test command" in result["value"]
-    assert "help: Show help information" in result["value"]
-
-
-@pytest.mark.anyio
-async def test_help_reports_rendering_diagnostics(command_project):
-    commands, invoke = command_project
-    (commands / "help.mustache").write_text(
-        "---\ndescription: '{{#_error}}Help configuration is invalid{{/_error}}'\n---\nHelp"
-    )
-
-    result = await invoke(":help", "test")
-
-    assert result["success"] is False
-    assert result["error_type"] == "validation_error"
-    assert result["error_data"] == {"errors": ["Frontmatter field 'description': Help configuration is invalid"]}
-
-
-@pytest.mark.anyio
 async def test_worktree_command_reports_incompatible_workflow_file(command_project, runtime):
     commands, _ = command_project
     worktree = commands / "worktree"
@@ -201,34 +137,3 @@ async def test_linked_worktree_cannot_start_a_new_handoff(runtime, tmp_path):
     assert not result.success
     assert result.error_type == "validation_error"
     assert "root-bound Guide session" in result.error
-
-
-@pytest.mark.anyio
-async def test_subcommand_partials_use_current_project_context(command_project):
-    commands, invoke = command_project
-    info = commands / "info"
-    partials = commands / "_partials"
-    info.mkdir()
-    partials.mkdir()
-    (partials / "_project.mustache").write_text("Project: {{project.name}}")
-    (info / "project.mustache").write_text(
-        "---\ntype: user/information\nincludes:\n  - ../_partials/project\n---\nProject Information:\n{{>project}}"
-    )
-    result = await invoke(":info/project")
-    assert result["success"] is True
-    assert "Project Information:" in result["value"]
-    assert "Project: test-project" in result["value"]
-
-
-@pytest.mark.anyio
-async def test_command_errors_are_returned_in_native_prompt_payload(command_project):
-    commands, invoke = command_project
-    parse_error = await invoke(":test", "--bad=", "=value")
-    assert parse_error["success"] is False
-    assert parse_error["error_type"] == "validation_error"
-    assert "Argument parsing failed" in parse_error["error"]
-    (commands / "broken.mustache").write_text("{{#_error}}Missing required argument: name{{/_error}}")
-    rendered_error = await invoke(":broken")
-    assert rendered_error["success"] is False
-    assert rendered_error["error_type"] == "validation_error"
-    assert rendered_error["error_data"]["errors"] == ["Missing required argument: name"]

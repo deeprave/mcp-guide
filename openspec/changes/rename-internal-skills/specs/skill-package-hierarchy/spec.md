@@ -2,6 +2,17 @@
 
 ## MODIFIED Requirements
 
+### Requirement: Hierarchical package discovery
+
+The system SHALL discover a skill package at any descendant directory of the
+private `_skills` root when that directory contains a renderable `SKILL.md`
+entrypoint.
+
+#### Scenario: Discover a nested package
+
+- **WHEN** `_skills/guide/review/SKILL.md.mustache` is present
+- **THEN** the system SHALL include that package in skill discovery
+
 ### Requirement: Public skill name declaration
 
 Every discovered skill package SHALL declare a non-empty public `name` in its
@@ -10,7 +21,7 @@ discovered skill packages and SHALL be the package's only advertised identity.
 
 #### Scenario: Advertise a nested package by its declared name
 
-- **WHEN** `_skills/workflow/review/SKILL.md.mustache` declares `name: guide-review`
+- **WHEN** `_skills/guide/review/SKILL.md.mustache` declares `name: guide-review`
 - **THEN** the catalogue SHALL advertise `guide-review` rather than the
   directory path `workflow/review`
 
@@ -52,10 +63,10 @@ public skill name followed by their package-relative path.
 
 #### Scenario: Report a nested entrypoint with its public path
 
-- **WHEN** `_skills/git/commit/SKILL.md.mustache` declares `name: guide-git-commit`
+- **WHEN** `_skills/guide/git/commit/SKILL.md.mustache` declares `name: guide-git-commit`
   and the entrypoint is retrieved
 - **THEN** the response SHALL identify the file as `guide-git-commit/SKILL.md` and
-  SHALL not expose `_skills/git/commit/`
+  SHALL not expose `_skills/guide/git/commit/`
 
 ### Requirement: Flat-layout compatibility
 
@@ -64,5 +75,5 @@ packages using their declared public names without requiring a migration.
 
 #### Scenario: Retain an existing flat package
 
-- **WHEN** `_skills/workflow-review/SKILL.md.mustache` declares `name: guide-review`
+- **WHEN** `_skills/custom-review/SKILL.md.mustache` declares `name: guide-review`
 - **THEN** `guide://$guide-review` SHALL continue to resolve that package

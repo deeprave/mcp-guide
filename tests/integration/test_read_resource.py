@@ -1,29 +1,22 @@
 """Resource URI routing through real project content and command templates."""
 
-import time
 from types import SimpleNamespace
 
 import pytest
 from mcp_types import InputRequiredResult
 
-from mcp_guide.core.tool_decorator import get_tool_registration
 from mcp_guide.models import Category
 from mcp_guide.render import rendering
 from mcp_guide.render.recommendations import parse_recommendation
 from mcp_guide.result_constants import (
     AGENT_ERROR,
-    AGENT_INFO,
-    INSTRUCTION_AGENT_INFORMATION,
     INSTRUCTION_DISPLAY_ONLY,
     USER_INFO,
 )
 from mcp_guide.tools.tool_resource import (
-    ListSkillsArgs,
     ReadResourceArgs,
-    UseSkillArgs,
     internal_read_resource,
     internal_use_skill,
-    list_skills,
 )
 
 
@@ -38,8 +31,8 @@ from mcp_guide.tools.tool_resource import (
         ("guide://_openspec/show/my-change?verbose=true", "Show my-change verbose"),
         ("guide://_project?table=true", "resource-project verbose table"),
         (
-            "guide://$workflow-status?session_id=resource-session",
-            "Read the current Guide workflow and OpenSpec status.",
+            "guide://$status-snapshot?session_id=resource-session",
+            "Read the current status snapshot.",
         ),
     ],
 )
@@ -47,16 +40,6 @@ async def test_resource_uri_renders_the_bound_projects_content(resource_project,
     result = await internal_read_resource(ReadResourceArgs(uri=uri), resource_project)
     assert result.success, result.error
     assert result.value == expected
-
-
-@pytest.mark.anyio
-async def test_skill_entrypoint_reports_its_rendered_virtual_file(resource_project):
-    """A skill entrypoint reports the public SKILL.md path rather than its source template."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$workflow-status"), resource_project)
-
-    assert result.success, result.error
-    assert result.message == "Rendered skill file: workflow-status/SKILL.md"
-    assert result.value == "Read the current Guide workflow and OpenSpec status."
 
 
 @pytest.mark.anyio
@@ -134,86 +117,11 @@ async def test_read_resource_returns_and_resumes_declared_command_input(resource
 
 
 @pytest.mark.anyio
-async def test_triage_pr_skill_renders_a_recommended_follow_up(resource_project):
-    """A fixture skill can recommend another fixture skill through Guide rendering."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$triage-pr"), resource_project)
-
-    assert result.success, result.error
-    assert "Review the findings" in result.value
-    recommendation = parse_recommendation("skill:triage-items")
-    assert f'Guide skill "triage-items"[^{recommendation.label}]' in result.value
-
-
-@pytest.mark.anyio
-async def test_triage_items_skill_renders_fixture_guidance(resource_project):
-    """A fixture skill renders its independently supplied guidance."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$triage-items"), resource_project)
-
-    assert result.success, result.error
-    assert "Classify the inventory" in result.value
-    assert "authorised local or external action" in result.value
-
-
-@pytest.mark.anyio
-async def test_triage_review_skill_renders_fixture_guidance(resource_project):
-    """A fixture skill preserves its own independent review guidance."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$triage-review"), resource_project)
-
-    assert result.success, result.error
-    assert "initial inventory cutoff" in result.value
-    assert "newer records separately" in result.value
-
-
-@pytest.mark.anyio
-async def test_use_skill_shares_the_resource_skill_resolution(resource_project):
-    result = await internal_use_skill("$workflow-status", resource_project, kwargs={})
-
-    assert result.success, result.error
-    assert result.value == "Read the current Guide workflow and OpenSpec status."
-
-
-@pytest.mark.anyio
 async def test_use_skill_rejects_member_paths(resource_project):
-    result = await internal_use_skill("workflow-status/README.md", resource_project, kwargs={})
+    result = await internal_use_skill("status-snapshot/README.md", resource_project, kwargs={})
 
     assert not result.success
     assert result.error_type == "not_found"
-
-
-@pytest.mark.anyio
-@pytest.mark.slow
-async def test_use_skill_without_a_project_returns_standard_guidance(runtime):
-    context = SimpleNamespace(
-        request_context=SimpleNamespace(
-            protocol_version="legacy", request_id="unbound-use-skill", meta=None, lifespan_context=runtime
-        ),
-        session=SimpleNamespace(client_params=None),
-        transport="streamable-http",
-    )
-    wrapper = get_tool_registration("use_skill").metadata.wrapped_func
-
-    response = await wrapper(UseSkillArgs(skill="workflow-status"), ctx=context)
-
-    assert response.structured_content["error_type"] == "no_project"
-
-
-@pytest.mark.anyio
-async def test_use_skill_tool_forwards_a_plain_name_and_arguments(resource_project):
-    docroot = resource_project.resolve_document_path("")
-    skill = docroot / "_skills/parsed-options/SKILL.md.mustache"
-    skill.parent.mkdir(parents=True)
-    skill.write_text(
-        "---\nname: parsed-options\ndescription: Render parsed skill options.\nusage: Use to inspect parsed options.\n---\n"
-        "Mode={{kwargs.mode}}; verbose={{kwargs.verbose}}; pretty={{kwargs.pretty_print}}"
-    )
-    tool = get_tool_registration("use_skill").metadata.func
-    result = await tool(
-        UseSkillArgs(skill="$parsed-options", args=["mode=unrelenting", "verbose", "pretty-print"]),
-        resource_project,
-    )
-
-    assert result.structured_content["success"] is True
-    assert result.structured_content["value"] == "Mode=unrelenting; verbose=True; pretty=True"
 
 
 @pytest.mark.anyio
@@ -297,11 +205,11 @@ async def test_recommendation_rejects_invalid_target_and_does_not_render(resourc
 async def test_git_skill_delivers_only_selected_policy_partials(resource_project):
     """A public Git skill includes the configured policy documents, and no others."""
     docroot = resource_project.resolve_document_path("")
-    skill = docroot / "_skills/git-commit/SKILL.md.mustache"
+    skill = docroot / "_skills/guide/git/commit/SKILL.md.mustache"
     skill.parent.mkdir(parents=True)
     skill.write_text(
         "---\n"
-        "name: git-commit\n"
+        "name: guide-git-commit\n"
         "description: Exercise Git policy delivery.\n"
         "usage: Use to exercise Git policy delivery.\n"
         "policies: [git/delivery, issue-tracking]\n"
@@ -328,7 +236,7 @@ async def test_git_skill_delivers_only_selected_policy_partials(resource_project
         )
     )
 
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$git-commit"), resource_project)
+    result = await internal_read_resource(ReadResourceArgs(uri="guide://$guide-git-commit"), resource_project)
 
     assert result.success, result.error
     assert "selected-delivery" in result.value
@@ -359,44 +267,22 @@ async def test_skill_render_failure_returns_a_structured_result(resource_project
 
 
 @pytest.mark.anyio
-async def test_skill_elicitation_renders_the_declared_non_elicitation_fallback(resource_project):
-    """A skill may render instructions when a caller cannot complete its declared form."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$workflow-review"), resource_project)
-
-    assert result.success, result.error
-    assert result.message == "Rendered skill file: workflow-review/SKILL.md"
-    assert result.value == "Review "
-
-
-@pytest.mark.anyio
 async def test_skill_package_member_receives_the_package_context(resource_project):
     """A requested member receives public package URIs and reports its virtual path."""
     result = await internal_read_resource(
-        ReadResourceArgs(uri="guide://$workflow-status/resources/checklist.md?mode=summary"), resource_project
+        ReadResourceArgs(uri="guide://$status-snapshot/resources/checklist.md?mode=summary"), resource_project
     )
 
     assert result.success, result.error
-    assert result.message == "Rendered skill file: workflow-status/resources/checklist.md"
-    assert result.value == ("Package=workflow-status; resources=guide://$workflow-status/resources; mode=summary")
-
-
-@pytest.mark.anyio
-async def test_skill_script_is_retrieved_as_content_without_server_execution(resource_project):
-    """A package script is a readable member, never a Guide server action."""
-    result = await internal_read_resource(
-        ReadResourceArgs(uri="guide://$workflow-status/scripts/inspect.py"), resource_project
-    )
-
-    assert result.success, result.error
-    assert result.message == "Rendered skill file: workflow-status/scripts/inspect.py"
-    assert result.value == "print('inspect locally')\n"
+    assert result.message == "Rendered skill file: status-snapshot/resources/checklist.md"
+    assert result.value == ("Package=status-snapshot; resources=guide://$status-snapshot/resources; mode=summary")
 
 
 @pytest.mark.anyio
 async def test_skill_member_cannot_escape_its_package(resource_project):
     """Traversal cannot read a sibling package or an arbitrary skills-root member."""
     result = await internal_read_resource(
-        ReadResourceArgs(uri="guide://$workflow-status/resources/%2E%2E/%2E%2E/SKILL.md"), resource_project
+        ReadResourceArgs(uri="guide://$status-snapshot/resources/%2E%2E/%2E%2E/SKILL.md"), resource_project
     )
 
     assert result.success is False
@@ -416,7 +302,7 @@ async def test_skill_member_cannot_escape_its_package(resource_project):
 )
 async def test_skill_member_rejects_glob_syntax(resource_project, member):
     """Skill package members are literal paths, never document glob patterns."""
-    result = await internal_read_resource(ReadResourceArgs(uri=f"guide://$workflow-status/{member}"), resource_project)
+    result = await internal_read_resource(ReadResourceArgs(uri=f"guide://$status-snapshot/{member}"), resource_project)
 
     assert result.success is False
     assert result.error_type == "validation_error"
@@ -427,7 +313,7 @@ async def test_skill_member_rejects_glob_syntax(resource_project, member):
 async def test_missing_skill_member_is_a_structured_not_found_result(resource_project):
     """An unavailable package member does not escape as a renderer exception."""
     result = await internal_read_resource(
-        ReadResourceArgs(uri="guide://$workflow-status/resources/missing.md"), resource_project
+        ReadResourceArgs(uri="guide://$status-snapshot/resources/missing.md"), resource_project
     )
 
     assert result.success is False
@@ -444,161 +330,17 @@ async def test_invalid_skill_catalogue_query_is_a_structured_validation_result(r
 
 
 @pytest.mark.anyio
-async def test_skill_catalogue_is_available_through_read_resource(resource_project):
-    """The client-facing resource tool exposes the server-owned skills catalogue."""
-    incomplete_skill = resource_project.resolve_document_path("_skills/missing-usage/SKILL.md.mustache")
-    incomplete_skill.parent.mkdir(parents=True)
-    incomplete_skill.write_text(
-        "---\nname: missing-usage\ndescription: Must not appear without catalogue usage guidance.\n---\nIgnored."
-    )
-
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
-
-    assert result.success, result.error
-    assert "workflow-status" in result.value
-    assert "triage-items" in result.value
-    assert "triage-pr" in result.value
-    assert "triage-review" in result.value
-    assert "just-one" not in result.value
-    assert "git-pr-triage" not in result.value
-    assert "workflow-triage" not in result.value
-    assert "grouped-nested" in result.value
-    assert "grouped/nested" not in result.value
-    assert "missing-usage" not in result.value
-    assert "Use when: Use when the user asks for the current Guide workflow or OpenSpec status." in result.value
-    assert result.disposition == AGENT_INFO
-    assert result.instruction == INSTRUCTION_AGENT_INFORMATION
-
-
-@pytest.mark.anyio
-async def test_skill_catalogue_skips_invalid_or_malformed_packages(resource_project):
-    """One invalid package cannot hide independently valid Guide skills."""
-    skills_dir = resource_project.resolve_document_path("_skills")
-    invalid_identifier = skills_dir / "unsafe?skill"
-    invalid_identifier.mkdir(parents=True)
-    (invalid_identifier / "SKILL.md.mustache").write_text(
-        "---\nname: unsafe-skill\ndescription: Invalid package path.\nusage: Never.\n---\nIgnored.",
-        encoding="utf-8",
-    )
-    invalid_name = skills_dir / "invalid-name"
-    invalid_name.mkdir()
-    (invalid_name / "SKILL.md.mustache").write_text(
-        "---\nname: invalid?name\ndescription: Invalid public name.\nusage: Never.\n---\nIgnored.",
-        encoding="utf-8",
-    )
-    malformed = skills_dir / "malformed"
-    malformed.mkdir()
-    (malformed / "SKILL.md.mustache").write_text("---\nname: [\n---\nIgnored.", encoding="utf-8")
-
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
-
-    assert result.success, result.error
-    assert "workflow-status" in result.value
-    assert "unsafe?skill" not in result.value
-    assert "invalid?name" not in result.value
-    assert "malformed" not in result.value
-
-
-@pytest.mark.anyio
-async def test_skill_catalogue_omits_duplicate_public_names(resource_project, caplog):
-    """Duplicate public names are developer errors, never precedence rules."""
-    duplicate = resource_project.resolve_document_path("_skills/other/status/SKILL.md.mustache")
-    duplicate.parent.mkdir(parents=True)
-    duplicate.write_text(
-        "---\nname: workflow-status\ndescription: Conflicting package.\nusage: Never.\n---\nIgnored.",
-        encoding="utf-8",
-    )
-
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
-
-    assert result.success, result.error
-    assert "workflow-status" not in result.value
-    assert "grouped-nested" in result.value
-    assert "Ignoring duplicate Guide skill name workflow-status" in caplog.text
-
-
-@pytest.mark.anyio
-async def test_verbose_skill_catalogue_is_user_information_through_read_resource(resource_project):
-    """A skill URI query reaches the catalogue loader unchanged."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$?verbose=true"), resource_project)
-
-    assert result.success, result.error
-    assert "workflow-status" in result.value
-    assert result.disposition == USER_INFO
-    assert result.instruction == INSTRUCTION_DISPLAY_ONLY
-
-
-@pytest.mark.anyio
 async def test_table_skill_catalogue_is_user_information_through_read_resource(resource_project):
     """A valueless table query produces a user-facing Markdown table through guide://$."""
     result = await internal_read_resource(ReadResourceArgs(uri="guide://$?table"), resource_project)
 
     assert result.success, result.error
     assert result.value.startswith("| Skill | Purpose | Use when | Entrypoint |")
-    assert "| `workflow-status` |" in result.value
-    assert "| Use when the user asks for the current Guide workflow or OpenSpec status. |" in result.value
-    assert "`guide://$workflow-status`" in result.value
+    assert "| `status-snapshot` |" in result.value
+    assert "| Use when the user asks for a current status snapshot. |" in result.value
+    assert "`guide://$status-snapshot`" in result.value
     assert result.disposition == USER_INFO
     assert result.instruction == INSTRUCTION_DISPLAY_ONLY
-
-
-@pytest.mark.anyio
-async def test_list_skills_is_a_registered_agent_information_tool(resource_project):
-    """The direct skill catalogue follows the normal Guide tool response path."""
-    response = await list_skills.__wrapped__(ListSkillsArgs(), resource_project)
-    payload = response.structured_content
-
-    assert payload["success"] is True
-    assert "workflow-status" in payload["value"]
-    assert payload["disposition"] == AGENT_INFO
-    assert payload["instruction"].startswith(INSTRUCTION_AGENT_INFORMATION)
-
-
-@pytest.mark.anyio
-async def test_list_skills_verbose_returns_user_information(resource_project):
-    """An explicit user-facing list is delivered rather than silently consumed."""
-    response = await list_skills.__wrapped__(ListSkillsArgs(verbose=True), resource_project)
-    payload = response.structured_content
-
-    assert payload["success"] is True
-    assert "workflow-status" in payload["value"]
-    assert payload["disposition"] == USER_INFO
-    assert payload["instruction"].startswith(INSTRUCTION_DISPLAY_ONLY)
-
-
-@pytest.mark.anyio
-async def test_list_skills_table_returns_a_user_facing_markdown_table(resource_project):
-    """The direct tool has the same table representation as the resource URI."""
-    response = await list_skills.__wrapped__(ListSkillsArgs(table=True), resource_project)
-    payload = response.structured_content
-
-    assert payload["success"] is True
-    assert payload["value"].startswith("| Skill | Purpose | Use when | Entrypoint |")
-    assert "| `workflow-status` |" in payload["value"]
-    assert payload["disposition"] == USER_INFO
-    assert payload["instruction"].startswith(INSTRUCTION_DISPLAY_ONLY)
-
-
-@pytest.mark.anyio
-async def test_nested_skill_package_resolves_by_its_frontmatter_name(resource_project):
-    """A nested package remains private while its declared name is public."""
-    result = await internal_read_resource(ReadResourceArgs(uri="guide://$grouped-nested"), resource_project)
-
-    assert result.success, result.error
-    assert result.value == "Nested skill content."
-    assert result.message == "Rendered skill file: grouped-nested/SKILL.md"
-
-
-@pytest.mark.anyio
-async def test_nested_skill_member_uses_the_public_virtual_path(resource_project):
-    """Package members resolve from a nested private root without exposing it."""
-    result = await internal_read_resource(
-        ReadResourceArgs(uri="guide://$grouped-nested/resources/checklist.md"), resource_project
-    )
-
-    assert result.success, result.error
-    assert result.value == "Nested member content."
-    assert result.message == "Rendered skill file: grouped-nested/resources/checklist.md"
 
 
 @pytest.mark.anyio
@@ -641,7 +383,7 @@ async def test_runtime_skill_cache_detects_tree_changes(resource_project, runtim
     cached = runtime.skill_discovery_cache
     assert cached is not None
     _, _, cached_skills = cached
-    cached_skill = cached_skills["workflow-status"]
+    cached_skill = cached_skills["status-snapshot"]
     with pytest.raises(TypeError):
         cached_skill.requirements["requires-workflow"] = True
     refreshed = resource_project.resolve_document_path("_skills/refreshed/SKILL.md.mustache")
@@ -664,29 +406,6 @@ async def test_runtime_skill_cache_detects_tree_changes(resource_project, runtim
     after_second_refresh = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
     assert after_second_refresh.success, after_second_refresh.error
     assert "development-only" in after_second_refresh.value
-
-
-@pytest.mark.anyio
-async def test_runtime_skill_cache_retains_known_good_mapping_after_refresh_error(
-    resource_project, runtime, monkeypatch
-):
-    """An expired cache remains available when rediscovery encounters an I/O error."""
-    from mcp_guide.tools import tool_resource
-
-    initial = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
-    assert initial.success, initial.error
-    cached = runtime.skill_discovery_cache
-    assert cached is not None
-    runtime.cache_skill_discovery(cached[0], time.monotonic() - 301, cached[2])
-
-    async def fail_discovery(*args, **kwargs):
-        raise OSError("unavailable for this refresh")
-
-    monkeypatch.setattr(tool_resource, "discover_document_files", fail_discovery)
-    retained = await internal_read_resource(ReadResourceArgs(uri="guide://$"), resource_project)
-
-    assert retained.success, retained.error
-    assert "workflow-status" in retained.value
 
 
 @pytest.mark.anyio

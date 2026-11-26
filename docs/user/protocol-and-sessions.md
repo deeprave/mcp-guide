@@ -96,7 +96,7 @@ When a known skill needs bound rendering, append the opaque identifier to its
 resource URI:
 
 ```
-skill://workflow-review/SKILL.md?session_id=<session_id>
+skill://guide-review/SKILL.md?session_id=<session_id>
 ```
 
 Guide's `read_resource` tool accepts the same `skill://` URI for clients that

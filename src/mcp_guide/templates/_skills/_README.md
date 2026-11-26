@@ -23,8 +23,8 @@ _skills/
 
 `SKILL.md.mustache` is the public entrypoint for each skill. Its frontmatter `name`, rather than
 its private package path, is the globally unique public skill identifier and resource URI. For
-example, `_skills/git/commit/SKILL.md.mustache` declares `name: git-commit` and is available as
-`guide://$git-commit`. Do not expose or depend on the package path in skill instructions.
+example, `_skills/guide/git/commit/SKILL.md.mustache` declares `name: guide-git-commit` and is available as
+`guide://$guide-git-commit`. Do not expose or depend on the package path in skill instructions.
 
 ## Required Entrypoint Metadata
 

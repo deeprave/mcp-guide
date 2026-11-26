@@ -4,14 +4,14 @@ Guide skills are server-owned, native-skill-shaped packages in the configured do
 
 ```text
 _skills/
-  workflow/
+  guide/
     review/
       SKILL.md.mustache
 ```
 
 The package directory may be nested for organisation. Its directory is private implementation detail;
 the public entrypoint is the required frontmatter `name`, so this example remains
-`skill://workflow-review/SKILL.md`; `guide://$workflow-review` remains the
+`skill://guide-review/SKILL.md`; `guide://$guide-review` remains the
 Guide compatibility entrypoint. A skill package may include
 `references/`, `scripts/`, or `agents/` members, which are retrieved individually through the same
 skill URI root. `SKILL.md` is the entrypoint and contains the instructions an agent follows.
@@ -22,7 +22,7 @@ Every skill entrypoint declares at least `name`, `description`, and `usage` in Y
 
 ```yaml
 ---
-name: workflow-review
+name: guide-review
 description: Review a selected change and present the findings.
 usage: Use when the user asks to review a change.
 ---

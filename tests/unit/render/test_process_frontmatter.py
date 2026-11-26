@@ -72,7 +72,7 @@ async def test_process_frontmatter_retains_siblings_when_recommend_is_unsupporte
     result = await process_frontmatter(
         """---
 instruction: 'Use {{#command-args}}{{values}}{{/command-args}}.'
-description: '{{#recommend}}skill:workflow-review{{/recommend}}'
+description: '{{#recommend}}skill:guide-review{{/recommend}}'
 ---
 Content""",
         {},
@@ -81,7 +81,7 @@ Content""",
 
     assert result is not None
     assert result.frontmatter["instruction"] == "Use /one/two."
-    assert result.frontmatter["description"] == "{{#recommend}}skill:workflow-review{{/recommend}}"
+    assert result.frontmatter["description"] == "{{#recommend}}skill:guide-review{{/recommend}}"
     assert result.errors == [
         "Frontmatter field 'description' could not be rendered: `recommend` is not supported in renderable frontmatter because it requires an active delivery session"
     ]

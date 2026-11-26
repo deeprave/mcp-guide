@@ -802,7 +802,7 @@ async def _route_guide_request(
 
 _GUIDE_ARG1_DESCRIPTION = (
     "First argument: a command starting with :, ;, or _ (for example :help or _status); "
-    "a skill starting with $ (for example $workflow-status); or a content expression "
+    "a skill starting with $ (for example $guide-status); or a content expression "
     "(collection or category name, optional /pattern)."
 )
 _GUIDE_ARGN_DESCRIPTION = (
@@ -840,7 +840,7 @@ async def guide(
 ) -> object:
     """Access Guide commands and project content.
 
-    Pass arg1 as a command (:help, :status, _help), a skill ($workflow-status), or a
+    Pass arg1 as a command (:help, :status, _help), a skill ($guide-status), or a
     content expression. Further arg2–argf continue command or content argv in order
     (arga–argf are arguments 10–15). Include session_id from set_project on later calls.
     """

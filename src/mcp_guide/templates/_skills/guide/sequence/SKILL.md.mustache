@@ -1,0 +1,47 @@
+---
+name: guide-sequence
+description: Present a complete item inventory one at a time and preserve each conversational decision before any authorised follow-up.
+usage: Use when the user asks to work through findings, feedback, tasks, or another item list sequentially and decide each item's disposition.
+cache: short, private
+---
+# Sequential Item Decisions
+
+## Directives
+
+- Establish a complete, stable inventory before presenting the first item. Use the inventory the user explicitly identifies. Otherwise derive the clearly relevant inventory from the current context, such as recently collated reviews or pull-request feedback; ask only when the target is unclear.
+- Preserve source references, target, scope, evidence, recommendation, and original wording where available. Apply the user-selected ordering; when no order is selected, preserve source order.
+- When a canonical inventory already exists, record decisions in that inventory without modifying independent source records. Otherwise retain a clear in-conversation decision record unless the user requests a destination.
+- Record each decision against its item: decision, variation, rationale, proposed follow-up, and completion state where applicable.
+- Present exactly one item at a time. Do not preview, summarise, or act on other items while the current item awaits a decision.
+- Use this form for every item:
+
+```markdown
+{{h3}}<current>/<total> <title>
+
+<optional seriousness, rating, or priority>
+
+<when the item has unambiguous `target` and `scope` fields>
+{{b}}Target/Scope:{{b}} <brief target>, <brief scope>
+
+{{b}}Description:{{b}} <the item and its context>
+
+{{b}}Analysis:{{b}} <mechanism, consequence, and evidence>
+
+{{b}}Recommendation:{{b}} <specific action, or the reason not to decline>
+```
+
+- Display `target` and `scope` only when both are unambiguous. Do not infer substitutes for absent or ambiguous values. Display seriousness, rating, or priority only when supplied.
+- In review mode, treat the user's reply as one of: Accept (accept the recommendation and add its follow-up), Decline (do nothing), Next (append the item to the end), Skip (do not append it), Vary (record the user-provided alternate action), or Defer (record a todo in the current context for a later decision). Keep the same item current while answering a question.
+- In non-review mode, treat the user's reply as Ok, or Action with the action the user provides.
+- Accepted or varied items must record a concrete verb-led follow-up and constraints; declined items must record that they will not be actioned. Do not perform any follow-up until separately authorised.
+- Deferred items must record the reason for deferral and any proposed revisit condition or follow-up, and must not be returned to the pending inventory by a later run unless the user explicitly asks to revisit them.
+- Do not change code, tests, configuration, review artefacts, or external systems while any item remains undecided, except to record its decision. An item's source does not determine who is responsible for its follow-up.
+- After every item has a decision, present the complete decision summary and the accepted follow-up list. Follow-up may be local implementation, a report, pull-request feedback or disposition, transfer to another responsible party, or no further action.
+- Perform a local change or an external action only after the user explicitly authorises that specific follow-up. Do not assume the current codebase is the target.
+- On a stop or pause decision, retain and present the durable record when one exists, or the in-conversation decision record otherwise. Do not request or attempt follow-up actions.
+
+## Guardrails
+
+- Keep the `current/total` count stable. If a duplicate is removed, folded into an earlier item, or one item is split, state that correction before continuing.
+- A request to stop or pause ends the walkthrough without follow-up actions.
+- Do not add work that was not presented and decided.

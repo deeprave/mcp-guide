@@ -136,7 +136,7 @@ Use the `recommend` lambda at an instruction boundary to point an agent to a
 related Guide capability:
 
 ```mustache
-{{#recommend}}skill:workflow-review{{/recommend}}
+{{#recommend}}skill:guide-review{{/recommend}}
 ```
 
 Valid types are `skill`, `command`, `content`, and `tool`; an unprefixed value

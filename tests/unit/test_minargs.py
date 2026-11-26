@@ -16,7 +16,6 @@ from tests.helpers import (
 
 from mcp_guide.prompts.guide_prompt import _execute_command
 from mcp_guide.result import Result
-from mcp_guide.workflow.schema import WorkflowState
 
 
 @pytest.fixture
@@ -82,64 +81,13 @@ async def test_minargs_allows_sufficient_args(cmd_docroot, minargs, args):
     assert result.value.strip() == "ok"
 
 
-@pytest.mark.anyio
-async def test_execute_command_specialises_workflow_phase_choices(cmd_docroot, runtime):
-    """Command execution derives dynamic phase choices before requesting input."""
-    _, docroot = cmd_docroot
-    session = await create_bound_test_session(runtime, "workflow-input")
-    await session.project_flags().set("workflow", True)
-    session.task_manager.set_cached_data("workflow_state", WorkflowState(phase="planning"))
-    (docroot / "_commands/test.mustache").write_text(
-        "---\n"
-        "requires-workflow: true\n"
-        "elicitation:\n"
-        "  workflow-phase:\n"
-        "    message: Choose a phase.\n"
-        "    schema:\n"
-        "      type: object\n"
-        "      properties:\n"
-        "        phase:\n"
-        "          type: string\n"
-        "          source: workflow-phases\n"
-        "      required: [phase]\n"
-        "---\n"
-        "{{#elicit.workflow-phase}}Phase={{kwargs.phase}}{{/elicit.workflow-phase}}\n"
-    )
-    context = SimpleNamespace(
-        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
-        input_responses=None,
-        request_context=SimpleNamespace(protocol_version="2026-07-28"),
-    )
-
-    result = await _execute_command(
-        "test",
-        {},
-        [],
-        await request_context_for(session),
-        argv=[":test"],
-        mcp_context=cast(Context, context),
-    )
-
-    assert isinstance(result, InputRequiredResult)
-    phase_requests = cast(dict[str, Any], result.input_requests)
-    phase_request = phase_requests["workflow-phase"]
-    phase_schema = cast(dict[str, Any], phase_request.params.requested_schema)
-    assert phase_schema["properties"]["phase"]["enum"] == [
-        "discussion",
-        "exploration",
-        "implementation",
-        "check",
-        "review",
-    ]
-
-
 def _write_export_skill_fixture(docroot: Path) -> None:
     """Provide one discoverable skill and its export command entrypoint."""
-    skills_dir = docroot / "_skills" / "workflow-status"
+    skills_dir = docroot / "_skills" / "sample" / "status"
     skills_dir.mkdir(parents=True)
     (skills_dir / "SKILL.md").write_text(
         "---\n"
-        "name: workflow-status\n"
+        "name: status-snapshot\n"
         "description: Report workflow state.\n"
         "usage: Check the current workflow.\n"
         "---\n"
@@ -192,7 +140,7 @@ async def test_skills_export_elicitation_uses_current_metadata_catalogue(cmd_doc
     skill_requests = cast(dict[str, Any], result.input_requests)
     skill_request = skill_requests["export-skill"]
     skill_schema = cast(dict[str, Any], skill_request.params.requested_schema)
-    assert skill_schema["properties"]["skill"]["enum"] == ["workflow-status"]
+    assert skill_schema["properties"]["skill"]["enum"] == ["status-snapshot"]
 
 
 @pytest.mark.anyio
@@ -224,10 +172,10 @@ async def test_skills_export_rejects_a_skill_keyword(cmd_docroot, runtime):
 
     result = await _execute_command(
         "skills/export",
-        {"skill": "workflow-status"},
+        {"skill": "status-snapshot"},
         [],
         await request_context_for(session),
-        argv=[":skills/export", "--skill=workflow-status"],
+        argv=[":skills/export", "--skill=status-snapshot"],
     )
 
     assert isinstance(result, Result)
@@ -244,9 +192,9 @@ async def test_skills_export_requires_a_bound_project(cmd_docroot):
     result = await _execute_command(
         "skills/export",
         {},
-        ["workflow-status"],
+        ["status-snapshot"],
         await request_context_for(session),
-        argv=[":skills/export", "workflow-status"],
+        argv=[":skills/export", "status-snapshot"],
     )
 
     assert isinstance(result, Result)

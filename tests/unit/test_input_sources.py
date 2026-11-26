@@ -111,14 +111,14 @@ def test_project_categories_and_collections_become_enum_choices():
 def test_guide_skills_become_distinct_enum_choices():
     """The export command can offer only the currently visible skill names."""
     context = TemplateContext(
-        {"guide_skills": [{"name": "workflow-status"}, {"name": "triage-pr"}, {"name": "workflow-status"}]}
+        {"guide_skills": [{"name": "status-snapshot"}, {"name": "review-collection"}, {"name": "status-snapshot"}]}
     )
 
     prepared = prepare_form_sources(_project_form("guide-skills", field="skill"), context)
 
     assert prepared["choose"]["schema"]["properties"]["skill"] == {
         "type": "string",
-        "enum": ["workflow-status", "triage-pr"],
+        "enum": ["status-snapshot", "review-collection"],
     }
 
 

@@ -15,7 +15,7 @@ entrypoint.
 
 #### Scenario: Discover a nested package
 
-- **WHEN** `_skills/workflow/review/SKILL.md.mustache` is present
+- **WHEN** `_skills/guide/review/SKILL.md.mustache` is present
 - **THEN** the system SHALL include that package in skill discovery
 
 ### Requirement: Public skill name declaration
@@ -26,9 +26,16 @@ discovered skill packages and SHALL be the package's only advertised identity.
 
 #### Scenario: Advertise a nested package by its declared name
 
-- **WHEN** `_skills/workflow/review/SKILL.md.mustache` declares `name: workflow-review`
-- **THEN** the catalogue SHALL advertise `workflow-review` rather than the
-  directory path `workflow/review`
+- **WHEN** `_skills/guide/review/SKILL.md.mustache` declares `name: guide-review`
+- **THEN** the catalogue SHALL advertise `guide-review` rather than the
+  directory path `guide/review`
+
+#### Scenario: Advertise consolidated triage packages by their declared names
+
+- **WHEN** discovered Guide packages declare `name: guide-triage` and
+  `name: guide-sequence`
+- **THEN** the catalogue SHALL advertise those declared public names
+- **AND** SHALL not advertise `triage-review`, `triage-pr`, or `triage-items`
 
 #### Scenario: Reject duplicate declared names
 
@@ -43,15 +50,15 @@ declared public name, independent of the package's server-side directory path.
 
 #### Scenario: Retrieve a nested package entrypoint
 
-- **WHEN** a client reads `guide://$workflow-review`
+- **WHEN** a client reads `guide://$guide-review`
 - **THEN** the system SHALL return the rendered `SKILL.md` entrypoint from the
-  package declaring `workflow-review`
+  package declaring `guide-review`
 
 #### Scenario: Retrieve a nested package member
 
-- **WHEN** a client reads a member under `guide://$workflow-review/`
+- **WHEN** a client reads a member under `guide://$guide-review/`
 - **THEN** the system SHALL resolve that member relative to the package that
-  declares `workflow-review`
+  declares `guide-review`
 
 ### Requirement: Runtime-scoped discovery mapping
 
@@ -152,10 +159,10 @@ public skill name followed by their package-relative path.
 
 #### Scenario: Report a nested entrypoint with its public path
 
-- **WHEN** `_skills/git/commit/SKILL.md.mustache` declares `name: git-commit`
+- **WHEN** `_skills/guide/git/commit/SKILL.md.mustache` declares `name: guide-git-commit`
   and the entrypoint is retrieved
-- **THEN** the response SHALL identify the file as `git-commit/SKILL.md` and
-  SHALL not expose `_skills/git/commit/`
+- **THEN** the response SHALL identify the file as `guide-git-commit/SKILL.md` and
+  SHALL not expose `_skills/guide/git/commit/`
 
 ### Requirement: Flat-layout compatibility
 
@@ -164,5 +171,27 @@ packages using their declared public names without requiring a migration.
 
 #### Scenario: Retain an existing flat package
 
-- **WHEN** `_skills/workflow-review/SKILL.md.mustache` declares `name: workflow-review`
-- **THEN** `guide://$workflow-review` SHALL continue to resolve that package
+- **WHEN** `_skills/custom-review/SKILL.md.mustache` declares `name: guide-review`
+- **THEN** `guide://$guide-review` SHALL continue to resolve that package
+
+### Requirement: Bundled Guide skill placement
+The selected built-in Guide skills SHALL use the consolidated private package
+hierarchy. Workflow packages SHALL reside below `_skills/guide/<name>`; Git
+packages SHALL reside below `_skills/guide/git/`; combined triage and sequence
+packages SHALL reside at `_skills/guide/triage` and `_skills/guide/sequence`.
+
+#### Scenario: Resolve a relocated workflow skill
+
+- **WHEN** the `guide-review` package is discovered below `_skills/guide/review`
+- **THEN** Guide SHALL advertise and resolve it by its declared public name
+- **AND** SHALL not expose its private package path
+
+#### Scenario: Resolve a relocated Git skill
+
+- **WHEN** the `guide-git-commit` package is discovered below `_skills/guide/git/commit`
+- **THEN** Guide SHALL advertise and resolve it by its declared public name
+
+#### Scenario: Resolve consolidated triage packages
+
+- **WHEN** packages at `_skills/guide/triage` and `_skills/guide/sequence` are discovered
+- **THEN** Guide SHALL advertise them as `guide-triage` and `guide-sequence`
