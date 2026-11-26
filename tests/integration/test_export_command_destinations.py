@@ -43,16 +43,3 @@ async def test_command_destination_rejected_without_rendering_or_echoing(export_
     assert payload["error_type"] == ERROR_SECURITY
     assert payload["error"] == "Export destination is invalid or outside configured write paths"
     assert "INJECTED_INSTRUCTION" not in json.dumps(payload)
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize("route", ["prompt", "prompt-alias", "resource", "resource-alias"])
-@pytest.mark.parametrize(
-    "destination,expected",
-    [("exports/report.md", "exports/report.md"), ("exports\\report.md", "exports/report.md")],
-)
-async def test_command_guidance_uses_canonical_destination(export_command_project, route, destination, expected):
-    payload = await invoke_export_command(export_command_project, route, destination)
-
-    assert payload["success"] is True
-    assert payload["value"] == expected

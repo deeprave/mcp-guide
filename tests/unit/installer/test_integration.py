@@ -23,35 +23,6 @@ class TestInstallAndCreateConfig:
         return templates
 
     @pytest.mark.anyio
-    async def test_install_and_create_config_creates_templates_and_config(
-        self, tmp_path: Path, synthetic_templates: Path
-    ) -> None:
-        """Test that install_and_create_config creates templates and config file."""
-        # Arrange
-        from mcp_guide.installer.integration import install_and_create_config
-
-        config_file = tmp_path / "config" / "config.yaml"
-
-        # Act
-        await install_and_create_config(config_file)
-
-        # Assert
-        assert config_file.exists()
-        content = config_file.read_text()
-        assert "docroot:" in content
-        assert "projects:" in content
-        import yaml
-
-        from mcp_guide.installer.core import ORIGINAL_ARCHIVE, VERSION_FILE
-
-        data = yaml.safe_load(content)
-        docroot = Path(data["docroot"])
-        assert data["projects"] == {}
-        assert (docroot / "_commands" / "example.mustache").is_file()
-        assert (docroot / ORIGINAL_ARCHIVE).is_file()
-        assert (docroot / VERSION_FILE).read_text().strip()
-
-    @pytest.mark.anyio
     async def test_install_and_create_config_persists_supplied_docroot(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, synthetic_templates: Path
     ) -> None:

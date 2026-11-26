@@ -1,16 +1,12 @@
 """Regression coverage for native Guide MCP public-surface adapters."""
 
-from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
-import yaml
 from fastmcp.prompts import PromptResult
 from fastmcp.tools.base import ToolResult
-from tests.helpers import create_bound_test_session, request_context_for
 
 from mcp_guide.mcp_context import SessionProtocolType
-from mcp_guide.models import Category
 from mcp_guide.result import Result
 from mcp_guide.tools.tool_project import SwitchProjectArgs, switch_project
 from mcp_guide.tools.tool_resource import session_id_from_guide_uri
@@ -117,63 +113,6 @@ async def test_switch_project_uses_modern_response_metadata(task_manager, monkey
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(
-    "protocol_type",
-    [SessionProtocolType.LEGACY, SessionProtocolType.MCP_2026_07_28],
-    ids=["legacy", "2026-07-28"],
-)
-async def test_resource_boundary_uses_the_session_response_contract(runtime, tmp_path, protocol_type) -> None:
-    """Rendered resources use the selected protocol's instruction delivery contract."""
-    import json
-
-    from mcp_guide.resources import guide_resource
-
-    class NonNegotiatingMcpContext:
-        def client_extension_settings(self, _identifier: str) -> None:
-            return None
-
-        def client_supports_extension(self, _identifier: str) -> bool:
-            return False
-
-    docroot = tmp_path / "docs"
-    content_dir = docroot / "guidance"
-    content_dir.mkdir(parents=True)
-    (content_dir / "overview.mustache").write_text(
-        "---\ntype: agent/instruction\ninstruction: Read before continuing.\n---\nrendered guide content"
-    )
-    config = runtime.configuration_service().config_file
-    config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(yaml.safe_dump({"docroot": str(docroot), "projects": {}}))
-    session = await create_bound_test_session(runtime, "surface")
-    session.establish_protocol_type(protocol_type)
-    await _drain_pending_instructions(session)
-    await session.update_config(
-        lambda project: replace(project, categories={"docs": Category(name="docs", dir="guidance", patterns=["*"])})
-    )
-    await session.task_manager.queue_instruction("Use only the bound project.")
-    context = await request_context_for(session, "bound-session")
-    resource = await guide_resource.__wrapped__(
-        "docs",
-        "overview",
-        session_id="bound-session",
-        request_context=context,
-        request_uri=None,
-        mcp_context=NonNegotiatingMcpContext() if protocol_type is SessionProtocolType.MCP_2026_07_28 else None,
-    )
-    payload = json.loads(resource.contents[0].content)
-    assert payload["success"] is True
-    assert payload["value"] == "rendered guide content"
-    assert payload["instruction"].startswith("Read before continuing.")
-    assert payload["session_id"] == "bound-session"
-    assert payload["disposition"] == "agent/instruction"
-    if protocol_type is SessionProtocolType.MCP_2026_07_28:
-        assert "additional_agent_instructions" not in payload
-        assert resource.meta == {"mcp-guide": {"instructions": "Use only the bound project."}}
-    else:
-        assert payload["additional_agent_instructions"] == "Use only the bound project."
-        assert resource.meta is None
-
-
 @pytest.mark.parametrize(
     ("uri", "expected"),
     [

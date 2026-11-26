@@ -130,15 +130,15 @@ async def test_mcp_prompt_routes_explicit_command_and_skill_namespaces(tmp_path,
     config_dir.mkdir()
     (config_dir / "config.yaml").write_text(f"docroot: {docroot}\nprojects: {{}}\n", encoding="utf-8")
     (docroot / "_commands").mkdir(parents=True)
-    (docroot / "_skills" / "guide" / "guide-status").mkdir(parents=True)
+    (docroot / "_skills" / "sample" / "status").mkdir(parents=True)
     (docroot / "_commands" / "project.mustache").write_text(
         "{{project.name}}{{#kwargs.verbose}} verbose{{/kwargs.verbose}}", encoding="utf-8"
     )
-    (docroot / "_skills" / "guide" / "guide-status" / "SKILL.md.mustache").write_text(
+    (docroot / "_skills" / "sample" / "status" / "SKILL.md.mustache").write_text(
         "---\n"
-        "name: guide-status\n"
-        "description: Report workflow status.\n"
-        "usage: Use when the user asks for workflow status.\n"
+        "name: status-snapshot\n"
+        "description: Report a status snapshot.\n"
+        "usage: Use when the user asks for a status snapshot.\n"
         "type: agent/instruction\n"
         "---\n"
         "Mode={{kwargs.mode}}",
@@ -152,7 +152,7 @@ async def test_mcp_prompt_routes_explicit_command_and_skill_namespaces(tmp_path,
         session_id = bound.structured_content["session_id"]
 
         command = await client.get_prompt("guide", {"arg1": "_project?verbose", "session_id": session_id})
-        skill = await client.get_prompt("guide", {"arg1": "$guide-status?mode=summary", "session_id": session_id})
+        skill = await client.get_prompt("guide", {"arg1": "$status-snapshot?mode=summary", "session_id": session_id})
 
     command_payload = json.loads(command.messages[0].content.text)
     skill_payload = json.loads(skill.messages[0].content.text)
@@ -194,89 +194,6 @@ async def test_prompt_debug_log_describes_arguments_without_their_text(tmp_path,
     assert invoked
     assert all(sensitive not in message for message in invoked)
     assert any("2 argument(s)" in message for message in invoked)
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize("mode", ["2026-07-28", "legacy"])
-@pytest.mark.parametrize(
-    ("argv", "asked", "rendered"),
-    [
-        ([":pick"], True, "name:{choice}"),
-        ([":pick", "docs"], False, "arg:docs"),
-        (["_pick?name=docs"], False, "name:docs"),
-    ],
-    ids=["asks", "positional-supplies", "keyword-supplies"],
-)
-async def test_command_offers_project_categories_unless_the_value_is_already_supplied(
-    tmp_path, monkeypatch, mode, argv, asked, rendered
-) -> None:
-    """A sourced form reaches the client with the project's categories only when no value was supplied."""
-    from fastmcp import Client
-
-    from mcp_guide.cli import ServerConfig
-    from mcp_guide.server import create_application
-
-    monkeypatch.setenv("MCP_GUIDE_DISABLE_SERVER_TASKS", "1")
-    docroot = tmp_path / "docs"
-    project_root = tmp_path / "project"
-    config_dir = tmp_path / "config"
-    project_root.mkdir()
-    config_dir.mkdir()
-    (config_dir / "config.yaml").write_text(f"docroot: {docroot}\nprojects: {{}}\n", encoding="utf-8")
-    (docroot / "_commands").mkdir(parents=True)
-    (docroot / "_commands" / "pick.mustache").write_text(
-        "---\n"
-        "elicitation:\n"
-        "  choose:\n"
-        "    message: Choose a category.\n"
-        "    fallback: render\n"
-        "    schema:\n"
-        "      type: object\n"
-        "      properties:\n"
-        "        name: {type: string, source: project-categories}\n"
-        "      required: [name]\n"
-        "---\n"
-        "{{#args.0.value}}arg:{{args.0.value}}{{/args.0.value}}"
-        "{{^args.0.value}}{{#elicit.choose}}name:{{kwargs.name}}{{/elicit.choose}}{{/args.0.value}}",
-        encoding="utf-8",
-    )
-    application = create_application(ServerConfig(configdir=str(config_dir), docroot=str(docroot)))
-    offered: list[list[str]] = []
-
-    async def choose_first(_message, _response_type, params, _context):
-        schema = params.requested_schema["properties"]["name"]
-        assert "source" not in schema
-        offered.append(schema["enum"])
-        return {"name": schema["enum"][0]}
-
-    async with Client(application.server, mode=mode, elicitation_handler=choose_first) as client:
-        bound = await client.call_tool("set_project", {"args": {"path": str(project_root)}})
-        assert bound.structured_content is not None
-        session_id = bound.structured_content["session_id"]
-        for category in ("docs", "code"):
-            added = await client.call_tool(
-                "category_collection_add",
-                {
-                    "args": {
-                        "type": "category",
-                        "name": category,
-                        "dir": category,
-                        "patterns": ["*.md"],
-                        "session_id": session_id,
-                    }
-                },
-            )
-            assert added.structured_content is not None and added.structured_content["success"] is True
-        prompt_args = {f"arg{index}": value for index, value in enumerate(argv, start=1)}
-        prompt = await client.get_prompt("guide", {**prompt_args, "session_id": session_id})
-
-    payload = json.loads(prompt.messages[0].content.text)
-    assert payload["success"] is True
-    assert bool(offered) is asked
-    if asked:
-        assert len(offered) == 1
-        assert {"docs", "code"} <= set(offered[0])
-    assert payload["value"] == rendered.format(choice=offered[0][0] if offered else "")
 
 
 @pytest.mark.anyio

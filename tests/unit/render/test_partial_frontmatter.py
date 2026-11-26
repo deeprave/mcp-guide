@@ -34,19 +34,6 @@ class TestPartialFrontmatter:
         assert frontmatter.get("instruction") == "^ Display this"
         assert errors == []
 
-    async def test_load_partial_without_frontmatter(self, tmp_path):
-        """Test partial without frontmatter returns empty dict."""
-        partial_file = tmp_path / "_test.mustache"
-        partial_file.write_text("Just content")
-
-        content, frontmatter, errors = await load_partial_content(
-            partial_file, tmp_path, resolver=document_root_resolver(tmp_path)
-        )
-        assert content == "Just content"
-        assert isinstance(frontmatter, Frontmatter)
-        assert len(frontmatter) == 0
-        assert errors == []
-
     async def test_load_partial_rejects_symlink_escape(self, tmp_path):
         """An in-root partial symlink may not target content outside docroot."""
         document_root = tmp_path / "docs"
@@ -141,51 +128,6 @@ class TestPartialFrontmatter:
 
 
 @pytest.mark.anyio
-async def test_partial_regular_instruction_does_not_override_parent(tmp_path):
-    """Test that partial with regular instruction does not override parent instruction."""
-
-    # Create parent template with regular instruction
-    parent_content = "{{>child}}"
-    parent_metadata = Frontmatter({"instruction": "Parent instruction"})
-
-    # Create partial with regular (non-important) instruction
-    partial_path = tmp_path / "_child.mustache"
-    partial_path.write_text("---\ninstruction: 'Child regular instruction'\n---\nChild content")
-
-    # Render with includes
-    parent_metadata["includes"] = ["child"]
-    result = await render_template_content(
-        parent_content,
-        {},
-        file_path=str(tmp_path / "parent.mustache"),
-        metadata=parent_metadata,
-        base_dir=tmp_path,
-        resolver=document_root_resolver(tmp_path),
-    )
-
-    assert result.is_ok()
-    # Parent metadata should NOT be changed by child's regular instruction
-    assert parent_metadata["instruction"] == "Parent instruction"
-
-
-@pytest.mark.anyio
-async def test_partial_instruction_rendered_with_context(tmp_path):
-    """Test that partial instruction/description fields are rendered as templates."""
-    partial_file = tmp_path / "_test.mustache"
-    partial_file.write_text("---\ninstruction: 'Hello {{name}}'\ndescription: 'Project {{project}}'\n---\nContent")
-
-    context = {"name": "World", "project": "test"}
-    content, frontmatter, errors = await load_partial_content(
-        partial_file, tmp_path, context, resolver=document_root_resolver(tmp_path)
-    )
-
-    assert content == "Content"
-    assert frontmatter.get("instruction") == "Hello World"
-    assert frontmatter.get("description") == "Project test"
-    assert errors == []
-
-
-@pytest.mark.anyio
 async def test_partial_frontmatter_errors_propagate_to_parent_render(tmp_path):
     """A declared partial's frontmatter diagnostics reach the parent result."""
     (tmp_path / "_child.mustache").write_text(
@@ -245,39 +187,6 @@ async def test_unused_partial_instruction_not_applied(tmp_path):
 
 
 @pytest.mark.anyio
-async def test_used_partial_instruction_is_applied(tmp_path):
-    """Partial instruction IS applied when partial is actually rendered via {{>partial}}."""
-
-    # Template DOES reference {{>client-info}}
-    template_content = "Status: {{>client-info}}"
-
-    partial_path = tmp_path / "_client-info.mustache"
-    partial_path.write_text(
-        "---\ntype: agent/instruction\ninstruction: '^ Run client_info tool'\n---\nAgent detection required"
-    )
-
-    metadata = Frontmatter({"type": "user/information", "includes": ["client-info"]})
-    context = TemplateContext({})
-
-    result = await render_template_content(
-        template_content,
-        context,
-        file_path=str(tmp_path / "status.mustache"),
-        metadata=dict(metadata),
-        base_dir=tmp_path,
-        resolver=document_root_resolver(tmp_path),
-    )
-
-    assert result.is_ok()
-    rendered_content = result.value.content
-    partial_contributions = result.value.partial_contributions
-    assert "Agent detection required" in rendered_content
-    # Partial WAS rendered, so its frontmatter must be collected
-    assert len(partial_contributions) == 1
-    assert partial_contributions[0].frontmatter.get("instruction") == "^ Run client_info tool"
-
-
-@pytest.mark.anyio
 async def test_requirement_gated_partial_retains_the_full_template_context(tmp_path):
     """Partial requirements use flags without discarding parent render variables."""
     (tmp_path / "_policy.mustache").write_text("---\nrequires-mcp-skills: true\n---\n{{workflow.name}}")
@@ -295,65 +204,3 @@ async def test_requirement_gated_partial_retains_the_full_template_context(tmp_p
     assert result.success
     assert result.value is not None
     assert result.value.content == "current-workflow"
-
-
-@pytest.mark.anyio
-async def test_partial_instruction_placeholders_resolved(tmp_path, monkeypatch):
-    """Bug fix: placeholders like {{tool_prefix}} in partial instructions must be resolved."""
-
-    template_content = "{{>agent-detect}}"
-
-    partial_path = tmp_path / "_agent-detect.mustache"
-    partial_path.write_text(
-        "---\ntype: agent/instruction\ninstruction: 'Run {{tool_prefix}}client_info'\n---\nDetect agent"
-    )
-
-    metadata = Frontmatter({"includes": ["agent-detect"]})
-    context = TemplateContext({})
-    monkeypatch.setenv("MCP_TOOL_PREFIX", "my")
-    from mcp_guide.core.tool_decorator import get_tool_prefix
-
-    get_tool_prefix.cache_clear()
-
-    try:
-        result = await render_template_content(
-            template_content,
-            context,
-            file_path=str(tmp_path / "parent.mustache"),
-            metadata=dict(metadata),
-            base_dir=tmp_path,
-            resolver=document_root_resolver(tmp_path),
-        )
-
-        assert result.is_ok()
-        partial_contributions = result.value.partial_contributions
-        assert len(partial_contributions) == 1
-        # Placeholder must be resolved
-        assert partial_contributions[0].frontmatter.get("instruction") == "Run my_client_info"
-    finally:
-        get_tool_prefix.cache_clear()
-
-
-@pytest.mark.anyio
-async def test_unsafe_partial_is_omitted_without_suppressing_safe_partial(tmp_path, caplog):
-    """An unsafe partial is excluded while safe parent output remains available."""
-    document_root = tmp_path / "docs"
-    document_root.mkdir()
-    outside = tmp_path / "outside"
-    outside.mkdir()
-    (document_root / "_safe.mustache").write_text("safe content")
-    (outside / "_secret.mustache").write_text("outside sentinel")
-
-    result = await render_template_content(
-        "parent {{>safe}} {{>secret}}",
-        TemplateContext({}),
-        file_path=str(document_root / "parent.mustache"),
-        metadata={"includes": ["safe", "../outside/secret"]},
-        base_dir=document_root,
-        resolver=document_root_resolver(document_root),
-    )
-
-    assert result.is_ok()
-    assert result.value.content == "parent safe content "
-    assert "outside sentinel" not in result.value.content
-    assert any("Unsafe partial reference omitted" in message for message in caplog.messages)

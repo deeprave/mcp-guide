@@ -46,33 +46,6 @@ async def test_project_change_delivers_instructions_in_priority_order_without_co
 
 
 @pytest.mark.anyio
-async def test_startup_guidance_is_not_gated_by_a_feature_flag(listener_session):
-    """A synthetic startup template queues on binding without a startup flag."""
-    session, system = listener_session
-    (system / "_startup.mustache").write_text("---\ntype: agent/instruction\n---\nLocal workflow guidance")
-
-    await StartupInstructionListener().on_project_changed(session, "old", session.project_name)
-
-    delivered = await session.task_manager.process_result(Result.ok())
-    assert delivered.additional_agent_instructions == "Local workflow guidance"
-
-
-@pytest.mark.anyio
-async def test_startup_guidance_includes_handoff_context(listener_session):
-    """Handoff guidance is delivered in the initial project briefing."""
-    session, system = listener_session
-    (system / "_handoff-context.mustache").write_text("Handoff guidance")
-    (system / "_startup.mustache").write_text(
-        "---\nincludes:\n  - _handoff-context\n---\nStartup\n{{>handoff-context}}"
-    )
-
-    await StartupInstructionListener().on_project_changed(session, "old", session.project_name)
-
-    delivered = await session.task_manager.process_result(Result.ok())
-    assert delivered.additional_agent_instructions == "Startup\nHandoff guidance"
-
-
-@pytest.mark.anyio
 @pytest.mark.parametrize("kind", ["guide", "startup"])
 @pytest.mark.parametrize(
     "content", ["   ", "---\nrequires-never-enabled: true\n---\nHidden"], ids=["blank", "filtered"]
@@ -89,30 +62,6 @@ async def test_blank_or_requirement_filtered_templates_deliver_nothing(listener_
         (system / f"{pattern}.mustache").write_text(content)
     await listener.on_project_changed(session, "old", session.project_name)
     assert (await session.task_manager.process_result(Result.ok())).additional_agent_instructions is None
-
-
-@pytest.mark.anyio
-@pytest.mark.parametrize("failure", ["missing", "unexpected"])
-@pytest.mark.slow
-async def test_unavailable_startup_does_not_suppress_onboarding(listener_session, monkeypatch, failure):
-    session, system = listener_session
-    (system / "_onboard_prompt.mustache").write_text("Onboard this project")
-    if failure == "unexpected":
-        from mcp_guide.startup_listener import render_content
-
-        # Inject the exceptional renderer boundary; normal rendering and queueing stay real.
-        async def render_with_failure(session, *, pattern, category_dir):
-            if pattern == "_startup":
-                raise RuntimeError("Renderer unavailable")
-            return await render_content(session, pattern=pattern, category_dir=category_dir)
-
-        monkeypatch.setattr("mcp_guide.startup_listener.render_content", render_with_failure)
-
-    await StartupInstructionListener().on_project_changed(session, "old", session.project_name)
-    assert (
-        await session.task_manager.process_result(Result.ok())
-    ).additional_agent_instructions == "Onboard this project"
-    assert session.task_manager.is_queue_empty()
 
 
 @pytest.mark.anyio

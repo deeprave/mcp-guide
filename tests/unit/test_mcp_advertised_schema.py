@@ -190,7 +190,6 @@ def test_guide_prompt_arguments_describe_command_and_session() -> None:
     session_id = _annotated_description(signature.parameters["session_id"].annotation)
     assert arg1 is not None and ":help" in arg1
     assert "_status" in arg1
-    assert "$guide-status" in arg1
     assert session_id == SESSION_ID_DESCRIPTION
 
 

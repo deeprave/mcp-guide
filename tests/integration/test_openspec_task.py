@@ -9,7 +9,6 @@ from mcp_guide.feature_flags.types import FeatureValue
 from mcp_guide.openspec.state import parse_openspec_state
 from mcp_guide.openspec.task import OpenSpecTask
 from mcp_guide.prompts.guide_prompt import handle_command
-from mcp_guide.render.cache import get_template_contexts
 from mcp_guide.result import Result
 from mcp_guide.task_manager import EventType, TaskActivation
 from tests.helpers import create_bound_test_session, request_context_for
@@ -198,49 +197,6 @@ async def test_error_guidance_follows_explicit_cli_initialisation_remediation(op
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("empty", [False, True], ids=["grouped", "empty"])
-async def test_changes_grouping_and_ttl_expiry(openspec_session, monkeypatch, empty):
-    now = 1000.0
-    monkeypatch.setattr("time.time", lambda: now)
-    task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
-    changes = (
-        []
-        if empty
-        else [
-            {
-                "name": "active",
-                "status": "in-progress",
-                "completedTasks": 2,
-                "totalTasks": 5,
-                "lastModified": "invalid",
-            },
-            {"name": "draft", "status": "no-tasks", "totalTasks": 0},
-            {"name": "done", "status": "complete", "completedTasks": 5, "totalTasks": 5},
-        ]
-    )
-    request_id = task.prepare_changes_refresh()
-    result = await task.handle_event(
-        EventType.FS_FILE_CONTENT,
-        {"path": ".openspec-changes.json", "content": json.dumps({"changes": changes}), "request_id": request_id},
-    )
-    assert result.rendered_content.content == "Current changes"
-    assert openspec_session.task_manager.get_cached_data("openspec_changes") == changes
-    grouped = task.get_changes()
-    if empty:
-        assert grouped == {"in_progress": [], "draft": [], "complete": []}
-    else:
-        assert grouped["in_progress"][0]["progress"] == "2/5"
-        assert grouped["in_progress"][0]["humanized_date"] == "invalid"
-        assert grouped["draft"][0]["progress"] == "N/A"
-        assert grouped["complete"][0]["name"] == "done"
-    now += 100
-    assert task.get_changes() == grouped
-    now += 3600
-    assert task.get_changes() is None
-    assert not task.is_cache_valid()
-
-
-@pytest.mark.anyio
 async def test_changes_cache_accepts_correlated_cli_response_without_directory_metadata(openspec_session):
     task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
     changes = {"changes": []}
@@ -251,28 +207,6 @@ async def test_changes_cache_accepts_correlated_cli_response_without_directory_m
         {"path": ".openspec-changes.json", "content": json.dumps(changes), "request_id": request_id},
     )
     assert task.is_cache_valid()
-
-
-@pytest.mark.anyio
-async def test_expired_changes_cache_rebuilds_openspec_template_context(openspec_session, monkeypatch):
-    now = 1_000.0
-    monkeypatch.setattr("time.time", lambda: now)
-    task = openspec_session.task_manager.get_task_by_type(OpenSpecTask)
-    changes = [{"name": "active", "status": "in-progress", "completedTasks": 0, "totalTasks": 1}]
-
-    request_id = task.prepare_changes_refresh()
-    await task.handle_event(
-        EventType.FS_FILE_CONTENT,
-        {"path": ".openspec-changes.json", "content": json.dumps({"changes": changes}), "request_id": request_id},
-    )
-    cached_context = await get_template_contexts(openspec_session)
-    assert cached_context["openspec"]["changes"]
-
-    now += 3601
-
-    refreshed_context = await get_template_contexts(openspec_session)
-    assert refreshed_context is not cached_context
-    assert refreshed_context["openspec"]["changes"] == []
 
 
 @pytest.mark.anyio

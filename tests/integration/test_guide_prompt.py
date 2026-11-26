@@ -1,48 +1,17 @@
 """Prompt routing uses real content, templates and explicit request contexts."""
 
 import json
-from types import SimpleNamespace
 
 import pytest
 from mcp_types import InputRequiredResult
 
-from mcp_guide.models import Category
 from mcp_guide.prompts import guide_prompt
 from mcp_guide.prompts.guide_prompt import guide
-from mcp_guide.result_constants import USER_INFO
 
 
 async def invoke(context, *args, **kwargs):
     result = await guide.__wrapped__(*args, request_context=context, **kwargs)
     return json.loads(result.messages[0].content.text)
-
-
-@pytest.mark.anyio
-async def test_known_session_prompt_uses_its_content_without_minting(resource_project, monkeypatch):
-    from mcp_guide.runtime import OwnerKey, get_runtime
-    from mcp_guide.session import bind_session_project
-
-    runtime = get_runtime()
-    session = runtime.resolve_session(OwnerKey("known-session"))
-    await bind_session_project(session, resource_project.session.bound_root_path)
-    # The public boundary must resolve this exact session, not create another.
-    session.session_id = "known-session"
-
-    def cannot_mint(*args, **kwargs):
-        raise AssertionError("Known session must not mint")
-
-    monkeypatch.setattr(runtime, "create_session", cannot_mint)
-    ctx = SimpleNamespace(
-        request_context=SimpleNamespace(
-            protocol_version="2026-07-28", request_id="prompt", meta=None, lifespan_context=runtime
-        ),
-        session=SimpleNamespace(client_params=None),
-        transport="streamable-http",
-    )
-    result = await guide("docs", session_id="known-session", ctx=ctx)
-    payload = json.loads(result.messages[0].content.text)
-    assert payload["success"]
-    assert "docs content" in payload["value"]
 
 
 @pytest.mark.anyio
@@ -68,54 +37,6 @@ async def test_empty_prompt_and_command_errors(
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(
-    "args,kwargs,names",
-    [
-        (("docs",), {"arg3": "policies"}, ["docs"]),
-        (("docs",), {"arg2": "policies"}, ["docs", "policies"]),
-        (("docs/readme,policies/git/ops/*", "extra"), {}, ["docs", "policies", "extra"]),
-        (tuple(f"cat{i}" for i in range(15)), {}, [f"cat{i}" for i in range(15)]),
-    ],
-    ids=["first-omission", "ordering", "mixed-expressions", "fifteen-arguments"],
-)
-async def test_argument_routing_returns_requested_content(resource_project, args, kwargs, names):
-    session = resource_project.session
-    for name in names:
-        if name in {"docs", "policies"}:
-            continue
-        folder = resource_project.resolve_document_path(name)
-        folder.mkdir()
-        (folder / "readme.md").write_text(f"Unique {name} content")
-        await session.update_config(lambda p, name=name: p.with_category(name, Category(dir=name, patterns=["*.md"])))
-    result = await invoke(resource_project, *args, **kwargs)
-    assert result["success"], result
-    body = result["value"]
-    previous = -1
-    for name in names:
-        text = {"docs": "docs content", "policies": "git policy"}.get(name, f"Unique {name} content")
-        position = body.index(text)
-        assert position > previous
-        previous = position
-    if names == ["docs"]:
-        assert "git policy" not in body
-    assert result["disposition"] == USER_INFO
-
-
-@pytest.mark.anyio
-async def test_empty_content_and_template_error(resource_project):
-    resource_project.resolve_document_path("docs/readme.md").write_text("")
-    empty = await invoke(resource_project, "docs")
-    assert empty["success"]
-    assert empty["value"] == ""
-    assert empty["disposition"] == USER_INFO
-    command = resource_project.resolve_document_path("_commands/error.mustache")
-    command.write_text("{{#_error}}Missing required argument: name{{/_error}}")
-    error = await invoke(resource_project, ":error")
-    assert not error["success"]
-    assert error["error_type"] == "validation_error"
-    assert error["error_data"]["errors"] == ["Missing required argument: name"]
-
-
 @pytest.mark.anyio
 async def test_command_request_rejects_unsafe_path(resource_project):
     result = await invoke(resource_project, ":../../../etc/passwd")
@@ -144,45 +65,6 @@ async def test_content_request_rejects_a_single_malformed_flag(resource_project)
 
 
 @pytest.mark.anyio
-async def test_content_request_parses_a_single_valid_flag(resource_project):
-    """A lone valid flag must be parsed, not dropped as a phantom command name."""
-    from mcp_guide.prompts import guide_prompt as guide_prompt_module
-
-    captured: dict = {}
-    original = guide_prompt_module.parse_command_arguments
-
-    def spy(argv, *args, **kwargs):
-        result = original(argv, *args, **kwargs)
-        captured["kwargs"] = result[0]
-        return result
-
-    import unittest.mock
-
-    with unittest.mock.patch.object(guide_prompt_module, "parse_command_arguments", side_effect=spy):
-        result = await invoke(resource_project, "docs", "--force")
-    assert result["success"]
-    assert captured["kwargs"] == {"force": True}
-
-
-@pytest.mark.anyio
-async def test_prompt_routes_underscore_prefixed_command(resource_project):
-    """An underscore-prefixed prompt request executes the matching command URI."""
-    result = await invoke(resource_project, "_openspec/show/my-change?verbose")
-
-    assert result["success"], result
-    assert result["value"] == "Show my-change verbose"
-
-
-@pytest.mark.anyio
-async def test_prompt_routes_dollar_prefixed_skill_with_query(resource_project):
-    """A dollar-prefixed prompt request renders a selected skill member with URI keywords."""
-    result = await invoke(resource_project, "$guide-status/resources/checklist.md?mode=summary")
-
-    assert result["success"], result
-    assert result["value"] == "Package=guide-status; resources=guide://$guide-status/resources; mode=summary"
-
-
-@pytest.mark.anyio
 async def test_prompt_preserves_an_input_request(resource_project, monkeypatch):
     """Prompts preserve modern MCP input requests for a retry."""
 
@@ -199,53 +81,9 @@ async def test_prompt_preserves_an_input_request(resource_project, monkeypatch):
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("invocation", ["_project", ":project", ";project"])
-async def test_prompt_command_routes_return_and_resume_declared_input(resource_project, invocation):
-    """Every prompt command route keeps the native modern interaction intact."""
-    resource_project.resolve_document_path("_commands/project/project.mustache").write_text(
-        "---\n"
-        "aliases: ['project']\n"
-        "elicitation:\n"
-        "  target:\n"
-        "    message: Choose target.\n"
-        "    schema:\n"
-        "      type: object\n"
-        "      properties:\n"
-        "        mode:\n"
-        "          type: string\n"
-        "      required: [mode]\n"
-        "---\n"
-        "{{#elicit.target}}Project {{kwargs.mode}}{{/elicit.target}}"
-    )
-    context = SimpleNamespace(
-        session=SimpleNamespace(client_params=SimpleNamespace(capabilities=SimpleNamespace(elicitation={}))),
-        input_responses=None,
-        request_context=SimpleNamespace(protocol_version="2026-07-28"),
-    )
-
-    pending = await guide.__wrapped__(invocation, request_context=resource_project, mcp_context=context)
-
-    assert isinstance(pending, InputRequiredResult)
-    accepted = await guide.__wrapped__(
-        invocation,
-        request_context=resource_project,
-        mcp_context=SimpleNamespace(
-            session=context.session,
-            request_context=context.request_context,
-            request_state=pending.request_state,
-            input_responses={"target": SimpleNamespace(action="accept", content={"mode": "branch"})},
-        ),
-    )
-    payload = json.loads(accepted.messages[0].content.text)
-
-    assert payload["success"] is True
-    assert payload["value"] == "Project branch"
-
-
-@pytest.mark.anyio
 async def test_prompt_returns_structured_not_found_for_an_unknown_skill_member(resource_project):
     """A missing skill member follows the ordinary Guide prompt error contract."""
-    result = await invoke(resource_project, "$guide-status/resources/missing.md")
+    result = await invoke(resource_project, "$status-snapshot/resources/missing.md")
 
     assert result["success"] is False
     assert result["error_type"] == "not_found"

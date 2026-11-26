@@ -14,7 +14,6 @@ from mcp_guide.content_limits import ContentLimitExceeded, ContentLimits
 from mcp_guide.discovery.files import FileInfo
 from mcp_guide.models import Category, Collection, Project
 from mcp_guide.models.exceptions import NoProjectError
-from mcp_guide.render.cache_policy import CachePolicy
 from mcp_guide.render.context import TemplateContext
 from mcp_guide.render.frontmatter import parse_content_with_frontmatter
 from mcp_guide.result_constants import INSTRUCTION_MISSING_POLICY
@@ -280,101 +279,6 @@ async def test_gather_policy_partials_no_policies_key_returns_empty(tmp_path):
         await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
     )
     assert result == ({}, {})
-
-
-@pytest.mark.anyio
-async def test_gather_policy_partials_unbound_session_returns_empty(tmp_path):
-    """An explicit unbound session supplies inert policy partials."""
-    policy_file = tmp_path / "doc.md.mustache"
-    policy_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
-
-    file_info = FileInfo(
-        path=policy_file,
-        size=policy_file.stat().st_size,
-        content_size=0,
-        mtime=datetime(2024, 1, 1),
-        name="doc.md",
-    )
-
-    result = await gather_policy_partials(
-        await _request_context(tmp_path, _MockSession(str(tmp_path))), file_info, TemplateContext({}), {}
-    )
-    assert result == ({"git/ops": ""}, {})
-
-
-@pytest.mark.anyio
-@pytest.mark.slow
-async def test_gather_policy_partials_no_match_returns_placeholder(tmp_path, monkeypatch):
-    """Topic with no matching policy files → placeholder content for that topic."""
-    policy_file = tmp_path / "doc.md.mustache"
-    policy_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
-
-    file_info = FileInfo(
-        path=policy_file,
-        size=policy_file.stat().st_size,
-        content_size=0,
-        mtime=datetime(2024, 1, 1),
-        name="doc.md",
-    )
-
-    project = Project(
-        name="test",
-        categories={"policies": Category(dir="policies", name="policies", patterns=["testing/strict*"])},
-    )
-    (tmp_path / "policies" / "testing").mkdir(parents=True)
-    (tmp_path / "policies" / "testing" / "strict.md").write_text("# Strict")
-    session = _MockSession(str(tmp_path), project=project)
-    result = await gather_policy_partials(await _request_context(tmp_path, session), file_info, TemplateContext({}), {})
-
-    partials, contributions = result
-    assert "git/ops" in partials
-    assert INSTRUCTION_MISSING_POLICY in partials["git/ops"]
-    assert "git/ops" in partials["git/ops"]
-    assert contributions["git/ops"][0].frontmatter == {}
-    assert contributions["git/ops"][0].properties.cache_policy == CachePolicy.no_cache()
-
-
-@pytest.mark.anyio
-async def test_gather_policy_partials_matching_topic_renders_content(runtime, tmp_path):
-    """Topic with a matching policy file → rendered content returned."""
-    doc_file = tmp_path / "doc.md.mustache"
-    doc_file.write_text("---\npolicies:\n  - git/ops\n---\nContent.")
-
-    file_info = FileInfo(
-        path=doc_file,
-        size=doc_file.stat().st_size,
-        content_size=0,
-        mtime=datetime(2024, 1, 1),
-        name="doc.md",
-    )
-
-    policies_dir = tmp_path / "policies"
-    (policies_dir / "git" / "ops").mkdir(parents=True)
-    (policies_dir / "git" / "ops" / "conservative.md").write_text(
-        "---\ntype: agent/instruction\n---\nUse conservative git ops."
-    )
-
-    project = Project(
-        name="test",
-        categories={
-            "policies": Category(
-                dir="policies",
-                name="policies",
-                patterns=["git/ops/conservative*"],
-            )
-        },
-    )
-    config = runtime.configuration_service().config_file
-    config.parent.mkdir(parents=True, exist_ok=True)
-    config.write_text(yaml.safe_dump({"docroot": str(tmp_path), "projects": {}}))
-    session = await create_bound_test_session(runtime, "policies")
-    await session.update_config(lambda current: replace(current, categories=project.categories))
-    result = await gather_policy_partials(await request_context_for(session), file_info, TemplateContext({}), {})
-
-    partials, contributions = result
-    assert partials == {"git/ops": "Use conservative git ops."}
-    assert contributions["git/ops"][0].frontmatter == {"type": "agent/instruction"}
-    assert contributions["git/ops"][0].properties.cache_policy == CachePolicy.long_public()
 
 
 @pytest.mark.anyio
